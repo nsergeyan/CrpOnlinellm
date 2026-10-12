@@ -1,0 +1,134 @@
+<ECF>
+
+
+
+	<Algorithm>
+	
+	
+	<SurrogateSST>
+			<Entry key="tsize">3</Entry>
+			<Entry key="nsize">5</Entry>
+		</SurrogateSST>
+	
+	<SteadyStateTournament>
+			<Entry key="tsize">3</Entry>
+			<!-- velicina turnira -->
+		</SteadyStateTournament>
+	
+		<SimilaritySST>
+			<Entry key="tsize">3</Entry>
+			<Entry key="simwght">0</Entry>
+			<Entry key="useweight">0</Entry>
+			<Entry key="explicit">0</Entry>
+			<Entry key="fitnessKey">0</Entry>
+
+			<!-- velicina turnira -->
+		</SimilaritySST>
+			<SteadyStateTournament>
+			<Entry key="tsize">3</Entry>
+			<!-- velicina turnira -->
+		</SteadyStateTournament>
+	        <RouletteWheel>
+                <Entry key="crxprob">1</Entry>          <!-- crossover rate -->
+                <Entry key="selpressure">10</Entry>       <!-- selection pressure: how much the best individual is 'better' than the worst -->
+        </RouletteWheel>
+
+		<MultiTaskAlgorithm>
+			<Entry key="tsize">3</Entry>
+			<Entry key="sharedCrossoverProbability">1.0</Entry>
+			<!-- velicina turnira -->
+		</MultiTaskAlgorithm>
+
+	        <DifferentialEvolution>
+                <Entry key="F">1.0</Entry>                  <!-- scaling constant -->
+                <Entry key="CR">0.9</Entry>               <!-- crossover rate -->
+        </DifferentialEvolution>
+	</Algorithm>
+	<Genotype>
+		<Tree>
+			<Entry key="maxdepth">4</Entry>
+			<Entry key="mindepth">1</Entry>
+			<Entry key="functionset">+ - / *</Entry>
+			<Entry key="terminalset">SH EMP DIFF RI AVG CUR</Entry>
+		</Tree>
+
+
+
+	</Genotype>
+					<Tree>
+			<Entry key="maxdepth">13</Entry>
+			<Entry key="mindepth">1</Entry>
+			<Entry key="functionset">+ - / *</Entry>
+			<Entry key="terminalset">SH EMP DIFF RI AVG CUR</Entry>
+		</Tree>
+                <FloatingPoint>
+                        <Entry key="lbound">0</Entry>
+                        <Entry key="ubound">1</Entry>
+                        <Entry key="dimension">12</Entry>
+                </FloatingPoint>
+				<Entry key="terminalset">SH DUR RI MIN DIS EMP REM NEXT BLKD DIFF NL WL AVG NUNC NRAT NPER NGRP GRPS</Entry>
+				<Entry key="terminalset">HS LS DIS RS MIN GS KS SH ENGY WGHT</Entry>
+			<Tree>
+			<Entry key="maxdepth">5</Entry>
+			<Entry key="mindepth">1</Entry>
+			<Entry key="functionset">+ - / *</Entry>
+			<Entry key="terminalset">SH EMP DIFF RI AVG CUR NRC NCURR NSC HC DIFFIND CHAIN HCHAIN</Entry>
+		</Tree>
+	<Registry>
+		<Entry key="population.size">100</Entry>
+		<Entry key="population.demes">1</Entry>
+		<Entry key="mutation.indprob">0.3</Entry>
+		<Entry key="term.maxgen">500</Entry>
+		<Entry key="log.level">3</Entry>
+		<Entry key="log.filename">log.txt</Entry>
+		<Entry key="test_cases">./fitness.txt</Entry>
+		<Entry key="genotip">GP</Entry>
+		<Entry key="crp.uncertainty">0.0</Entry>
+		<Entry key="crp.datasetType">caserta</Entry>
+
+		<Entry key="crp.trainSet">G:\CRP\caserta\new</Entry>
+		<Entry key="crp.testSet">G:\CRP\caserta\clean</Entry>
+		<Entry key="crp.validationSet">G:\CRP\caserta\new</Entry>
+		
+		<Entry key="crp.selectionStrategy">first</Entry>
+		<Entry key="crp.criterion">relocations</Entry>
+		<Entry key="crp.heuristic">restrictedStandard</Entry>
+		<Entry key="crp.relocations">0</Entry>
+		<Entry key="crp.uncertainty">1</Entry>
+		<Entry key="crp.fitnessDefinition">deme_specification.txt</Entry>
+		<Entry key="crp.compositefitnessmode">individual</Entry>
+		<Entry key="ga.parameters">0</Entry>
+
+		<Entry key="crp.subset">none</Entry>
+		<Entry key="crp.subsetSize">20</Entry>
+		<Entry key="crp.subsetShuffleOnStart">1</Entry>
+		<Entry key="crp.subsetShuffle">0</Entry>
+		<Entry key="crp.subsetSequential">1</Entry>
+		<Entry key="crp.subsetGrow">0</Entry>
+		<Entry key="crp.subsetShuffleInterval">2</Entry>
+		<Entry key="crp.subsetSequentialInterval">1</Entry>
+		<Entry key="crp.subsetGrowInterval">1</Entry>
+		<Entry key="crp.subsetGrowRatio">0.5</Entry>
+
+		<Entry key="crp.useSurrogate">1</Entry>
+		<Entry key="crp.surrogateStrategy">largest</Entry>
+		<Entry key="crp.shuffleStrategy">shuffle</Entry>
+		<Entry key="crp.surrogateSize">1</Entry>
+
+		<Entry key="crp.useSimilaritySurrogate">0</Entry>
+		<Entry key="crp.datasetPath">G:\CRP\casertaselected</Entry>
+		<Entry key="crp.surrogateDecisionFile">cluster_centroids.txt</Entry>
+		<Entry key="crp.surrogateFitnessFile">cluster_centroid_fitness.txt</Entry>
+		<Entry key="crp.surrogateSelectedScenariosFile">selected_columns.txt</Entry>
+		<Entry key="crp.neighbourCount">1</Entry>
+
+
+
+		<Entry key="crp.useContainerGroups">0</Entry>
+		<Entry key="crp.groupParameterType">groupSize</Entry>
+		<Entry key="crp.idsKnownInGroup">1</Entry>
+		<Entry key="crp.containerGroupSize">1</Entry>
+		<Entry key="crp.contaiinerGroupCount">2</Entry>
+
+	</Registry>
+</ECF>
