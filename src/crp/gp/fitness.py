@@ -2,13 +2,15 @@
 
 Mirrors the fitness in cpp_reference/gp/CrpEvalOp.cpp. ParallelFitness splits the
 instances over worker processes; the total is the same, it just finishes sooner.
+CachedFitness skips formulas that were already scored.
 """
 from __future__ import annotations
 
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
+from typing import Callable
 
-from crp.gp.expression import compile_formula
+from crp.gp.expression import canonical, compile_formula
 from crp.instance import Instance, load_dataset
 from crp.schemes import solve_unrestricted_fast
 from crp.yard import Yard
@@ -52,3 +54,24 @@ class ParallelFitness:
 
     def __exit__(self, *exc) -> None:
         self.close()
+
+
+class CachedFitness:
+    """Remembers scores, so a formula seen before is not run again.
+
+    One cache belongs to ONE score function, i.e. one training set, alpha and hidden
+    strategy. Make a new cache for every scenario.
+    """
+
+    def __init__(self, score: Callable[[str], int]) -> None:
+        self._score = score
+        self._results: dict[str, int] = {}
+        self.hits = 0  # how often a stored result was reused
+
+    def __call__(self, text: str) -> int:
+        key = canonical(text)
+        if key in self._results:
+            self.hits += 1
+        else:
+            self._results[key] = self._score(key)
+        return self._results[key]

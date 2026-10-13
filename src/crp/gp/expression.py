@@ -80,3 +80,15 @@ def compile_formula(text: str) -> Callable[..., float]:
     namespace: dict = {}
     exec(f"def f({', '.join(TERMINALS)}):\n    return {code(parse(text))}", namespace)
     return namespace["f"]
+
+
+def canonical(text: str) -> str:
+    """One spelling per formula: parse it, then write it back with single spaces."""
+
+    def tokens(tree: Tree) -> list[str]:
+        if isinstance(tree, str):
+            return [tree]
+        op, left, right = tree
+        return [op, *tokens(left), *tokens(right)]
+
+    return " ".join(tokens(parse(text)))
