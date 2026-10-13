@@ -1,8 +1,9 @@
+import random
 from pathlib import Path
 
 import pytest
 
-from crp.gp.expression import evaluate, make_priority, parse
+from crp.gp.expression import compile_formula, evaluate, make_priority, parse
 from crp.instance import load_dataset
 from crp.schemes import solve_unrestricted
 from crp.yard import Yard
@@ -56,3 +57,19 @@ def test_formula_solves_all_instances():
         yard = Yard(inst, alpha=0.5, hidden="max")
         solve_unrestricted(yard, priority)
         assert yard.is_done()
+
+
+def test_compiled_formula_equals_tree_evaluation():
+    rng = random.Random(0)
+    names = ("SH", "EMP", "AVG", "CUR", "RI", "DIFF")
+    formulas = [
+        line
+        for name in ("expressions_res.txt", "expressions_unres.txt")
+        for line in (REFERENCE / name).read_text().splitlines()
+        if line.strip()
+    ] + ["+ SH * RI EMP", "/ SH DIFF", "- AVG CUR"]
+    for text in formulas:
+        tree, f = parse(text), compile_formula(text)
+        for _ in range(50):
+            t = {k: rng.choice([0, 1, 2, 7, -1, 30, 2_147_483_646]) for k in names}
+            assert f(*(float(t[k]) for k in names)) == evaluate(tree, t)

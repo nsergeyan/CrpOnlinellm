@@ -5,7 +5,8 @@ function set: + - * and protected /.
 """
 from __future__ import annotations
 
-from typing import Union
+from itertools import count
+from typing import Callable, Union
 
 from crp.schemes import PriorityFunction
 
@@ -57,3 +58,25 @@ def make_priority(text: str) -> PriorityFunction:
     """Parse once, return a function the scheme can call many times."""
     tree = parse(text)
     return lambda t: evaluate(tree, t)
+
+
+def compile_formula(text: str) -> Callable[..., float]:
+    """Option B: turn the formula into real Python code, once. Same results as evaluate().
+
+    "+ SH * RI EMP" becomes:  def f(SH, EMP, AVG, CUR, RI, DIFF): return (SH + (RI * EMP))
+    The caller passes the six terminal values as floats, like the C++ doubles.
+    """
+    names = count()
+
+    def code(tree: Tree) -> str:
+        if isinstance(tree, str):
+            return tree
+        op, left, right = tree
+        if op == "/":  # protected division; d is computed once and reused
+            d = f"_d{next(names)}"
+            return f"(1.0 if abs({d} := {code(right)}) < 1e-9 else {code(left)} / {d})"
+        return f"({code(left)} {op} {code(right)})"
+
+    namespace: dict = {}
+    exec(f"def f({', '.join(TERMINALS)}):\n    return {code(parse(text))}", namespace)
+    return namespace["f"]
