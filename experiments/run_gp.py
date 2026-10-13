@@ -1,4 +1,4 @@
-"""Run one GP experiment and append the result to results/gp_runs.csv.
+"""Run one GP experiment and append the result to results/gp_full.csv (gp_quick.csv with --quick).
 
 Examples (from PyCharm, or with PYTHONPATH=src from the project folder):
     python experiments/run_gp.py --alpha 0.5 --seed 1 --quick   # test mode: 2,000 evaluations
@@ -27,10 +27,12 @@ def main() -> None:
     parser.add_argument("--generations", type=int, default=50)
     parser.add_argument("--quick", action="store_true", help="population 100, 19 generations = 2,000 evaluations")
     parser.add_argument("--workers", type=int, default=os.cpu_count() or 1)
-    parser.add_argument("--out", default=str(ROOT / "results" / "gp_runs.csv"))
+    parser.add_argument("--out", help="default: results/gp_full.csv, or results/gp_quick.csv with --quick")
     args = parser.parse_args()
     if args.quick:
         args.population, args.generations = 100, 19
+    if args.out is None:  # quick test rows never land in the real results file
+        args.out = str(ROOT / "results" / ("gp_quick.csv" if args.quick else "gp_full.csv"))
 
     start = time.perf_counter()
 

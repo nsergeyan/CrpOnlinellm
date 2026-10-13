@@ -1,7 +1,7 @@
 import csv
 from pathlib import Path
 
-from crp.gp.experiment import FIELDS, append_row, medians, run_experiment, run_many
+from crp.gp.experiment import FIELDS, _key, append_row, finished_runs, medians, run_experiment, run_many
 from crp.gp.fitness import total_relocations
 from crp.instance import load_dataset
 
@@ -45,3 +45,16 @@ def test_run_many_writes_rows_and_resumes(tmp_path):
     assert again == [] and len(list(csv.DictReader(out.open()))) == 2
 
     assert medians(out, "max", 6, 1, "train")[0.5][1] == 2
+
+
+def test_quick_rows_never_count_as_full_runs(tmp_path):
+    out = tmp_path / "mixed.csv"
+    base = dict(date="x", alpha=0.5, hidden="max", seed=1, evaluations=0, train_fitness=0,
+                best_generation=0, formula="SH", training_set="training", cache_hits=0, seconds=0)
+    append_row(out, {**base, "population": 100, "generations": 19, "test_total": 99_999})  # quick
+    append_row(out, {**base, "seed": 2, "population": 1000, "generations": 50, "test_total": 24_000})  # full
+
+    done = finished_runs(out)
+    assert _key(0.5, "max", 1, 1000, 50, "training") not in done  # quick seed 1 does not skip full seed 1
+    assert _key(0.5, "max", 2, 1000, 50, "training") in done
+    assert medians(out, "max", 1000, 50, "training") == {0.5: (24_000, 1)}  # quick row ignored

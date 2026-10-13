@@ -1,0 +1,2 @@
+date,alpha,hidden,seed,population,generations,evaluations,train_fitness,best_generation,test_total,formula,training_set,cache_hits,seconds
+2026-10-13T23:53:31,0.5,max,1,1000,50,51000,23560,48,24081,* - / / * DIFF SH CUR * DIFF + CUR DIFF / * SH DIFF * + SH CUR * RI EMP + / + * DIFF EMP + RI EMP RI + * * AVG RI - SH DIFF / / CUR DIFF + EMP DIFF,training,15060,676.1
