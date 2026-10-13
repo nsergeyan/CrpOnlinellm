@@ -17,3 +17,9 @@ Sources: paper = Durasevic, Dumic & Gil-Gala (2026), Table 3, + CEC paper; code 
 | 10 | Subtraction order | not stated | `Execute() - Execute()`: C++ evaluation order unspecified | left - right |
 | 11 | Ignore edge cases | not stated | AVG 0/0 and INT_MAX - (-1) overflow are undefined behaviour | raise an error (not used in scenarios) |
 | 12 | Unrestricted at alpha = 0 | ~29,000 | preventive check can never fire (equal hidden values) | open issue, alpha = 0 not used |
+| 13 | Budget | 50,000 evaluations | 50 generations after an initial population = 51,000 | code (51,000) |
+| 14 | Grow initialisation | not stated | root always an operator (initmindepth 1) | code |
+| 15 | One-point crossover | not stated | skips one extra node after a shape mismatch | code |
+| 16 | Permutation mutation | not stated | with 2 children: swaps only 50% of the time | code |
+| 17 | Subtree mutation | not stated | fails if a valid node is found only on the 4th try | code |
+| 18 | Best rule kept | not stated | updated only at generation ends; last best on ties; only strictly better replaces | code |
