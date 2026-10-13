@@ -5,11 +5,13 @@ max depth 5 allows 6 levels (up to 63 nodes).
 """
 from __future__ import annotations
 
+import random
 from typing import Sequence
 
 from crp.gp.expression import OPERATORS, TERMINALS
 
 MAX_DEPTH = 5
+PRIMITIVES = OPERATORS + TERMINALS  # ECF primitives_: functions and terminals
 
 
 class GPTree:
@@ -70,3 +72,50 @@ def _depths_and_sizes(nodes: tuple[str, ...]) -> tuple[tuple[int, ...], tuple[in
     if walk(0, 0) != len(nodes):
         raise ValueError(f"extra tokens: {' '.join(nodes)!r}")
     return tuple(depths), tuple(sizes)
+
+
+# --- initialisation: ECF Tree::initialize, fullBuild, growBuild ---
+
+def full_tree(rng: random.Random, max_depth: int = MAX_DEPTH) -> GPTree:
+    """Functions on every level above max_depth, terminals at max_depth."""
+    nodes: list[str] = []
+
+    def build(depth: int) -> None:
+        if depth < max_depth:
+            nodes.append(rng.choice(OPERATORS))
+            build(depth + 1)
+            build(depth + 1)
+        else:
+            nodes.append(rng.choice(TERMINALS))
+
+    build(0)
+    return GPTree(nodes)
+
+
+def grow_tree(rng: random.Random, max_depth: int = MAX_DEPTH, min_depth: int = 1) -> GPTree:
+    """Root is a function (min_depth 1); below it any primitive until max_depth."""
+    nodes: list[str] = []
+
+    def build(depth: int) -> None:
+        if depth < min_depth:
+            token = rng.choice(OPERATORS)
+        elif depth < max_depth:
+            token = rng.choice(PRIMITIVES)
+        else:
+            token = rng.choice(TERMINALS)
+        nodes.append(token)
+        if token in OPERATORS:
+            build(depth + 1)
+            build(depth + 1)
+
+    build(0)
+    return GPTree(nodes)
+
+
+def random_tree(rng: random.Random) -> GPTree:
+    """50% full, 50% grow, always at max depth: not ramped (ECF: "TODO: ramped")."""
+    return full_tree(rng) if rng.randint(0, 1) == 0 else grow_tree(rng)
+
+
+def initial_population(size: int, rng: random.Random) -> list[GPTree]:
+    return [random_tree(rng) for _ in range(size)]
