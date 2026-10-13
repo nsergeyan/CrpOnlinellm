@@ -1,1 +1,11 @@
 .venv/
+
+# Tool and editor folders
+.claude/
+.vibe-wise/
+.idea/
+CLAUDEcrp.md
+
+# Python and pytest caches
+__pycache__/
+.pytest_cache/
