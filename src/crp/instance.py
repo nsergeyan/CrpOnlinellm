@@ -1,14 +1,25 @@
 """Problem instances: the starting layout of a yard, and loading Caserta files.
 
-Mirrors cpp_reference/data_io/CasertaDataSetLoader.cpp and ProblemInstance.cpp.
+Mirrors cpp_reference/data_io/CasertaDataSetLoader.cpp and ProblemInstance.cpp,
+and CasertaProblemInstanceGenerator.cpp for new (training) instances.
 """
 from __future__ import annotations
 
+import random
 import re
 from dataclasses import dataclass
 from pathlib import Path
 
 _FILE_NAME = re.compile(r"data(\d+)-(\d+)-(\d+)\.dat")
+
+# tiers -> stack counts; the 21 Caserta classes (commented-out list in CasertaProblemSetGenerator.cpp)
+CASERTA_CLASSES = {
+    3: (3, 4, 5, 6, 7, 8),
+    4: (4, 5, 6, 7),
+    5: (4, 5, 6, 7, 8, 9, 10),
+    6: (6, 10),
+    10: (6, 10),
+}
 
 
 @dataclass(frozen=True)
@@ -49,3 +60,19 @@ def load_instance(path: str | Path) -> Instance:
 def load_dataset(directory: str | Path) -> list[Instance]:
     """Load every Caserta file in a directory, sorted by file name."""
     return [load_instance(p) for p in sorted(Path(directory).glob("data*-*-*.dat"))]
+
+
+def generate_instance(name: str, n_stacks: int, tiers: int, rng: random.Random) -> Instance:
+    """Shuffle IDs 1..N into full stacks, like CasertaProblemInstanceGenerator::GenerateInstance."""
+    n = n_stacks * tiers
+    ids = list(range(1, n + 1))
+    rng.shuffle(ids)
+    stacks = tuple(tuple(ids[i * tiers:(i + 1) * tiers]) for i in range(n_stacks))
+    return Instance(name, stacks, n, tiers + 2)
+
+
+def write_instance(instance: Instance, path: str | Path) -> None:
+    """Write an instance in the Caserta .dat format."""
+    lines = [f"{len(instance.stacks)} {instance.n_containers}"]
+    lines += [" ".join(map(str, (len(s), *s))) for s in instance.stacks]
+    Path(path).write_text("\n".join(lines) + "\n")
