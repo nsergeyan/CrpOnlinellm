@@ -63,3 +63,40 @@ alphas [0.5, 0.3], seeds 1..30, max, population 1000, 50 generations, 14 workers
 median test total per alpha (these settings):
   alpha 0.5: 24,074 over 30 runs | paper 24,094
   alpha 0.3: 24,768 over 30 runs | paper 24,733
+alphas [0.1], seeds 1..30, max, population 1000, 50 generations, 14 workers
+30 runs to do, 0 already in /Users/nareksergeyan/PycharmProjects/crp-online/results/gp_full.csv
+[1/30] alpha 0.1 seed 8 | train 28,430 | test 28,947 | 1h 23m
+[2/30] alpha 0.1 seed 4 | train 28,415 | test 28,974 | 1h 23m
+[3/30] alpha 0.1 seed 10 | train 28,458 | test 28,959 | 1h 24m
+[4/30] alpha 0.1 seed 6 | train 28,533 | test 29,012 | 1h 28m
+[5/30] alpha 0.1 seed 1 | train 28,454 | test 28,979 | 1h 29m
+[6/30] alpha 0.1 seed 3 | train 28,444 | test 28,990 | 1h 30m
+[7/30] alpha 0.1 seed 14 | train 28,496 | test 28,955 | 1h 35m
+[8/30] alpha 0.1 seed 7 | train 28,430 | test 29,012 | 1h 39m
+[9/30] alpha 0.1 seed 5 | train 28,454 | test 28,969 | 1h 41m
+[10/30] alpha 0.1 seed 9 | train 28,431 | test 28,961 | 1h 42m
+[11/30] alpha 0.1 seed 13 | train 28,435 | test 29,070 | 1h 43m
+[12/30] alpha 0.1 seed 12 | train 28,449 | test 29,044 | 1h 43m
+[13/30] alpha 0.1 seed 2 | train 28,437 | test 28,944 | 1h 43m
+[14/30] alpha 0.1 seed 11 | train 28,410 | test 28,942 | 2h 03m
+[15/30] alpha 0.1 seed 24 | train 28,466 | test 29,090 | 2h 47m
+[16/30] alpha 0.1 seed 15 | train 28,447 | test 28,980 | 2h 57m
+[17/30] alpha 0.1 seed 18 | train 28,536 | test 29,031 | 3h 02m
+[18/30] alpha 0.1 seed 16 | train 28,441 | test 28,929 | 3h 07m
+[19/30] alpha 0.1 seed 21 | train 28,458 | test 28,968 | 3h 12m
+[20/30] alpha 0.1 seed 17 | train 28,440 | test 29,016 | 3h 13m
+[21/30] alpha 0.1 seed 25 | train 28,412 | test 29,064 | 3h 14m
+[22/30] alpha 0.1 seed 26 | train 28,467 | test 29,010 | 3h 15m
+[23/30] alpha 0.1 seed 27 | train 28,409 | test 29,004 | 3h 16m
+[24/30] alpha 0.1 seed 19 | train 28,451 | test 28,969 | 3h 20m
+[25/30] alpha 0.1 seed 20 | train 28,461 | test 29,042 | 3h 21m
+[26/30] alpha 0.1 seed 23 | train 28,506 | test 29,008 | 3h 24m
+[27/30] alpha 0.1 seed 22 | train 28,457 | test 29,070 | 3h 24m
+[28/30] alpha 0.1 seed 28 | train 28,453 | test 29,049 | 3h 24m
+[29/30] alpha 0.1 seed 29 | train 28,404 | test 28,958 | 4h 10m
+[30/30] alpha 0.1 seed 30 | train 28,432 | test 28,951 | 4h 11m
+
+median test total per alpha (these settings):
+  alpha 0.5: 24,074 over 30 runs | paper 24,094
+  alpha 0.3: 24,768 over 30 runs | paper 24,733
+  alpha 0.1: 28,985 over 30 runs | paper 28,985
