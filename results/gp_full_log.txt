@@ -1,0 +1,65 @@
+alphas [0.5, 0.3], seeds 1..30, max, population 1000, 50 generations, 14 workers
+59 runs to do, 1 already in /Users/nareksergeyan/PycharmProjects/crp-online/results/gp_full.csv
+[1/59] alpha 0.5 seed 9 | train 23,778 | test 24,182 | 1h 26m
+[2/59] alpha 0.5 seed 11 | train 23,636 | test 24,139 | 1h 34m
+[3/59] alpha 0.5 seed 7 | train 23,668 | test 24,113 | 1h 41m
+[4/59] alpha 0.5 seed 10 | train 23,666 | test 24,210 | 1h 42m
+[5/59] alpha 0.5 seed 14 | train 23,559 | test 24,010 | 1h 44m
+[6/59] alpha 0.5 seed 8 | train 23,620 | test 24,111 | 1h 45m
+[7/59] alpha 0.5 seed 13 | train 23,562 | test 24,119 | 1h 47m
+[8/59] alpha 0.5 seed 5 | train 23,580 | test 24,056 | 1h 48m
+[9/59] alpha 0.5 seed 12 | train 23,636 | test 24,128 | 1h 54m
+[10/59] alpha 0.5 seed 2 | train 23,601 | test 24,146 | 1h 55m
+[11/59] alpha 0.5 seed 4 | train 23,574 | test 23,996 | 1h 56m
+[12/59] alpha 0.5 seed 6 | train 23,559 | test 24,040 | 1h 57m
+[13/59] alpha 0.5 seed 15 | train 23,567 | test 24,059 | 2h 03m
+[14/59] alpha 0.5 seed 3 | train 23,550 | test 24,044 | 2h 08m
+[15/59] alpha 0.5 seed 16 | train 23,608 | test 23,961 | 2h 53m
+[16/59] alpha 0.5 seed 27 | train 23,619 | test 24,075 | 3h 20m
+[17/59] alpha 0.5 seed 19 | train 23,542 | test 24,032 | 3h 25m
+[18/59] alpha 0.5 seed 25 | train 23,549 | test 23,982 | 3h 29m
+[19/59] alpha 0.5 seed 18 | train 23,564 | test 24,058 | 3h 31m
+[20/59] alpha 0.5 seed 22 | train 23,651 | test 24,165 | 3h 33m
+[21/59] alpha 0.5 seed 17 | train 23,577 | test 24,037 | 3h 34m
+[22/59] alpha 0.5 seed 23 | train 23,568 | test 24,074 | 3h 37m
+[23/59] alpha 0.5 seed 20 | train 23,512 | test 24,077 | 3h 37m
+[24/59] alpha 0.5 seed 21 | train 23,608 | test 24,044 | 3h 38m
+[25/59] alpha 0.5 seed 26 | train 23,485 | test 24,021 | 3h 41m
+[26/59] alpha 0.5 seed 24 | train 23,621 | test 24,121 | 3h 45m
+[27/59] alpha 0.5 seed 28 | train 23,585 | test 24,201 | 3h 56m
+[28/59] alpha 0.5 seed 29 | train 23,536 | test 24,085 | 3h 59m
+[29/59] alpha 0.5 seed 30 | train 23,597 | test 24,049 | 4h 50m
+[30/59] alpha 0.3 seed 3 | train 24,263 | test 24,769 | 4h 57m
+[31/59] alpha 0.3 seed 1 | train 24,304 | test 24,726 | 4h 59m
+[32/59] alpha 0.3 seed 11 | train 24,482 | test 24,866 | 5h 07m
+[33/59] alpha 0.3 seed 7 | train 24,400 | test 24,719 | 5h 16m
+[34/59] alpha 0.3 seed 6 | train 24,397 | test 24,787 | 5h 16m
+[35/59] alpha 0.3 seed 4 | train 24,260 | test 24,714 | 5h 17m
+[36/59] alpha 0.3 seed 8 | train 24,377 | test 24,763 | 5h 21m
+[37/59] alpha 0.3 seed 9 | train 24,319 | test 24,752 | 5h 24m
+[38/59] alpha 0.3 seed 2 | train 24,247 | test 24,714 | 5h 24m
+[39/59] alpha 0.3 seed 10 | train 24,359 | test 24,774 | 5h 29m
+[40/59] alpha 0.3 seed 5 | train 24,301 | test 24,706 | 5h 30m
+[41/59] alpha 0.3 seed 12 | train 24,272 | test 24,736 | 5h 33m
+[42/59] alpha 0.3 seed 13 | train 24,315 | test 24,745 | 5h 37m
+[43/59] alpha 0.3 seed 22 | train 24,347 | test 24,798 | 6h 29m
+[44/59] alpha 0.3 seed 14 | train 24,322 | test 24,788 | 6h 33m
+[45/59] alpha 0.3 seed 16 | train 24,285 | test 24,809 | 6h 46m
+[46/59] alpha 0.3 seed 15 | train 24,302 | test 24,737 | 6h 46m
+[47/59] alpha 0.3 seed 18 | train 24,321 | test 24,767 | 6h 52m
+[48/59] alpha 0.3 seed 17 | train 24,310 | test 24,719 | 6h 54m
+[49/59] alpha 0.3 seed 20 | train 24,273 | test 24,783 | 6h 55m
+[50/59] alpha 0.3 seed 21 | train 24,227 | test 24,731 | 7h 03m
+[51/59] alpha 0.3 seed 27 | train 24,344 | test 24,811 | 7h 07m
+[52/59] alpha 0.3 seed 19 | train 24,348 | test 24,726 | 7h 07m
+[53/59] alpha 0.3 seed 23 | train 24,378 | test 24,777 | 7h 09m
+[54/59] alpha 0.3 seed 25 | train 24,375 | test 24,863 | 7h 09m
+[55/59] alpha 0.3 seed 26 | train 24,332 | test 24,765 | 7h 12m
+[56/59] alpha 0.3 seed 24 | train 24,348 | test 24,781 | 7h 13m
+[57/59] alpha 0.3 seed 29 | train 24,334 | test 24,800 | 7h 54m
+[58/59] alpha 0.3 seed 28 | train 24,331 | test 24,834 | 7h 57m
+[59/59] alpha 0.3 seed 30 | train 24,225 | test 24,775 | 8h 09m
+
+median test total per alpha (these settings):
+  alpha 0.5: 24,074 over 30 runs | paper 24,094
+  alpha 0.3: 24,768 over 30 runs | paper 24,733
