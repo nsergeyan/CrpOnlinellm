@@ -1,6 +1,6 @@
 """Generate the fixed GP training set once: 21 Caserta classes x 40 instances.
 
-Run from PyCharm (green button), or: PYTHONPATH=src python experiments/make_training_set.py
+Run from PyCharm (green button), or: python experiments/make_training_set.py
 """
 import random
 from pathlib import Path

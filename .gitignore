@@ -6,6 +6,7 @@
 .idea/
 CLAUDEcrp.md
 
-# Python and pytest caches
+# Python and pytest caches, install metadata
 __pycache__/
 .pytest_cache/
+*.egg-info/

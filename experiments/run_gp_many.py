@@ -2,7 +2,7 @@
 
 Runs already in the CSV are skipped, so an interrupted batch continues where it stopped.
 Keep the Mac awake overnight with caffeinate, e.g.:
-    caffeinate -i env PYTHONPATH=src python experiments/run_gp_many.py --alphas 0.5
+    caffeinate -i python experiments/run_gp_many.py --alphas 0.5
 Examples:
     python experiments/run_gp_many.py                      # all 90: alphas 0.5 0.3 0.1 x seeds 1..30
     python experiments/run_gp_many.py --runs 2 --quick     # pipeline test, separate settings

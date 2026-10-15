@@ -1,6 +1,6 @@
 """Run one GP experiment and append the result to results/gp_full.csv (gp_quick.csv with --quick).
 
-Examples (from PyCharm, or with PYTHONPATH=src from the project folder):
+Examples (from PyCharm, or from the project folder):
     python experiments/run_gp.py --alpha 0.5 --seed 1 --quick   # test mode: 2,000 evaluations
     python experiments/run_gp.py --alpha 0.5 --seed 1           # full run: 51,000 evaluations
 """

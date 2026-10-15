@@ -1,6 +1,6 @@
 """Time one GP evaluation (one formula on all 840 training yards), serial and parallel.
 
-Run from PyCharm (green button), or: PYTHONPATH=src python experiments/benchmark_eval.py
+Run from PyCharm (green button), or: python experiments/benchmark_eval.py
 """
 import os
 import random
