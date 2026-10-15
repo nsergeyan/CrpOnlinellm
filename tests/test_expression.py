@@ -1,16 +1,13 @@
 import random
-from pathlib import Path
 
 import pytest
 
 from crp.gp.expression import compile_formula, evaluate, make_priority, parse
-from crp.instance import load_dataset
 from crp.schemes import solve_unrestricted
 from crp.yard import Yard
+from golden import reference_formulas
 
-ROOT = Path(__file__).resolve().parent.parent
-DATA = ROOT / "data" / "caserta_840"
-REFERENCE = ROOT / "cpp_reference" / "reference_data"
+ALL_REFERENCE = reference_formulas("expressions_res.txt") + reference_formulas("expressions_unres.txt")
 
 T = {"SH": 3, "EMP": 2, "AVG": 5, "CUR": 4, "RI": 1, "DIFF": 0}
 
@@ -39,21 +36,14 @@ def test_malformed_formulas_raise(bad):
 
 
 def test_all_reference_formulas_parse():
-    lines = [
-        line
-        for name in ("expressions_res.txt", "expressions_unres.txt")
-        for line in (REFERENCE / name).read_text().splitlines()
-        if line.strip()
-    ]
-    assert len(lines) == 60
-    for line in lines:
+    assert len(ALL_REFERENCE) == 60
+    for line in ALL_REFERENCE:
         parse(line)
 
 
-def test_formula_solves_all_instances():
-    first = (REFERENCE / "expressions_unres.txt").read_text().splitlines()[0]
-    priority = make_priority(first)
-    for inst in load_dataset(DATA):
+def test_formula_solves_all_instances(test_set):
+    priority = make_priority(reference_formulas("expressions_unres.txt")[0])
+    for inst in test_set:
         yard = Yard(inst, alpha=0.5, hidden="max")
         solve_unrestricted(yard, priority)
         assert yard.is_done()
@@ -62,13 +52,7 @@ def test_formula_solves_all_instances():
 def test_compiled_formula_equals_tree_evaluation():
     rng = random.Random(0)
     names = ("SH", "EMP", "AVG", "CUR", "RI", "DIFF")
-    formulas = [
-        line
-        for name in ("expressions_res.txt", "expressions_unres.txt")
-        for line in (REFERENCE / name).read_text().splitlines()
-        if line.strip()
-    ] + ["+ SH * RI EMP", "/ SH DIFF", "- AVG CUR"]
-    for text in formulas:
+    for text in ALL_REFERENCE + ["+ SH * RI EMP", "/ SH DIFF", "- AVG CUR"]:
         tree, f = parse(text), compile_formula(text)
         for _ in range(50):
             t = {k: rng.choice([0, 1, 2, 7, -1, 30, 2_147_483_646]) for k in names}

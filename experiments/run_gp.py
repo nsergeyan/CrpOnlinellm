@@ -7,51 +7,52 @@ Examples (from PyCharm, or from the project folder):
 import argparse
 import os
 import time
-from pathlib import Path
 
 from crp.gp.experiment import append_row, run_experiment
 from crp.gp.fitness import ParallelFitness
 from crp.instance import load_dataset
+from crp.paths import RESULTS, TEST_SET, TRAINING_SET
 
-ROOT = Path(__file__).resolve().parent.parent
-TRAINING = ROOT / "data" / "training"
-TEST = ROOT / "data" / "caserta_840"
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("--alpha", type=float, required=True)
     parser.add_argument("--seed", type=int, required=True)
     parser.add_argument("--hidden", choices=["max", "ignore"], default="max")
     parser.add_argument("--population", type=int, default=1000)
     parser.add_argument("--generations", type=int, default=50)
-    parser.add_argument("--quick", action="store_true", help="population 100, 19 generations = 2,000 evaluations")
+    parser.add_argument("--quick", action="store_true",
+                        help="population 100, 19 generations = 2,000 evaluations")
     parser.add_argument("--workers", type=int, default=os.cpu_count() or 1)
     parser.add_argument("--out", help="default: results/gp_full.csv, or results/gp_quick.csv with --quick")
     args = parser.parse_args()
     if args.quick:
         args.population, args.generations = 100, 19
     if args.out is None:  # quick test rows never land in the real results file
-        args.out = str(ROOT / "results" / ("gp_quick.csv" if args.quick else "gp_full.csv"))
+        args.out = str(RESULTS / ("gp_quick.csv" if args.quick else "gp_full.csv"))
 
     start = time.perf_counter()
 
     def log(generation: int, evaluations: int, best: float) -> None:
-        print(f"gen {generation:3d} | evals {evaluations:6d} | best {best:9,.0f} | {time.perf_counter() - start:6.0f}s",
-              flush=True)
+        seconds = time.perf_counter() - start
+        line = f"gen {generation:3d} | evals {evaluations:6d} | best {best:9,.0f} | {seconds:6.0f}s"
+        print(line, flush=True)
 
     print(f"alpha {args.alpha}, {args.hidden}, seed {args.seed}, population {args.population}, "
           f"{args.generations} generations, {args.workers} workers")
-    with ParallelFitness(TRAINING, args.workers) as parallel:
+    with ParallelFitness(TRAINING_SET, args.workers) as parallel:
         row = run_experiment(
             score=lambda text: parallel(text, args.alpha, args.hidden),
-            test_instances=load_dataset(TEST),
+            test_instances=load_dataset(TEST_SET),
             alpha=args.alpha,
             hidden=args.hidden,
             seed=args.seed,
             population=args.population,
             generations=args.generations,
-            training_set=TRAINING.name,
+            training_set=TRAINING_SET.name,
             log=log,
         )
     append_row(args.out, row)

@@ -1,10 +1,6 @@
-from pathlib import Path
-
-from crp.instance import Instance, load_dataset
+from crp.instance import Instance
 from crp.schemes import _best_destination, _safe_stack, solve_unrestricted
 from crp.yard import Yard
-
-DATA = Path(__file__).resolve().parent.parent / "data" / "caserta_840"
 
 
 def _yard(*stacks: tuple[int, ...]) -> Yard:
@@ -35,8 +31,8 @@ def test_safe_stack_smallest_minimum_when_no_empty():
     assert _safe_stack(yard, 0, 1) == 3  # min 3 beats min 4, both are > 2
 
 
-def test_runs_on_all_instances_without_errors():
-    for inst in load_dataset(DATA):
+def test_runs_on_all_instances_without_errors(test_set):
+    for inst in test_set:
         yard = Yard(inst, alpha=0.3, hidden="max")
         solve_unrestricted(yard, lambda t: t["SH"])
         assert yard.is_done()

@@ -1,5 +1,4 @@
 import random
-from pathlib import Path
 
 from crp.instance import (
     CASERTA_CLASSES,
@@ -8,12 +7,11 @@ from crp.instance import (
     load_instance,
     write_instance,
 )
-
-DATA = Path(__file__).resolve().parent.parent / "data" / "caserta_840"
+from crp.paths import TEST_SET
 
 
 def test_load_small_instance():
-    inst = load_instance(DATA / "data3-3-1.dat")
+    inst = load_instance(TEST_SET / "data3-3-1.dat")
     assert inst.name == "data3-3-1"
     assert inst.stacks == ((3, 7, 1), (2, 6, 5), (8, 9, 4))
     assert inst.n_containers == 9
@@ -21,7 +19,7 @@ def test_load_small_instance():
 
 
 def test_load_all_test_instances():
-    instances = load_dataset(DATA)
+    instances = load_dataset(TEST_SET)
     assert len(instances) == 840
     assert all(len(s) <= inst.max_height for inst in instances for s in inst.stacks)
 
@@ -40,7 +38,7 @@ def test_same_seed_same_instance():
 
 
 def test_classes_match_test_set():
-    names = {inst.name.rsplit("-", 1)[0] for inst in load_dataset(DATA)}
+    names = {inst.name.rsplit("-", 1)[0] for inst in load_dataset(TEST_SET)}
     assert names == {f"data{t}-{s}" for t, ss in CASERTA_CLASSES.items() for s in ss}
 
 

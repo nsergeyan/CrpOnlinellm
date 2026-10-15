@@ -5,12 +5,10 @@ Run from PyCharm (green button), or: python experiments/benchmark_eval.py
 import os
 import random
 import time
-from pathlib import Path
 
 from crp.gp.fitness import ParallelFitness, total_relocations
 from crp.instance import load_dataset
-
-TRAINING = Path(__file__).resolve().parent.parent / "data" / "training"
+from crp.paths import TRAINING_SET
 TERMINALS = ["SH", "EMP", "AVG", "CUR", "RI", "DIFF"]
 
 
@@ -33,9 +31,9 @@ def best_of_3(run) -> float:
 if __name__ == "__main__":
     rng = random.Random(1)
     formulas = {"tiny": "+ SH * RI EMP", "random depth-5": random_formula(5, rng)}
-    instances = load_dataset(TRAINING)
+    instances = load_dataset(TRAINING_SET)
     workers = os.cpu_count() or 1
-    with ParallelFitness(TRAINING, workers) as fitness:
+    with ParallelFitness(TRAINING_SET, workers) as fitness:
         fitness("+ SH RI", 0.5, "max")  # start the workers before timing
         for name, text in formulas.items():
             for alpha in (0.5, 0.3, 0.1):

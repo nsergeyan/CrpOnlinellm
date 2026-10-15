@@ -1,11 +1,7 @@
 import random
-from pathlib import Path
 
 from crp.gp.algorithm import _best_index, _select_worst, run_gp
 from crp.gp.fitness import CachedFitness, total_relocations
-from crp.instance import load_dataset
-
-TRAINING = Path(__file__).resolve().parent.parent / "data" / "training"
 
 
 def size_fitness(text):
@@ -51,8 +47,8 @@ def test_cache_does_not_change_the_run():
     assert cached.hits > 0  # repeated formulas were not recomputed, but still counted
 
 
-def test_short_run_on_real_fitness():
-    instances = load_dataset(TRAINING)[::40]  # one yard per class, to keep the test fast
+def test_short_run_on_real_fitness(training_set):
+    instances = training_set[::40]  # one yard per class, to keep the test fast
     fitness = CachedFitness(lambda text: total_relocations(text, instances, 0.5, "max"))
     result = run_gp(fitness, random.Random(4), population_size=10, generations=2)
     assert result.evaluations == 30

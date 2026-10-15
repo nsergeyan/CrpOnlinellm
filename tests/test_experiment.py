@@ -1,16 +1,12 @@
 import csv
-from pathlib import Path
 
 from crp.gp.experiment import FIELDS, _key, append_row, finished_runs, medians, run_experiment, run_many
 from crp.gp.fitness import total_relocations
-from crp.instance import load_dataset
-
-ROOT = Path(__file__).resolve().parent.parent
+from crp.paths import TEST_SET, TRAINING_SET
 
 
-def test_experiment_row_and_csv(tmp_path):
-    training = load_dataset(ROOT / "data" / "training")[::40]
-    test = load_dataset(ROOT / "data" / "caserta_840")[::40]
+def test_experiment_row_and_csv(tmp_path, training_set, test_set):
+    training, test = training_set[::40], test_set[::40]
     row = run_experiment(
         score=lambda text: total_relocations(text, training, 0.5, "max"),
         test_instances=test, alpha=0.5, hidden="max", seed=1,
@@ -28,9 +24,9 @@ def test_experiment_row_and_csv(tmp_path):
 
 
 def test_run_many_writes_rows_and_resumes(tmp_path):
-    for name, source in (("train", "training"), ("test", "caserta_840")):
+    for name, source in (("train", TRAINING_SET), ("test", TEST_SET)):
         (tmp_path / name).mkdir()
-        for f in sorted((ROOT / "data" / source).glob("data3-3-*.dat"))[:3]:
+        for f in sorted(source.glob("data3-3-*.dat"))[:3]:
             (tmp_path / name / f.name).write_text(f.read_text())
     out = tmp_path / "runs.csv"
     settings = dict(alphas=[0.5], seeds=[1, 2], hidden="max", population=6, generations=1,

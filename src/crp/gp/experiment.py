@@ -64,15 +64,13 @@ def append_row(path: str | Path, row: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     new = not path.exists()
     with path.open("a", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=FIELDS)
+        writer = csv.DictWriter(f, fieldnames=FIELDS, lineterminator="\n")
         if new:
             writer.writeheader()
         writer.writerow(row)
 
 
 # --- many runs in parallel: one whole GP run per worker process ---
-
-PAPER_MEDIANS = {0.5: 24_094, 0.3: 24_733, 0.1: 28_985}  # unrestricted, Maximum, set C (30 runs)
 
 _training: list[Instance] = []  # each worker process loads its own copy once
 _test: list[Instance] = []
@@ -101,8 +99,10 @@ def finished_runs(out: str | Path) -> set[tuple[str, ...]]:
     if not Path(out).exists():
         return set()
     with Path(out).open(newline="") as f:
-        return {_key(r["alpha"], r["hidden"], r["seed"], r["population"], r["generations"], r["training_set"])
-                for r in csv.DictReader(f)}
+        return {
+            _key(r["alpha"], r["hidden"], r["seed"], r["population"], r["generations"], r["training_set"])
+            for r in csv.DictReader(f)
+        }
 
 
 def run_many(
@@ -133,7 +133,8 @@ def run_many(
             rows.append(row)
             hours, rest = divmod(int(time.perf_counter() - start), 3600)
             progress(f"[{len(rows)}/{len(jobs)}] alpha {row['alpha']} seed {row['seed']} | "
-                     f"train {row['train_fitness']:,} | test {row['test_total']:,} | {hours}h {rest // 60:02d}m")
+                     f"train {row['train_fitness']:,} | test {row['test_total']:,} | "
+                     f"{hours}h {rest // 60:02d}m")
     return rows
 
 

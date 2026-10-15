@@ -1,11 +1,8 @@
-from pathlib import Path
-
 import pytest
 
-from crp.instance import Instance, load_dataset
+from crp.instance import Instance
+from crp.paper import TLP_TOTAL
 from crp.yard import Yard
-
-DATA = Path(__file__).resolve().parent.parent / "data" / "caserta_840"
 
 SMALL = Instance("small", ((3, 7, 1), (2, 6, 5), (8, 9, 4)), n_containers=9, max_height=4)
 
@@ -61,8 +58,8 @@ def _tlp(yard: Yard) -> int:
     return yard.relocations
 
 
-def test_tlp_through_yard_matches_paper():
-    assert sum(_tlp(Yard(inst, alpha=1.0, hidden="max")) for inst in load_dataset(DATA)) == 36_024
+def test_tlp_through_yard_matches_paper(test_set):
+    assert sum(_tlp(Yard(inst, alpha=1.0, hidden="max")) for inst in test_set) == TLP_TOTAL
 
 
 def test_window_moves_after_retrieval():

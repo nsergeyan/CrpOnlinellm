@@ -6,9 +6,9 @@ solve_unrestricted is the readable reference; solve_unrestricted_fast is the one
 from __future__ import annotations
 
 from bisect import bisect_left
-from typing import Callable
+from typing import Callable, Literal, Union
 
-from crp.terminals import compute_terminals
+from crp.terminals import UNDEFINED_IN_CPP, compute_terminals
 from crp.yard import INT_MAX, Yard
 
 PriorityFunction = Callable[[dict[str, int]], float]  # terminals -> score, lowest wins
@@ -58,7 +58,10 @@ def _safe_stack(yard: Yard, src: int, dst: int) -> int | None:
     return chosen
 
 
-FastPriority = Callable[[float, float, float, float, float, float], float]  # SH, EMP, AVG, CUR, RI, DIFF
+# f(SH, EMP, AVG, CUR, RI, DIFF) -> score, lowest wins
+FastPriority = Callable[[float, float, float, float, float, float], float]
+# per stack: sorted visible values, SH, EMP, AVG, MIN
+StackNumbers = tuple[list[int], float, float, float, int]
 
 
 def solve_unrestricted_fast(yard: Yard, f: FastPriority) -> int:
@@ -75,7 +78,7 @@ def solve_unrestricted_fast(yard: Yard, f: FastPriority) -> int:
         src, target = yard.target_stack(), yard.next_target
         last = yard.last_visible()
         hidden = -1 if yard.hidden == "ignore" else last + 1
-        cache: list = [None] * n  # per stack: None = unknown, False = full, else its numbers
+        cache: list[Union[StackNumbers, Literal[False], None]] = [None] * n  # None = unknown, False = full
         while stacks[src][-1] != target:
             c = stacks[src][-1]
             cur = c if c <= last else hidden
@@ -87,8 +90,9 @@ def solve_unrestricted_fast(yard: Yard, f: FastPriority) -> int:
                     continue
                 values, sh, emp, avg, smallest = cache[d]
                 if smallest == INT_MAX and cur < 0:
-                    raise NotImplementedError("C++ behaviour is undefined here (Ignore only), see FILE_MAP")
-                score = f(sh, emp, avg, float(cur), float(bisect_left(values, cur)), float(smallest - cur))
+                    raise NotImplementedError(UNDEFINED_IN_CPP)
+                ri = bisect_left(values, cur)  # how many values are smaller than cur
+                score = f(sh, emp, avg, float(cur), float(ri), float(smallest - cur))
                 if score < best_score:  # strict <, so the leftmost tie stays
                     best, best_score = d, score
             dst = best
@@ -104,15 +108,16 @@ def solve_unrestricted_fast(yard: Yard, f: FastPriority) -> int:
     return yard.relocations
 
 
-def _stack_numbers(yard: Yard, d: int, last: int, hidden: int):
+def _stack_numbers(yard: Yard, d: int, last: int, hidden: int) -> Union[StackNumbers, Literal[False]]:
     """Sorted visible values, SH, EMP, AVG and MIN of stack d; False if it is full."""
     height = len(yard.stacks[d])
     if height >= yard.max_height:
         return False
     values = sorted([c if c <= last else hidden for c in yard.stacks[d]])
-    if hidden == -1:  # Ignore: hidden containers are skipped
+    if yard.hidden == "ignore":  # hidden containers are skipped
         values = [v for v in values if v != -1]
         if height and not values:
-            raise NotImplementedError("C++ behaviour is undefined here (Ignore only), see FILE_MAP")
+            raise NotImplementedError(UNDEFINED_IN_CPP)
     avg = int(sum(values) / len(values)) if height else 0
-    return values, float(height), float(yard.max_height - height), float(avg), (values[0] if values else INT_MAX)
+    smallest = values[0] if values else INT_MAX
+    return values, float(height), float(yard.max_height - height), float(avg), smallest

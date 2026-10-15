@@ -1,12 +1,10 @@
 import random
-from pathlib import Path
 
 import pytest
 
 from crp.gp.expression import canonical
 from crp.gp.tree import GPTree, full_tree, grow_tree, initial_population
-
-REFERENCE = Path(__file__).resolve().parent.parent / "cpp_reference" / "reference_data"
+from golden import reference_formulas
 
 
 def test_depths_and_sizes():
@@ -27,9 +25,8 @@ def test_full_depth_five_tree_has_63_nodes():
 
 def test_round_trip_on_reference_formulas():
     for name in ("expressions_res.txt", "expressions_unres.txt"):
-        for line in (REFERENCE / name).read_text().splitlines():
-            if line.strip():
-                assert GPTree.from_text(line).text() == canonical(line)
+        for line in reference_formulas(name):
+            assert GPTree.from_text(line).text() == canonical(line)
 
 
 @pytest.mark.parametrize("bad", ["+ SH", "SH RI", "+ SH FOO", ""])
