@@ -1,6 +1,6 @@
 # Online container relocation: a Python reproduction
 
-Bachelor thesis project (Data Science and AI, Leiden University). It reproduces, in Python, the
+Research project (Data Science and AI, Leiden University). It reproduces, in Python, the
 genetic-programming experiments from:
 
 > Đurasević, Đumić & Gil-Gala (2026). *Automated design of relocation rules with genetic
