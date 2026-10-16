@@ -8,6 +8,7 @@ version = "0.1.0"
 description = "Python reproduction of GP-designed relocation rules for the online container relocation problem (Durasevic, Dumic & Gil-Gala, 2026)"
 readme = "README.md"
 requires-python = ">=3.10"
+license = {text = "MIT"}
 dependencies = []  # standard library only
 
 [project.optional-dependencies]

@@ -119,3 +119,8 @@ data/caserta_840 (840 test yards) ──► results/gp_full.csv
 - **Fair comparison by design.** A priority function only receives the six terminals, never the raw
   yard, so it cannot see hidden container IDs. EoH functions will use the same interface, training
   set and test set as GP.
+
+## License
+
+My code is MIT licensed, see `LICENSE`. `cpp_reference/` and `data/caserta_840/` belong to
+their original authors and are not covered by it.
