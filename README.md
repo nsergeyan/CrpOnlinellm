@@ -55,7 +55,7 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 pip install -e ".[dev,llm]"   # only for the LLM experiments (EoH)
-pytest                      # 98 tests, about 10 seconds
+pytest                      # 114 tests, about 10 seconds
 ```
 
 ## How to run
