@@ -13,6 +13,8 @@ dependencies = []  # standard library only
 
 [project.optional-dependencies]
 dev = ["pytest"]
+# LLM phase only. EoH v0.2 pinned to an exact commit (not on PyPI).
+llm = ["eoh @ git+https://github.com/FeiLiu36/EoH@472545785c936dcfc863d2bc0d6109cf23c7ce62#subdirectory=eoh"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

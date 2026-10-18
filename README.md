@@ -54,6 +54,7 @@ Python 3.10 or newer, no third-party packages (pytest for the tests only).
 python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
+pip install -e ".[dev,llm]"   # only for the LLM experiments (EoH)
 pytest                      # 98 tests, about 10 seconds
 ```
 

@@ -10,3 +10,6 @@ CLAUDEcrp.md
 __pycache__/
 .pytest_cache/
 *.egg-info/
+
+# API keys for the LLM phase
+.env
