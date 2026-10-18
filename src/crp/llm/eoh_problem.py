@@ -35,5 +35,3 @@ class CRPProblem(BaseProblem):
         except Exception:
             return None
         return evaluate_rule(func, self.instances, self.alpha, self.hidden)
-
-

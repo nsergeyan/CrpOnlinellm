@@ -13,3 +13,6 @@ __pycache__/
 
 # API keys for the LLM phase
 .env
+
+# Throwaway LLM test runs (experiments/try_eoh_ollama.py)
+runs/
