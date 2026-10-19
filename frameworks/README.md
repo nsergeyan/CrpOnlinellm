@@ -10,9 +10,16 @@ Only our own files plug them into the CRP.
 
 Both share ReEvo's LLM client (same model, same temperature), our `eval.py` (same scorer)
 and the same prompt files, so only the search method differs. The EoH copy changes only
-the plumbing (LLM client, evaluation, file paths) and drops one prompt sentence
-("The function should return N output(s): ..."). The newer EoH v0.2 (2026 rewrite) was
-tried first and removed; see git history up to commit 3ae9a2a.
+the plumbing (LLM client, evaluation, file paths) and drops one sentence from its m2 prompt
+("The function should return N output(s): ..."; the other prompts keep it). The newer
+EoH v0.2 (2026 rewrite) was tried first and removed; see git history up to commit 3ae9a2a.
+
+Original EoH behaviour to know: it cuts the LLM's code at the last `return` and appends the
+output name, so a rule must end with `return priority` (e.g. `priority = RI` then
+`return priority`). A rule written as `return SH` becomes `return priority` and fails with
+NameError. This is the paper's code, kept as is; `tests/test_llm_reevo.py` shows it.
+`scripts/setup_reevo.sh` also installs joblib, which this EoH copy needs but ReEvo's
+package list leaves out.
 
 ## ReEvo
 

@@ -26,6 +26,7 @@ echo "2/4 Python environment $DIR/.venv"
 echo "3/4 Installing ReEvo's packages and our crp code"
 "$DIR/.venv/bin/python" -m pip install --quiet --upgrade pip
 "$DIR/.venv/bin/python" -m pip install --quiet -e "$DIR" -e "$ROOT"
+"$DIR/.venv/bin/python" -m pip install --quiet joblib   # needed by baselines/eoh, missing from ReEvo's list
 
 echo "4/4 Our CRP files"
 "$DIR/.venv/bin/python" "$ROOT/scripts/install_reevo_files.py" "$DIR"

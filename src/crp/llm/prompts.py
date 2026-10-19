@@ -1,7 +1,11 @@
 """Prompt texts shared by EoH and ReEvo (single source, so the two can never differ).
 
-Texts from docs/LLM_PLAN.md. One correction: under the Maximum strategy, AVG also
-counts the unknown containers (as last known ID + 1), see _stack_numbers in schemes.py.
+Texts from docs/LLM_PLAN.md, with two changes:
+- AVG also counts the unknown containers (as last known ID + 1) under the Maximum strategy,
+  see _stack_numbers in schemes.py.
+- "Store the score in a variable named priority ... return priority": the original EoH cuts
+  the code at the last 'return' and appends 'return priority', so 'return SH' would fail.
+  Both methods get the same sentence, so the comparison stays fair.
 """
 
 PROBLEM_DESCRIPTION = (
@@ -24,11 +28,13 @@ FUNCTION_DESCRIPTION = (
     "RI = number of containers in the stack with a smaller ID than CUR (they will be blocked "
     "by it); DIFF = smallest ID in the stack minus CUR (about 2.1e9 for an empty stack). The "
     "relocation scheme may also make preventive moves; the function only chooses the "
-    "destination."
+    "destination. Store the score in a variable named priority and end the function with "
+    "return priority."
 )
 
 # The seed rule both frameworks start from: lowest stack wins (like TLP).
 TEMPLATE_PROGRAM = '''def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
     """Score one candidate stack for the container being relocated. Lowest score wins."""
-    return SH
+    priority = SH
+    return priority
 '''

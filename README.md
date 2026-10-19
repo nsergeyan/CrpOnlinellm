@@ -56,7 +56,7 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 pip install -e ".[dev,llm]"   # only for the LLM experiments
 bash scripts/setup_reevo.sh  # only for the LLM experiments: ReEvo + original EoH (Python 3.11, see frameworks/README.md)
-pytest                      # 117 tests, about 15 seconds (the ReEvo test is skipped until setup)
+pytest                      # 118 tests, about 40 seconds (the ReEvo test is skipped until setup)
 ```
 
 ## How to run
