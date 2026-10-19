@@ -1,0 +1,7 @@
+# ReEvo problem settings for the online CRP. Copied to frameworks/reevo/cfg/problem/ by
+# scripts/install_reevo_files.py, which also adds the `description:` line from src/crp/llm/prompts.py.
+problem_name: crp_online      # folder names: problems/crp_online/, prompts/crp_online/
+problem_type: constructive    # ReEvo only treats "black_box" specially; we are white-box
+obj_type: min                 # fewer relocations is better
+problem_size: 0.5             # ReEvo passes this to eval.py; we use it as alpha
+func_name: priority
