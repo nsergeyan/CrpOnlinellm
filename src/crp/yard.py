@@ -1,7 +1,8 @@
 """Yard state during solving: stacks, moves, and the relocation counter.
 
 Mirrors cpp_reference/simulator/ContainerYard.cpp and BayFloor.cpp, including the
-look-ahead window (MaximumKnownContainer, GetTopContainerId, GetContainerId).
+look-ahead window (MaximumKnownContainer, GetTopContainerId, GetContainerId) with the
+Maximum strategy: every hidden container is seen as last visible ID + 1.
 """
 from __future__ import annotations
 
@@ -13,14 +14,11 @@ INT_MAX = 2_147_483_647  # C++ INT_MAX: the minimum of an empty stack
 class Yard:
     """Live, changing copy of an instance."""
 
-    def __init__(self, instance: Instance, alpha: float, hidden: str) -> None:
-        if hidden not in ("max", "ignore"):
-            raise ValueError(f"hidden must be 'max' or 'ignore', got {hidden!r}")
+    def __init__(self, instance: Instance, alpha: float) -> None:
         self.stacks: list[list[int]] = [list(s) for s in instance.stacks]  # bottom -> top
         self.max_height = instance.max_height
         self.n_containers = instance.n_containers
         self.alpha = alpha
-        self.hidden = hidden
         self.next_target = 1  # ID of the next container to retrieve
         self.relocations = 0
         self._stack_of = {c: i for i, s in enumerate(self.stacks) for c in s}
@@ -34,18 +32,16 @@ class Yard:
         return int(self.next_target + self.alpha * self.n_containers)
 
     def value(self, container: int) -> int:
-        """What rules see for a container: its ID if visible, else the hidden value."""
+        """What rules see for a container: its ID if visible, else last visible + 1."""
         last = self.last_visible()
-        if container <= last:
-            return container
-        return last + 1 if self.hidden == "max" else -1
+        return container if container <= last else last + 1
 
     def top_value(self, stack: int) -> int:
         """Visible value of the top container (C++ GetTopContainerId)."""
         return self.value(self.stacks[stack][-1])
 
     def min_value(self, stack: int) -> int:
-        """Smallest visible value in a stack, INT_MAX if empty. Ignore's -1 is not skipped."""
+        """Smallest visible value in a stack, INT_MAX if empty."""
         return min(map(self.value, self.stacks[stack]), default=INT_MAX)
 
     def is_full(self, stack: int) -> bool:

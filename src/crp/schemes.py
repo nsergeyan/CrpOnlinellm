@@ -8,7 +8,7 @@ from __future__ import annotations
 from bisect import bisect_left
 from typing import Callable, Literal, Union
 
-from crp.terminals import UNDEFINED_IN_CPP, compute_terminals
+from crp.terminals import compute_terminals
 from crp.yard import INT_MAX, Yard
 
 PriorityFunction = Callable[[dict[str, int]], float]  # terminals -> score, lowest wins
@@ -77,7 +77,7 @@ def solve_unrestricted_fast(yard: Yard, f: FastPriority) -> int:
     while not yard.is_done():
         src, target = yard.target_stack(), yard.next_target
         last = yard.last_visible()
-        hidden = -1 if yard.hidden == "ignore" else last + 1
+        hidden = last + 1  # what every hidden container looks like (Maximum strategy)
         cache: list[Union[StackNumbers, Literal[False], None]] = [None] * n  # None = unknown, False = full
         while stacks[src][-1] != target:
             c = stacks[src][-1]
@@ -89,8 +89,6 @@ def solve_unrestricted_fast(yard: Yard, f: FastPriority) -> int:
                 if cache[d] is False:
                     continue
                 values, sh, emp, avg, smallest = cache[d]
-                if smallest == INT_MAX and cur < 0:
-                    raise NotImplementedError(UNDEFINED_IN_CPP)
                 ri = bisect_left(values, cur)  # how many values are smaller than cur
                 score = f(sh, emp, avg, float(cur), float(ri), float(smallest - cur))
                 if score < best_score:  # strict <, so the leftmost tie stays
@@ -114,10 +112,6 @@ def _stack_numbers(yard: Yard, d: int, last: int, hidden: int) -> Union[StackNum
     if height >= yard.max_height:
         return False
     values = sorted([c if c <= last else hidden for c in yard.stacks[d]])
-    if yard.hidden == "ignore":  # hidden containers are skipped
-        values = [v for v in values if v != -1]
-        if height and not values:
-            raise NotImplementedError(UNDEFINED_IN_CPP)
     avg = int(sum(values) / len(values)) if height else 0
     smallest = values[0] if values else INT_MAX
     return values, float(height), float(yard.max_height - height), float(avg), smallest

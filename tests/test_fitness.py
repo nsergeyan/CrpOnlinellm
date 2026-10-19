@@ -6,7 +6,7 @@ from golden import FORMULAS, GOLDEN
 
 
 def test_total_relocations_matches_golden(training_set):
-    assert total_relocations(FORMULAS[3], training_set, 0.3, "max") == GOLDEN[3][2]
+    assert total_relocations(FORMULAS[3], training_set, 0.3) == GOLDEN[3][2]
 
 
 def test_canonical_spelling():
@@ -20,7 +20,7 @@ def test_cached_equals_uncached(training_set):
 
     def score(text):
         calls.append(text)
-        return total_relocations(text, training_set, 0.3, "max")
+        return total_relocations(text, training_set, 0.3)
 
     cached = CachedFitness(score)
     for text, golden in zip(FORMULAS, GOLDEN):

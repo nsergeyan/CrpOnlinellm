@@ -15,7 +15,7 @@ Sources: paper = Durasevic, Dumic & Gil-Gala (2026), Table 3, + CEC paper; code 
 | 8 | Hidden IDs (Maximum) | Maximum = last visible + 1 | Maximum commented out, -1 (Ignore) active | paper (Maximum, switched in both places) |
 | 9 | PU1/PU2 "one-container" check | not stated | `secondSmallest=!INT_MAX` assigns instead of compares, so it means "height == 1" | code (matches all 8 paper totals) |
 | 10 | Subtraction order | not stated | `Execute() - Execute()`: C++ evaluation order unspecified | left - right |
-| 11 | Ignore edge cases | not stated | AVG 0/0 and INT_MAX - (-1) overflow are undefined behaviour | raise an error (not used in scenarios) |
+| 11 | Ignore edge cases | not stated | AVG 0/0 and INT_MAX - (-1) overflow are undefined behaviour | not relevant: only Maximum is used, Ignore is not ported |
 | 12 | Unrestricted at alpha = 0 | ~29,000 | preventive check can never fire (equal hidden values) | open issue, alpha = 0 not used |
 | 13 | Budget | 50,000 evaluations | 50 generations after an initial population = 51,000 | code (51,000) |
 | 14 | Grow initialisation | not stated | root always an operator (initmindepth 1) | code |

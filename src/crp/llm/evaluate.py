@@ -57,18 +57,16 @@ def guarded(func: Callable[..., object]) -> FastPriority:
     return checked
 
 
-def total_or_raise(func: Callable[..., object], instances: list[Instance], alpha: float,
-                   hidden: str = "max") -> int:
+def total_or_raise(func: Callable[..., object], instances: list[Instance], alpha: float) -> int:
     """Total relocations over all instances; raises if the rule misbehaves."""
     f = guarded(func)
-    return sum(solve_unrestricted_fast(Yard(inst, alpha, hidden), f) for inst in instances)
+    return sum(solve_unrestricted_fast(Yard(inst, alpha), f) for inst in instances)
 
 
-def evaluate_rule(func: Callable[..., object], instances: list[Instance], alpha: float,
-                  hidden: str = "max") -> Optional[int]:
+def evaluate_rule(func: Callable[..., object], instances: list[Instance], alpha: float) -> Optional[int]:
     """Total relocations (lower is better), or None if the rule failed."""
     try:
-        return total_or_raise(func, instances, alpha, hidden)
+        return total_or_raise(func, instances, alpha)
     except Exception:  # anything the LLM's code raises, plus RuleFailed from the guard
         return None
 
@@ -80,14 +78,13 @@ def main(argv: Optional[list[str]] = None) -> None:
     parser.add_argument("--code", type=Path, required=True, help="Python file with the rule")
     parser.add_argument("--func", default="priority", help="function name inside the file")
     parser.add_argument("--alpha", type=float, required=True)
-    parser.add_argument("--hidden", choices=["max", "ignore"], default="max")
     parser.add_argument("--set", choices=["training", "test"], default="training")
     args = parser.parse_args(argv)
 
     instances = load_dataset(TRAINING_SET if args.set == "training" else TEST_SET)
     try:
         func = compile_rule(args.code.read_text(), args.func)
-        total = total_or_raise(func, instances, args.alpha, args.hidden)
+        total = total_or_raise(func, instances, args.alpha)
     except Exception as e:
         print(f"FAILED: {type(e).__name__}: {e}")
         return

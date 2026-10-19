@@ -44,7 +44,7 @@ def test_all_reference_formulas_parse():
 def test_formula_solves_all_instances(test_set):
     priority = make_priority(reference_formulas("expressions_unres.txt")[0])
     for inst in test_set:
-        yard = Yard(inst, alpha=0.5, hidden="max")
+        yard = Yard(inst, alpha=0.5)
         solve_unrestricted(yard, priority)
         assert yard.is_done()
 

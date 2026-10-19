@@ -23,7 +23,8 @@ The GP algorithm itself comes from the ECF 1.4.2 library (not included); see `sr
 
 1. **Look-ahead window:** last visible ID = `int(next_id + alpha * N)`, rounded down.
 2. **Hidden IDs:** Maximum = last visible ID + 1 (commented out in the C++, switched on in both
-   `GetTopContainerId` and `GetContainerId`); Ignore = −1 and skipped.
+   `GetTopContainerId` and `GetContainerId`). The C++ also has an Ignore strategy (−1, skipped);
+   it is not used in our scenarios and not ported.
 3. **Ties between stacks:** the leftmost stack wins.
 4. **Retrievals are not counted**, only relocations.
 5. **Max height** = tiers + 2.

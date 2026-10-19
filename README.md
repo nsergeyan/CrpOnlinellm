@@ -57,7 +57,7 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 pip install -e ".[dev,llm]"   # only for the LLM experiments
 bash frameworks/setup_reevo.sh  # only for the LLM experiments: ReEvo + original EoH (Python 3.11, see frameworks/README.md)
-pytest                      # 117 tests, about 40 seconds (the ReEvo/EoH tests are skipped until setup)
+pytest                      # 114 tests, about 40 seconds (the ReEvo/EoH tests are skipped until setup)
 ```
 
 ## How to run
@@ -141,6 +141,13 @@ data/caserta_840 (840 test yards) ──► results/gp_full.csv
 8. Thinking is switched the same way for both methods (model default or shared prompt text).
 9. The shared prompt asks for a variable `priority` and `return priority`, because the original
    EoH replaces the last line of the code with `return priority`.
+
+### Simplification
+
+10. Only the Maximum hidden strategy is implemented, because every scenario uses it; the C++
+    Ignore strategy was removed, which changes no Maximum result.
+11. The readable reference path (`solve_unrestricted`, `terminals.py`, `evaluate`) is kept next
+    to the fast path: it is the version to read, and the tests compare both move by move.
 
 ## License
 

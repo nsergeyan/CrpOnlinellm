@@ -8,17 +8,13 @@ from __future__ import annotations
 
 from crp.yard import INT_MAX, Yard
 
-UNDEFINED_IN_CPP = "C++ behaviour is undefined here (Ignore strategy only), see docs/paper_vs_code.md row 11"
-
 
 def compute_terminals(yard: Yard, src: int, dst: int) -> dict[str, int]:
     """Terminal values for moving the top container of src onto dst."""
     cur = yard.top_value(src)
-    values = [v for v in map(yard.value, yard.stacks[dst]) if v != -1]  # Ignore: skip hidden
+    values = [yard.value(c) for c in yard.stacks[dst]]
     height = len(yard.stacks[dst])
     smallest = min(values, default=INT_MAX)
-    if (height > 0 and not values) or (smallest == INT_MAX and cur < 0):
-        raise NotImplementedError(UNDEFINED_IN_CPP)
     return {
         "SH": height,
         "EMP": yard.max_height - height,

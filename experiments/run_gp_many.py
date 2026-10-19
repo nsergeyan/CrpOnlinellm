@@ -20,7 +20,6 @@ def main() -> None:
     )
     parser.add_argument("--alphas", type=float, nargs="+", default=[0.5, 0.3, 0.1])
     parser.add_argument("--runs", type=int, default=30, help="seeds 1..runs")
-    parser.add_argument("--hidden", choices=["max", "ignore"], default="max")
     parser.add_argument("--population", type=int, default=1000)
     parser.add_argument("--generations", type=int, default=50)
     parser.add_argument("--quick", action="store_true",
@@ -33,10 +32,10 @@ def main() -> None:
     if args.out is None:  # quick test rows never land in the real results file
         args.out = str(RESULTS / ("gp_quick.csv" if args.quick else "gp_full.csv"))
 
-    print(f"alphas {args.alphas}, seeds 1..{args.runs}, {args.hidden}, population {args.population}, "
+    print(f"alphas {args.alphas}, seeds 1..{args.runs}, population {args.population}, "
           f"{args.generations} generations, {args.workers} workers", flush=True)
     seeds = list(range(1, args.runs + 1))
-    run_many(args.alphas, seeds, args.hidden, args.population, args.generations, TRAINING_SET, TEST_SET,
+    run_many(args.alphas, seeds, args.population, args.generations, TRAINING_SET, TEST_SET,
              args.out, args.workers, progress=lambda line: print(line, flush=True))
     print("\ndone; medians vs the paper: python experiments/summarize_results.py")
 

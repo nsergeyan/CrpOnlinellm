@@ -5,7 +5,7 @@ from crp.yard import Yard
 
 def _yard(*stacks: tuple[int, ...]) -> Yard:
     n = sum(len(s) for s in stacks)
-    return Yard(Instance("t", stacks, n_containers=n, max_height=4), alpha=1.0, hidden="max")
+    return Yard(Instance("t", stacks, n_containers=n, max_height=4), alpha=1.0)
 
 
 def test_preventive_move_example():
@@ -33,6 +33,6 @@ def test_safe_stack_smallest_minimum_when_no_empty():
 
 def test_runs_on_all_instances_without_errors(test_set):
     for inst in test_set:
-        yard = Yard(inst, alpha=0.3, hidden="max")
+        yard = Yard(inst, alpha=0.3)
         solve_unrestricted(yard, lambda t: t["SH"])
         assert yard.is_done()

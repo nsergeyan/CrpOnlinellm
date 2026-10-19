@@ -13,17 +13,17 @@ from crp.schemes import solve_unrestricted_fast
 from crp.yard import Yard
 
 
-def total_relocations(text: str, instances: list[Instance], alpha: float, hidden: str) -> int:
+def total_relocations(text: str, instances: list[Instance], alpha: float) -> int:
     """Run one formula on every instance, in this process."""
     f = compile_formula(text)
-    return sum(solve_unrestricted_fast(Yard(inst, alpha, hidden), f) for inst in instances)
+    return sum(solve_unrestricted_fast(Yard(inst, alpha), f) for inst in instances)
 
 
 class CachedFitness:
     """Remembers scores, so a formula seen before is not run again.
 
-    One cache belongs to ONE score function, i.e. one training set, alpha and hidden
-    strategy. Make a new cache for every scenario.
+    One cache belongs to ONE score function, i.e. one training set and alpha.
+    Make a new cache for every scenario.
     """
 
     def __init__(self, score: Callable[[str], int]) -> None:

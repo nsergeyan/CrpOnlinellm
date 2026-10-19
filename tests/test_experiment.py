@@ -8,13 +8,13 @@ from crp.paths import TEST_SET, TRAINING_SET
 def test_experiment_row_and_csv(tmp_path, training_set, test_set):
     training, test = training_set[::40], test_set[::40]
     row = run_experiment(
-        score=lambda text: total_relocations(text, training, 0.5, "max"),
-        test_instances=test, alpha=0.5, hidden="max", seed=1,
+        score=lambda text: total_relocations(text, training, 0.5),
+        test_instances=test, alpha=0.5, seed=1,
         population=10, generations=2, training_set="training",
     )
     assert row["evaluations"] == 30
-    assert row["test_total"] == total_relocations(row["formula"], test, 0.5, "max")
-    assert row["train_fitness"] == total_relocations(row["formula"], training, 0.5, "max")
+    assert row["test_total"] == total_relocations(row["formula"], test, 0.5)
+    assert row["train_fitness"] == total_relocations(row["formula"], training, 0.5)
 
     out = tmp_path / "runs.csv"
     append_row(out, row)
@@ -29,7 +29,7 @@ def test_run_many_writes_rows_and_resumes(tmp_path):
         for f in sorted(source.glob("data3-3-*.dat"))[:3]:
             (tmp_path / name / f.name).write_text(f.read_text())
     out = tmp_path / "runs.csv"
-    settings = dict(alphas=[0.5], seeds=[1, 2], hidden="max", population=6, generations=1,
+    settings = dict(alphas=[0.5], seeds=[1, 2], population=6, generations=1,
                     training_dir=tmp_path / "train", test_dir=tmp_path / "test", out=out, workers=2,
                     progress=lambda line: None)
 
@@ -43,11 +43,11 @@ def test_run_many_writes_rows_and_resumes(tmp_path):
 
 def test_quick_rows_never_count_as_full_runs(tmp_path):
     out = tmp_path / "mixed.csv"
-    base = dict(date="x", alpha=0.5, hidden="max", seed=1, evaluations=0, train_fitness=0,
+    base = dict(date="x", alpha=0.5, seed=1, evaluations=0, train_fitness=0,
                 best_generation=0, formula="SH", training_set="training", cache_hits=0, seconds=0)
     append_row(out, {**base, "population": 100, "generations": 19, "test_total": 99_999})  # quick
     append_row(out, {**base, "seed": 2, "population": 1000, "generations": 50, "test_total": 24_000})  # full
 
     done = finished_runs(out)
-    assert _key(0.5, "max", 1, 1000, 50, "training") not in done  # quick seed 1 does not skip full seed 1
-    assert _key(0.5, "max", 2, 1000, 50, "training") in done
+    assert _key(0.5, 1, 1000, 50, "training") not in done  # quick seed 1 does not skip full seed 1
+    assert _key(0.5, 2, 1000, 50, "training") in done

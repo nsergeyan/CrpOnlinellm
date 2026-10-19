@@ -49,7 +49,7 @@ def test_cache_does_not_change_the_run():
 
 def test_short_run_on_real_fitness(training_set):
     instances = training_set[::40]  # one yard per class, to keep the test fast
-    fitness = CachedFitness(lambda text: total_relocations(text, instances, 0.5, "max"))
+    fitness = CachedFitness(lambda text: total_relocations(text, instances, 0.5))
     result = run_gp(fitness, random.Random(4), population_size=10, generations=2)
     assert result.evaluations == 30
-    assert result.best_fitness == total_relocations(result.best.text(), instances, 0.5, "max")
+    assert result.best_fitness == total_relocations(result.best.text(), instances, 0.5)

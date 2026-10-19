@@ -1,6 +1,7 @@
 """GP experiments: evolve on the training set, test the best rule once, record a CSV row.
 
 run_many runs many seeds in parallel, one whole GP run per worker process.
+The CSV keeps a "hidden" column (always "max", the only strategy) so older rows stay valid.
 """
 from __future__ import annotations
 
@@ -27,22 +28,21 @@ def run_experiment(
     score: Callable[[str], int],
     test_instances: list[Instance],
     alpha: float,
-    hidden: str,
     seed: int,
     population: int,
     generations: int,
     training_set: str,
     log: Optional[Callable[[int, int, float], None]] = None,
 ) -> dict:
-    """score must use the same alpha and hidden strategy on the training set."""
+    """score must use the same alpha on the training set."""
     start = time.perf_counter()
     fitness = CachedFitness(score)  # a new cache per run: one training set and scenario
     result = run_gp(fitness, random.Random(seed), population, generations, log=log)
-    test_total = total_relocations(result.best.text(), test_instances, alpha, hidden)
+    test_total = total_relocations(result.best.text(), test_instances, alpha)
     return {
         "date": datetime.now().isoformat(timespec="seconds"),
         "alpha": alpha,
-        "hidden": hidden,
+        "hidden": "max",
         "seed": seed,
         "population": population,
         "generations": generations,
@@ -81,17 +81,17 @@ def _init_worker(training_dir: str, test_dir: str) -> None:
 
 
 def _run_job(job: tuple) -> dict:
-    alpha, hidden, seed, population, generations, training_set = job
+    alpha, seed, population, generations, training_set = job
     return run_experiment(
-        score=lambda text: total_relocations(text, _training, alpha, hidden),
-        test_instances=_test, alpha=alpha, hidden=hidden, seed=seed,
+        score=lambda text: total_relocations(text, _training, alpha),
+        test_instances=_test, alpha=alpha, seed=seed,
         population=population, generations=generations, training_set=training_set,
     )
 
 
-def _key(alpha, hidden, seed, population, generations, training_set) -> tuple[str, ...]:
+def _key(alpha, seed, population, generations, training_set) -> tuple[str, ...]:
     """What makes two runs 'the same run' (CSV values are strings)."""
-    return tuple(str(v) for v in (float(alpha), hidden, seed, population, generations, training_set))
+    return tuple(str(v) for v in (float(alpha), seed, population, generations, training_set))
 
 
 def finished_runs(out: str | Path) -> set[tuple[str, ...]]:
@@ -99,7 +99,7 @@ def finished_runs(out: str | Path) -> set[tuple[str, ...]]:
         return set()
     with Path(out).open(newline="") as f:
         return {
-            _key(r["alpha"], r["hidden"], r["seed"], r["population"], r["generations"], r["training_set"])
+            _key(r["alpha"], r["seed"], r["population"], r["generations"], r["training_set"])
             for r in csv.DictReader(f)
         }
 
@@ -107,7 +107,6 @@ def finished_runs(out: str | Path) -> set[tuple[str, ...]]:
 def run_many(
     alphas: list[float],
     seeds: list[int],
-    hidden: str,
     population: int,
     generations: int,
     training_dir: str | Path,
@@ -119,8 +118,8 @@ def run_many(
     """Run every (alpha, seed) not yet in the CSV, one run per worker; rows are written as runs finish."""
     training_set = Path(training_dir).name
     done = finished_runs(out)
-    jobs = [(a, hidden, s, population, generations, training_set) for a in alphas for s in seeds
-            if _key(a, hidden, s, population, generations, training_set) not in done]
+    jobs = [(a, s, population, generations, training_set) for a in alphas for s in seeds
+            if _key(a, s, population, generations, training_set) not in done]
     progress(f"{len(jobs)} runs to do, {len(alphas) * len(seeds) - len(jobs)} already in {out}")
     rows: list[dict] = []
     if not jobs:
