@@ -1,11 +1,18 @@
 # LLM frameworks
 
-Both frameworks are used unchanged, at pinned commits. Only our own files plug them into the CRP.
+Both frameworks come from the ReEvo repository at a pinned commit, used unchanged.
+Only our own files plug them into the CRP.
 
-| Framework | Commit | How it gets here |
+| Framework | Code | Run with |
 |---|---|---|
-| EoH v0.2 | `472545785c936dcfc863d2bc0d6109cf23c7ce62` | `pip install -e ".[llm]"` (pinned in `pyproject.toml`) |
-| ReEvo | `6dce18257da5e11db2d138e417a2fffc5c72d05f` | `bash scripts/setup_reevo.sh` (clones into `frameworks/reevo/`, not in git) |
+| ReEvo | ReEvo repo, commit `6dce18257da5e11db2d138e417a2fffc5c72d05f` | `main.py algorithm=reevo` |
+| EoH (original, ICML 2024) | `baselines/eoh/` in the same ReEvo commit: the official EoH code (commit `d7c5a69`, May 2024) as used in the ReEvo paper | `main.py algorithm=eoh` |
+
+Both share ReEvo's LLM client (same model, same temperature), our `eval.py` (same scorer)
+and the same prompt files, so only the search method differs. The EoH copy changes only
+the plumbing (LLM client, evaluation, file paths) and drops one prompt sentence
+("The function should return N output(s): ..."). The newer EoH v0.2 (2026 rewrite) was
+tried first and removed; see git history up to commit 3ae9a2a.
 
 ## ReEvo
 

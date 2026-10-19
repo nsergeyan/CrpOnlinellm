@@ -54,9 +54,9 @@ Python 3.10 or newer, no third-party packages (pytest for the tests only).
 python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
-pip install -e ".[dev,llm]"   # only for the LLM experiments (EoH)
-bash scripts/setup_reevo.sh  # only for the LLM experiments (ReEvo, Python 3.11, see frameworks/README.md)
-pytest                      # 119 tests, about 10 seconds (the ReEvo test is skipped until setup)
+pip install -e ".[dev,llm]"   # only for the LLM experiments
+bash scripts/setup_reevo.sh  # only for the LLM experiments: ReEvo + original EoH (Python 3.11, see frameworks/README.md)
+pytest                      # 117 tests, about 15 seconds (the ReEvo test is skipped until setup)
 ```
 
 ## How to run

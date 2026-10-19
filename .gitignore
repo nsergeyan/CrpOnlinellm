@@ -14,7 +14,7 @@ __pycache__/
 # API keys for the LLM phase
 .env
 
-# Throwaway LLM test runs (experiments/try_eoh_ollama.py)
+# Throwaway LLM test runs
 runs/
 
 # ReEvo clone made by scripts/setup_reevo.sh (pinned commit, see frameworks/README.md)

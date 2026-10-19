@@ -1,11 +1,11 @@
-"""Shared evaluator for LLM-written priority functions (used by both EoH and ReEvo).
+"""Shared evaluator for LLM-written priority functions (used by both EoH and ReEvo via eval.py).
 
 The LLM sends Python text. compile_rule turns it into a function, a guard checks every
 score it returns, and evaluate_rule runs it with the same scheme and yards as GP.
 Any bad answer (exception, non-number, NaN, inf) fails the whole rule: the result is None.
 
-Timeouts are not handled here: an endless loop never returns, so the caller (EoH's
-subprocess, ReEvo's subprocess) must kill it.
+Timeouts are not handled here: an endless loop never returns, so the caller must kill it
+(ReEvo's main.py runs eval.py with a timeout, for both EoH and ReEvo).
 
 Command line (ReEvo protocol: the last printed line is the total, or a FAILED line):
     python -m crp.llm.evaluate --code gpt.py --func priority_v2 --alpha 0.5 --set training
