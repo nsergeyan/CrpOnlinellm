@@ -119,8 +119,26 @@ data/caserta_840 (840 test yards) ──► results/gp_full.csv
   `solve_unrestricted_fast` + `compile_formula` give identical results about 4x faster. A test pins
   28 totals from the reference path and compares both paths move by move.
 - **Fair comparison by design.** A priority function only receives the six terminals, never the raw
-  yard, so it cannot see hidden container IDs. EoH functions will use the same interface, training
-  set and test set as GP.
+  yard, so it cannot see hidden container IDs. LLM-written functions use the same interface,
+  scorer, training set and test set as GP.
+
+### LLM phase: decisions
+
+1. Compare EoH and ReEvo with GP and PU1/PU2, using the published frameworks rather than a
+   self-written LLM loop, so the results concern established methods.
+2. A rule that crashes or returns a non-number, NaN or inf fails as a whole, checked before the
+   scheme uses the score; otherwise NaN would silently send the container to the last stack.
+3. Both methods score code through `crp.llm.evaluate`, in exactly the same way.
+4. One shared prompt file, `src/crp/llm/prompts.py`, so both methods get identical texts; the AVG
+   description matches the code (unknown containers count as last known ID + 1).
+5. The authors' original framework code, unchanged, at a pinned commit, installed by
+   `scripts/setup_reevo.sh` in its own Python 3.11 environment.
+6. EoH is the original paper version, using the copy bundled with ReEvo, so both methods share
+   the LLM client, scorer and prompt files. The newer EoH v0.2 was tried and removed.
+7. Qwen3-14B with thinking off; 500 evaluations x 10 runs per method per alpha.
+8. Thinking is switched the same way for both methods (model default or shared prompt text).
+9. The shared prompt asks for a variable `priority` and `return priority`, because the original
+   EoH replaces the last line of the code with `return priority`.
 
 ## License
 
