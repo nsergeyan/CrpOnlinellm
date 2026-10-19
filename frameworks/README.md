@@ -18,13 +18,13 @@ Original EoH behaviour to know: it cuts the LLM's code at the last `return` and 
 output name, so a rule must end with `return priority` (e.g. `priority = RI` then
 `return priority`). A rule written as `return SH` becomes `return priority` and fails with
 NameError. This is the paper's code, kept as is; `tests/test_llm_reevo.py` shows it.
-`scripts/setup_reevo.sh` also installs joblib, which this EoH copy needs but ReEvo's
+`frameworks/setup_reevo.sh` also installs joblib, which this EoH copy needs but ReEvo's
 package list leaves out.
 
 ## ReEvo
 
 ReEvo is a program that runs from its own folder, not a library, and needs Python >= 3.11.
-`scripts/setup_reevo.sh` clones it at the commit above, creates `frameworks/reevo/.venv`
+`frameworks/setup_reevo.sh` clones it at the commit above, creates `frameworks/reevo/.venv`
 (Python 3.11), installs ReEvo's packages and our `crp` code into it, and adds our files.
 It refuses to continue if ReEvo's own files were edited.
 
@@ -36,7 +36,7 @@ Our files (the only additions to ReEvo's folder):
 | `frameworks/reevo_crp/eval.py` | `problems/crp_online/eval.py` |
 | generated from `src/crp/llm/prompts.py` | `prompts/crp_online/{func_desc,func_signature,seed_func}.txt` |
 
-After changing any of these, run `bash scripts/setup_reevo.sh` again to re-copy them.
+After changing any of these, run `bash frameworks/setup_reevo.sh` again to re-copy them.
 
 ReEvo starts `python eval.py` for every rule, using whichever `python` is first on PATH,
 so run it with ReEvo's environment first on PATH:

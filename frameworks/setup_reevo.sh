@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Set up ReEvo at a pinned commit in frameworks/reevo, with its own Python 3.11 environment.
-# Run from anywhere:  bash scripts/setup_reevo.sh
+# Run from anywhere:  bash frameworks/setup_reevo.sh
 # Safe to run again: it reuses the clone and the environment, and re-copies our files.
 set -euo pipefail
 
@@ -29,6 +29,6 @@ echo "3/4 Installing ReEvo's packages and our crp code"
 "$DIR/.venv/bin/python" -m pip install --quiet joblib   # needed by baselines/eoh, missing from ReEvo's list
 
 echo "4/4 Our CRP files"
-"$DIR/.venv/bin/python" "$ROOT/scripts/install_reevo_files.py" "$DIR"
+"$DIR/.venv/bin/python" "$ROOT/frameworks/install_reevo_files.py" "$DIR"
 
 echo "Done. ReEvo is ready in $DIR"

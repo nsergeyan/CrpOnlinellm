@@ -13,7 +13,7 @@ dependencies = []  # standard library only
 
 [project.optional-dependencies]
 dev = ["pytest"]
-# LLM phase only (EoH and ReEvo themselves come from scripts/setup_reevo.sh).
+# LLM phase only (EoH and ReEvo themselves come from frameworks/setup_reevo.sh).
 llm = ["numpy"]  # available to LLM-written rules as np
 
 [tool.setuptools.packages.find]

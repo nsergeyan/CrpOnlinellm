@@ -1,4 +1,4 @@
-"""Run many GP experiments in parallel (one whole run per core) and print the medians.
+"""Run many GP experiments in parallel (one whole run per core).
 
 Runs already in the CSV are skipped, so an interrupted batch continues where it stopped.
 Keep the Mac awake overnight with caffeinate, e.g.:
@@ -10,10 +10,8 @@ Examples:
 import argparse
 import os
 
-from crp.gp.experiment import medians, run_many
-from crp.paper import GP_MEDIANS
+from crp.gp.experiment import run_many
 from crp.paths import RESULTS, TEST_SET, TRAINING_SET
-
 
 
 def main() -> None:
@@ -40,12 +38,7 @@ def main() -> None:
     seeds = list(range(1, args.runs + 1))
     run_many(args.alphas, seeds, args.hidden, args.population, args.generations, TRAINING_SET, TEST_SET,
              args.out, args.workers, progress=lambda line: print(line, flush=True))
-
-    print("\nmedian test total per alpha (these settings):")
-    results = medians(args.out, args.hidden, args.population, args.generations, TRAINING_SET.name)
-    for alpha, (median, n) in results.items():
-        paper = GP_MEDIANS.get(alpha)
-        print(f"  alpha {alpha}: {median:,.0f} over {n} runs" + (f" | paper {paper:,}" if paper else ""))
+    print("\ndone; medians vs the paper: python experiments/summarize_results.py")
 
 
 if __name__ == "__main__":

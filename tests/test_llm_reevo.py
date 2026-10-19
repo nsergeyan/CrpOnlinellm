@@ -1,7 +1,7 @@
 """ReEvo and the original EoH (bundled with ReEvo) end to end with a FAKE LLM server.
 
 Canned answers, no API key, no cost. Both frameworks are untouched: they talk to the fake
-server through ReEvo's normal base_url setting. Skipped until scripts/setup_reevo.sh has run.
+server through ReEvo's normal base_url setting. Skipped until frameworks/setup_reevo.sh has run.
 """
 import itertools
 import json
@@ -19,7 +19,7 @@ from crp.paths import ROOT
 
 REEVO = Path(os.environ.get("REEVO_DIR", ROOT / "frameworks" / "reevo")).resolve()
 pytestmark = pytest.mark.skipif(not (REEVO / ".venv" / "bin" / "python").exists(),
-                                reason="ReEvo not set up (bash scripts/setup_reevo.sh)")
+                                reason="ReEvo not set up (bash frameworks/setup_reevo.sh)")
 
 SIGNATURE = "def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:"
 # Totals on the training set at alpha 0.5: return RI = 26,452; math.sqrt(SH) + 100 * RI = 27,047

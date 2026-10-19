@@ -6,8 +6,9 @@ genetic-programming experiments from:
 > Đurasević, Đumić & Gil-Gala (2026). *Automated design of relocation rules with genetic
 > programming for the online container relocation problem.* Expert Systems with Applications.
 
-The same code will later evaluate heuristics designed by an LLM ([EoH](https://github.com/FeiLiu36/EoH)),
-so any Python function can act as a relocation rule.
+The same code also scores relocation rules written by LLMs, with two published frameworks
+([EoH](https://github.com/FeiLiu36/EoH) and [ReEvo](https://github.com/ai4co/reevo)), so GP and
+the LLM methods are compared on exactly the same data, scheme and scorer.
 
 ## The problem in short
 
@@ -55,19 +56,18 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 pip install -e ".[dev,llm]"   # only for the LLM experiments
-bash scripts/setup_reevo.sh  # only for the LLM experiments: ReEvo + original EoH (Python 3.11, see frameworks/README.md)
-pytest                      # 118 tests, about 40 seconds (the ReEvo test is skipped until setup)
+bash frameworks/setup_reevo.sh  # only for the LLM experiments: ReEvo + original EoH (Python 3.11, see frameworks/README.md)
+pytest                      # 117 tests, about 40 seconds (the ReEvo/EoH tests are skipped until setup)
 ```
 
 ## How to run
 
 | Task | Command | Time |
 |---|---|---|
-| One GP run, quick test (2,000 evaluations) | `python experiments/run_gp.py --alpha 0.5 --seed 1 --quick` | ~30 s |
-| One full GP run (51,000 evaluations, all cores) | `python experiments/run_gp.py --alpha 0.5 --seed 1` | ~11 min |
-| The paper's 90 runs (30 seeds x 3 alphas) | `caffeinate -i python experiments/run_gp_many.py` | ~12 h |
+| One GP run, quick test (2,000 evaluations) | `python experiments/run_gp_many.py --alphas 0.5 --runs 1 --quick` | a few minutes |
+| One full GP run (51,000 evaluations, one core) | `python experiments/run_gp_many.py --alphas 0.5 --runs 1` | ~1.5 h |
+| The paper's 90 runs (30 seeds x 3 alphas, one run per core) | `caffeinate -i python experiments/run_gp_many.py` | ~12 h |
 | Results table from the CSV | `python experiments/summarize_results.py` | instant |
-| Speed of one evaluation | `python experiments/benchmark_eval.py` | ~10 s |
 | Regenerate the training set (already done) | `python experiments/make_training_set.py` | instant |
 
 Full runs go to `results/gp_full.csv`, quick ones to `results/gp_quick.csv`. The batch script skips
@@ -98,8 +98,10 @@ data/caserta_840 (840 test yards) ──► results/gp_full.csv
 | `src/crp/yard.py` | `Yard`: stacks, `relocate`, `retrieve`, look-ahead window (`value`) |
 | `src/crp/terminals.py` | the six terminals for one candidate stack |
 | `src/crp/schemes.py` | unrestricted scheme: readable reference + a fast version that GP uses |
-| `src/crp/heuristics/pu.py` | PU1 and PU2, the paper's hand-made baselines |
-| `src/crp/gp/` | GP: `tree`, `crossover` (5), `mutation` (7), `algorithm` (the loop), `expression` (parse and compile formulas), `fitness` (cached and parallel), `experiment` (runs and CSV) |
+| `src/crp/pu.py` | PU1 and PU2, the paper's hand-made baselines |
+| `src/crp/gp/` | GP: `tree`, `crossover` (5), `mutation` (7), `algorithm` (the loop), `expression` (parse and compile formulas), `fitness` (with a cache), `experiment` (runs and CSV) |
+| `src/crp/llm/` | LLM part: `evaluate` (scores LLM-written code, same scheme as GP), `prompts` (texts shared by EoH and ReEvo) |
+| `frameworks/` | ReEvo + original EoH setup (`setup_reevo.sh`) and our plug-in files; see `frameworks/README.md` |
 | `src/crp/paper.py` | every paper number we reproduce |
 | `src/crp/paths.py` | data and results folders |
 | `experiments/` | scripts listed under "How to run" |
@@ -132,7 +134,7 @@ data/caserta_840 (840 test yards) ──► results/gp_full.csv
 4. One shared prompt file, `src/crp/llm/prompts.py`, so both methods get identical texts; the AVG
    description matches the code (unknown containers count as last known ID + 1).
 5. The authors' original framework code, unchanged, at a pinned commit, installed by
-   `scripts/setup_reevo.sh` in its own Python 3.11 environment.
+   `frameworks/setup_reevo.sh` in its own Python 3.11 environment.
 6. EoH is the original paper version, using the copy bundled with ReEvo, so both methods share
    the LLM client, scorer and prompt files. The newer EoH v0.2 was tried and removed.
 7. Qwen3-14B with thinking off; 500 evaluations x 10 runs per method per alpha.

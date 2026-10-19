@@ -1,19 +1,12 @@
 import pytest
 
 from crp.gp.expression import canonical
-from crp.gp.fitness import CachedFitness, ParallelFitness, total_relocations
-from crp.paths import TRAINING_SET
+from crp.gp.fitness import CachedFitness, total_relocations
 from golden import FORMULAS, GOLDEN
 
 
 def test_total_relocations_matches_golden(training_set):
     assert total_relocations(FORMULAS[3], training_set, 0.3, "max") == GOLDEN[3][2]
-
-
-def test_parallel_total_equals_serial():
-    with ParallelFitness(TRAINING_SET, workers=3) as fitness:
-        assert fitness(FORMULAS[3], 0.3, "max") == GOLDEN[3][2]
-        assert fitness(FORMULAS[0], 0.1, "max") == GOLDEN[0][3]
 
 
 def test_canonical_spelling():

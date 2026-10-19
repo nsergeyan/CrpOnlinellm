@@ -1,6 +1,6 @@
 import pytest
 
-from crp.heuristics.pu import solve_pu
+from crp.pu import solve_pu
 from crp.paper import PU_TOTALS
 from crp.yard import Yard
 

@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import csv
 import random
-import statistics
 import time
 from datetime import datetime
 from multiprocessing import Pool
@@ -137,13 +136,3 @@ def run_many(
                      f"{hours}h {rest // 60:02d}m")
     return rows
 
-
-def medians(out: str | Path, hidden: str, population: int, generations: int, training_set: str) -> dict:
-    """Median test total and number of runs per alpha, for runs with these settings."""
-    by_alpha: dict[float, list[int]] = {}
-    with Path(out).open(newline="") as f:
-        for r in csv.DictReader(f):
-            if (r["hidden"], r["population"], r["generations"], r["training_set"]) == \
-                    (hidden, str(population), str(generations), training_set):
-                by_alpha.setdefault(float(r["alpha"]), []).append(int(r["test_total"]))
-    return {a: (statistics.median(v), len(v)) for a, v in sorted(by_alpha.items(), reverse=True)}

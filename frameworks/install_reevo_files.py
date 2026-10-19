@@ -1,9 +1,9 @@
-"""Put our CRP files into a ReEvo folder (run by scripts/setup_reevo.sh).
+"""Put our CRP files into a ReEvo folder (run by frameworks/setup_reevo.sh).
 
 Writes the three ReEvo prompt files from src/crp/llm/prompts.py, so ReEvo and EoH always
 get the same texts, and copies our settings file and eval.py. ReEvo's own files are not touched.
 
-    python scripts/install_reevo_files.py frameworks/reevo
+    python frameworks/install_reevo_files.py frameworks/reevo
 """
 import json
 import shutil
@@ -12,7 +12,7 @@ from pathlib import Path
 
 from crp.llm.prompts import FUNCTION_DESCRIPTION, PROBLEM_DESCRIPTION, TEMPLATE_PROGRAM
 
-OURS = Path(__file__).resolve().parents[1] / "frameworks" / "reevo_crp"
+OURS = Path(__file__).resolve().parent / "reevo_crp"
 
 
 def install(reevo: Path) -> None:
