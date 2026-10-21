@@ -6,9 +6,6 @@ Additions to the plain problem text:
 - "Store the score in a variable named priority ... return priority": the original EoH cuts
   the code at the last 'return' and appends 'return priority', so 'return SH' would fail.
   Both methods get the same sentence, so the comparison stays fair.
-- "/no_think" ends PROBLEM_DESCRIPTION: Qwen3's official switch to turn thinking off. This
-  text is part of every prompt of both methods (also ReEvo's long-term reflection), and it
-  works on any model server.
 """
 
 PROBLEM_DESCRIPTION = (
@@ -18,7 +15,7 @@ PROBLEM_DESCRIPTION = (
     "moved, so every container above the current target must be relocated to another stack "
     "before the target can leave. Only IDs inside a look-ahead window are known; unknown "
     "containers are treated as one more than the last known ID. The goal is to minimise the "
-    "total number of relocations. /no_think"
+    "total number of relocations."
 )
 
 FUNCTION_DESCRIPTION = (

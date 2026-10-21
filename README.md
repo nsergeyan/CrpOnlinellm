@@ -138,8 +138,9 @@ data/caserta_840 (840 test yards) ──► results/gp_full.csv
 6. EoH is the original paper version, using the copy bundled with ReEvo, so both methods share
    the LLM client, scorer and prompt files. The newer EoH v0.2 was tried and removed.
 7. Qwen3-14B with thinking off; 500 evaluations x 10 runs per method per alpha.
-8. Thinking is off via Qwen3's official `/no_think` switch at the end of the shared problem
-   description, which every prompt of both methods contains; it works on any model server.
+8. Thinking is off via Qwen3's official non-thinking chat template (empty think block), built
+   into the model server with `frameworks/make_nothink_model.py`, the same for both methods.
+   A `/no_think` in the prompt does not work with Ollama, which appends its own switch after it.
 9. The shared prompt asks for a variable `priority` and `return priority`, because the original
    EoH replaces the last line of the code with `return priority`.
 
