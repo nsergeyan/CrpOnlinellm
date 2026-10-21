@@ -13,6 +13,7 @@ Command line (ReEvo protocol: the last printed line is the total, or a FAILED li
 from __future__ import annotations
 
 import argparse
+import json
 import math
 import numbers
 from pathlib import Path
@@ -79,16 +80,20 @@ def main(argv: Optional[list[str]] = None) -> None:
     parser.add_argument("--func", default="priority", help="function name inside the file")
     parser.add_argument("--alpha", type=float, required=True)
     parser.add_argument("--set", choices=["training", "test"], default="training")
+    parser.add_argument("--log", type=Path, help="append one JSON line per rule: total, error, code")
     args = parser.parse_args(argv)
 
     instances = load_dataset(TRAINING_SET if args.set == "training" else TEST_SET)
+    code = args.code.read_text()
+    total, error = None, None
     try:
-        func = compile_rule(args.code.read_text(), args.func)
-        total = total_or_raise(func, instances, args.alpha)
+        total = total_or_raise(compile_rule(code, args.func), instances, args.alpha)
     except Exception as e:
-        print(f"FAILED: {type(e).__name__}: {e}")
-        return
-    print(total)
+        error = f"{type(e).__name__}: {e}"
+    if args.log:
+        with args.log.open("a") as f:
+            f.write(json.dumps({"total": total, "error": error, "code": code}) + "\n")
+    print(total if error is None else f"FAILED: {error}")
 
 
 if __name__ == "__main__":

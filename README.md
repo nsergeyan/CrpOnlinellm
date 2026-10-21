@@ -69,8 +69,13 @@ pytest                      # 114 tests, about 40 seconds (the ReEvo/EoH tests a
 | The paper's 90 runs (30 seeds x 3 alphas, one run per core) | `caffeinate -i python experiments/run_gp_many.py` | ~12 h |
 | Results table from the CSV | `python experiments/summarize_results.py` | instant |
 | Regenerate the training set (already done) | `python experiments/make_training_set.py` | instant |
+| One LLM run, quick test (30 evaluations) | `python experiments/run_llm.py --method eoh --alpha 0.5 --seed 1 --quick` | ~5-10 min on a laptop |
+| One full LLM run (500 evaluations) | `python experiments/run_llm.py --method reevo --alpha 0.5 --seed 1` | ~1-2 h on a laptop |
 
-Full runs go to `results/gp_full.csv`, quick ones to `results/gp_quick.csv`. The batch script skips
+Full runs go to `results/gp_full.csv`, quick ones to `results/gp_quick.csv`. LLM runs go to
+`results/llm_full.csv` (quick: `llm_quick.csv`), every scored rule of a run to
+`results/llm_runs_full/<method>_a<alpha>_s<seed>.jsonl`, and the frameworks' own output
+(prompts and answers) to `runs/`. LLM runs need Ollama with `qwen3:14b-nothink` and the ReEvo setup. The batch script skips
 runs that are already in the CSV, so an interrupted batch continues where it stopped.
 
 ## How it works
@@ -100,7 +105,7 @@ data/caserta_840 (840 test yards) ──► results/gp_full.csv
 | `src/crp/schemes.py` | unrestricted scheme: readable reference + a fast version that GP uses |
 | `src/crp/pu.py` | PU1 and PU2, the paper's hand-made baselines |
 | `src/crp/gp/` | GP: `tree`, `crossover` (5), `mutation` (7), `algorithm` (the loop), `expression` (parse and compile formulas), `fitness` (with a cache), `experiment` (runs and CSV) |
-| `src/crp/llm/` | LLM part: `evaluate` (scores LLM-written code, same scheme as GP), `prompts` (texts shared by EoH and ReEvo) |
+| `src/crp/llm/` | LLM part: `evaluate` (scores LLM-written code, same scheme as GP), `prompts` (texts shared by EoH and ReEvo), `experiment` (one run and CSV) |
 | `frameworks/` | ReEvo + original EoH setup (`setup_reevo.sh`) and our plug-in files; see `frameworks/README.md` |
 | `src/crp/paper.py` | every paper number we reproduce |
 | `src/crp/paths.py` | data and results folders |
@@ -143,12 +148,19 @@ data/caserta_840 (840 test yards) ──► results/gp_full.csv
    A `/no_think` in the prompt does not work with Ollama, which appends its own switch after it.
 9. The shared prompt asks for a variable `priority` and `return priority`, because the original
    EoH replaces the last line of the code with `return priority`.
+10. A run counts exactly 500 evaluations itself: `eval.py` logs every scored rule in order, and the
+    run's result is the best of the first 500. Both frameworks overshoot their own budget, so this
+    gives both methods exactly the same number of evaluations.
+11. Framework defaults from the ReEvo paper: population 10, ReEvo starts from 30 rules. With very
+    few starting rules ReEvo can stop early, because it needs two valid rules to pick parents.
+12. `seed` is only a run number: neither framework takes a random seed, and the LLM's own
+    randomness dominates anyway.
 
 ### Simplification
 
-10. Only the Maximum hidden strategy is implemented, because every scenario uses it; the C++
+13. Only the Maximum hidden strategy is implemented, because every scenario uses it; the C++
     Ignore strategy was removed, which changes no Maximum result.
-11. The readable reference path (`solve_unrestricted`, `terminals.py`, `evaluate`) is kept next
+14. The readable reference path (`solve_unrestricted`, `terminals.py`, `evaluate`) is kept next
     to the fast path: it is the version to read, and the tests compare both move by move.
 
 ## License

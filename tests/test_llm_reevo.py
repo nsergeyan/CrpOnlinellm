@@ -3,6 +3,7 @@
 Canned answers, no API key, no cost. Both frameworks are untouched: they talk to the fake
 server through ReEvo's normal base_url setting. Skipped until frameworks/setup_reevo.sh has run.
 """
+import csv
 import itertools
 import json
 import os
@@ -115,3 +116,30 @@ def test_original_eoh_runs_with_fake_llm(tmp_path):
     stdouts = "".join(p.read_text() for p in (tmp_path / "evaluations").glob("*_stdout.txt"))
     assert "NameError: name 'priority' is not defined" in stdouts
     assert "val skipped" in log
+
+
+
+@pytest.mark.parametrize("method, answers", [("reevo", REEVO_ANSWERS), ("eoh", EOH_ANSWERS)])
+def test_run_experiment_logs_every_rule_and_counts_the_budget(method, answers, tmp_path, test_set):
+    from crp.llm.evaluate import compile_rule, evaluate_rule
+    from crp.llm.experiment import FIELDS, append_row, run_experiment
+
+    rule_log, test = tmp_path / "rules.jsonl", test_set[:20]
+    with fake_llm(answers) as url:
+        row = run_experiment(method=method, alpha=0.5, seed=1, budget=8, model="fake", base_url=url,
+                             test_instances=test, rule_log=rule_log, work_dir=tmp_path / "run",
+                             pop_size=2, init_pop_size=6)
+
+    rules = [json.loads(line) for line in rule_log.read_text().splitlines()]
+    assert len(rules) > 8 and row["evaluations"] == 8      # the framework overshoots; only 8 count
+    assert row["train_fitness"] == 26_452                    # best fake rule (return RI)
+    assert row["test_total"] == evaluate_rule(compile_rule(row["code"], "priority_v2"), test, 0.5)
+    assert 0 < row["valid_rate"] < 1                         # the fake answers include failing rules
+    assert any(r["error"] for r in rules[:8])
+    assert row["llm_calls"] >= 6                             # counted from the framework's output
+
+    out = tmp_path / "llm.csv"
+    append_row(out, row)
+    append_row(out, row)
+    rows = list(csv.DictReader(out.open()))
+    assert len(rows) == 2 and list(rows[0]) == FIELDS        # header written once
