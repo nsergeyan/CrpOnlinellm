@@ -71,6 +71,7 @@ pytest                      # 114 tests, about 40 seconds (the ReEvo/EoH tests a
 | Regenerate the training set (already done) | `python experiments/make_training_set.py` | instant |
 | One LLM run, quick test (30 evaluations) | `python experiments/run_llm.py --method eoh --alpha 0.5 --seed 1 --quick` | ~5-10 min on a laptop |
 | One full LLM run (500 evaluations) | `python experiments/run_llm.py --method reevo --alpha 0.5 --seed 1` | ~1-2 h on a laptop |
+| All 60 LLM runs (2 methods x 3 alphas x 10 seeds), resumable | `python experiments/run_llm_many.py` | days; meant for the GPU server |
 
 Full runs go to `results/gp_full.csv`, quick ones to `results/gp_quick.csv`. LLM runs go to
 `results/llm_full.csv` (quick: `llm_quick.csv`), every scored rule of a run to
@@ -155,12 +156,15 @@ data/caserta_840 (840 test yards) ──► results/gp_full.csv
     few starting rules ReEvo can stop early, because it needs two valid rules to pick parents.
 12. `seed` is only a run number: neither framework takes a random seed, and the LLM's own
     randomness dominates anyway.
+13. The batch runs one run at a time, seed by seed (seed 1 of every method and alpha first), so a
+    stopped batch stays balanced. Parallel runs would need one ReEvo copy each, because a run
+    writes the current rule to ReEvo's `gpt.py`.
 
 ### Simplification
 
-13. Only the Maximum hidden strategy is implemented, because every scenario uses it; the C++
+14. Only the Maximum hidden strategy is implemented, because every scenario uses it; the C++
     Ignore strategy was removed, which changes no Maximum result.
-14. The readable reference path (`solve_unrestricted`, `terminals.py`, `evaluate`) is kept next
+15. The readable reference path (`solve_unrestricted`, `terminals.py`, `evaluate`) is kept next
     to the fast path: it is the version to read, and the tests compare both move by move.
 
 ## License

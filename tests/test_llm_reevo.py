@@ -143,3 +143,17 @@ def test_run_experiment_logs_every_rule_and_counts_the_budget(method, answers, t
     append_row(out, row)
     rows = list(csv.DictReader(out.open()))
     assert len(rows) == 2 and list(rows[0]) == FIELDS        # header written once
+
+
+def test_run_many_skips_finished_runs(tmp_path, test_set):
+    from crp.llm.experiment import run_many
+
+    settings = dict(methods=["reevo"], alphas=[0.5], seeds=[1], budget=8, model="fake",
+                    test_instances=test_set[:20], out=tmp_path / "llm.csv", rule_dir=tmp_path / "rules",
+                    work_dir=tmp_path / "runs", progress=lambda line: None, pop_size=2, init_pop_size=6)
+    with fake_llm(REEVO_ANSWERS) as url:
+        first = run_many(base_url=url, **settings)
+        again = run_many(base_url=url, **settings)  # already in the CSV: nothing is rerun
+    assert len(first) == 1 and first[0]["train_fitness"] == 26_452
+    assert again == [] and len(list(csv.DictReader((tmp_path / "llm.csv").open()))) == 1
+    assert (tmp_path / "rules" / "reevo_a0.5_s1.jsonl").exists()
