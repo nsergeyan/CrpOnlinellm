@@ -57,7 +57,7 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 pip install -e ".[dev,llm]"   # only for the LLM experiments
 bash frameworks/setup_reevo.sh  # only for the LLM experiments: ReEvo + original EoH (Python 3.11, see frameworks/README.md)
-pytest                      # 114 tests, about 40 seconds (the ReEvo/EoH tests are skipped until setup)
+pytest                      # 118 tests, about 40 seconds (the ReEvo/EoH tests are skipped until setup)
 ```
 
 ## How to run
@@ -159,12 +159,15 @@ data/caserta_840 (840 test yards) ──► results/gp_full.csv
 13. The batch runs one run at a time, seed by seed (seed 1 of every method and alpha first), so a
     stopped batch stays balanced. Parallel runs would need one ReEvo copy each, because a run
     writes the current rule to ReEvo's `gpt.py`.
+14. Every rule is scored with a fixed random seed (Python's `random` and numpy's), because the LLM
+    sometimes adds random noise to break ties; the same rule then always gives the same total.
+    Randomness from other sources (e.g. the clock) is not covered.
 
 ### Simplification
 
-14. Only the Maximum hidden strategy is implemented, because every scenario uses it; the C++
+15. Only the Maximum hidden strategy is implemented, because every scenario uses it; the C++
     Ignore strategy was removed, which changes no Maximum result.
-15. The readable reference path (`solve_unrestricted`, `terminals.py`, `evaluate`) is kept next
+16. The readable reference path (`solve_unrestricted`, `terminals.py`, `evaluate`) is kept next
     to the fast path: it is the version to read, and the tests compare both move by move.
 
 ## License

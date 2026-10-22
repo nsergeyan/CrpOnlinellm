@@ -3,6 +3,8 @@
 The LLM sends Python text. compile_rule turns it into a function, a guard checks every
 score it returns, and evaluate_rule runs it with the same scheme and yards as GP.
 Any bad answer (exception, non-number, NaN, inf) fails the whole rule: the result is None.
+Every rule is scored with a fixed random seed, so a rule that uses random numbers (e.g. to
+break ties) still gives the same total every time.
 
 Timeouts are not handled here: an endless loop never returns, so the caller must kill it
 (ReEvo's main.py runs eval.py with a timeout, for both EoH and ReEvo).
@@ -16,6 +18,7 @@ import argparse
 import json
 import math
 import numbers
+import random
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -58,9 +61,20 @@ def guarded(func: Callable[..., object]) -> FastPriority:
     return checked
 
 
+def _fix_random_seed() -> None:
+    """Same random numbers for every scoring of a rule (Python's random and numpy's)."""
+    random.seed(0)
+    try:
+        import numpy
+        numpy.random.seed(0)
+    except ImportError:
+        pass
+
+
 def total_or_raise(func: Callable[..., object], instances: list[Instance], alpha: float) -> int:
     """Total relocations over all instances; raises if the rule misbehaves."""
     f = guarded(func)
+    _fix_random_seed()
     return sum(solve_unrestricted_fast(Yard(inst, alpha), f) for inst in instances)
 
 

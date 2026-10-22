@@ -114,3 +114,14 @@ def test_template_runs_and_scores_like_return_sh(training_set):
 def test_function_description_names_every_input():
     for name in ("SH", "EMP", "AVG", "CUR", "RI", "DIFF"):
         assert f"{name} = " in FUNCTION_DESCRIPTION
+
+
+def test_rules_with_randomness_score_the_same_every_time(test_set):
+    # an LLM-written rule from a real run: random noise to break ties
+    func = compile_rule("def priority(SH, EMP, AVG, CUR, RI, DIFF):\n"
+                        "    import random\n"
+                        "    priority = 0.3 * SH - 0.5 * EMP - 0.1 * RI + 0.001 * random.random()\n"
+                        "    return priority\n", "priority")
+    numpy_func = rule("return SH + 0.001 * np.random.rand()")
+    for f in (func, numpy_func):
+        assert evaluate_rule(f, test_set[:100], 0.5) == evaluate_rule(f, test_set[:100], 0.5)
