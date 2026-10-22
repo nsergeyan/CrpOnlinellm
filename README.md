@@ -151,7 +151,8 @@ data/caserta_840 (840 test yards) ──► results/gp_full.csv
    EoH replaces the last line of the code with `return priority`.
 10. A run counts exactly 500 evaluations itself: `eval.py` logs every scored rule in order, and the
     run's result is the best of the first 500. Both frameworks overshoot their own budget, so this
-    gives both methods exactly the same number of evaluations.
+    gives both methods exactly the same number of evaluations. The frameworks get 10% extra budget,
+    because an LLM answer without code uses up their budget but never reaches our scorer.
 11. Framework defaults from the ReEvo paper: population 10, ReEvo starts from 30 rules. With very
     few starting rules ReEvo can stop early, because it needs two valid rules to pick parents.
 12. `seed` is only a run number: neither framework takes a random seed, and the LLM's own

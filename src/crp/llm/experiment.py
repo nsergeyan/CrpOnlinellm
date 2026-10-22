@@ -4,6 +4,8 @@ Both methods are started through ReEvo's main.py (algorithm=eoh or reevo), so th
 the LLM client, our eval.py and the prompt files. eval.py appends every scored rule to a
 JSONL file in evaluation order; the run's result is the best of the first `budget` rules,
 so both methods get exactly the same number of evaluations (both frameworks overshoot).
+The frameworks get 10% more budget than we count, because an LLM answer without code counts
+in their budget but never reaches eval.py, so it is not in our log.
 """
 from __future__ import annotations
 
@@ -38,7 +40,7 @@ def run_framework(method: str, alpha: float, budget: int, model: str, base_url: 
     command = [
         str(venv_bin / "python"), "main.py", "problem=crp_online", f"problem.problem_size={alpha}",
         f"algorithm={method}", "llm_client=openai", f"llm_client.model={model}",
-        "llm_client.api_key=local", f"+llm_client.base_url={base_url}", f"max_fe={budget}",
+        "llm_client.api_key=local", f"+llm_client.base_url={base_url}", f"max_fe={budget + budget // 10}",
         f"pop_size={pop_size}", f"init_pop_size={init_pop_size}", "timeout=60",
         f"hydra.run.dir={work_dir}",
     ]
@@ -69,6 +71,8 @@ def run_experiment(method: str, alpha: float, seed: int, budget: int, model: str
                               rule_log, work_dir, echo)
 
     rules = [json.loads(line) for line in rule_log.read_text().splitlines()][:budget]
+    if len(rules) < budget:  # not written to the CSV, so the batch retries this run
+        raise RuntimeError(f"only {len(rules)} scored rules, fewer than the budget {budget}")
     valid = [r for r in rules if r["total"] is not None]
     if not valid:
         raise RuntimeError(f"no valid rule in {rule_log}")
