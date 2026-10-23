@@ -163,12 +163,15 @@ data/caserta_840 (840 test yards) ──► results/gp_full.csv
 14. Every rule is scored with a fixed random seed (Python's `random` and numpy's), because the LLM
     sometimes adds random noise to break ties; the same rule then always gives the same total.
     Randomness from other sources (e.g. the clock) is not covered.
+15. The main experiment gives the LLM no CRP heuristic knowledge, close to the original EoH and
+    ReEvo setups, so improvements can be attributed to the framework and not to our hints. A very
+    short CRP hint is planned as a separate ablation experiment.
 
 ### Simplification
 
-15. Only the Maximum hidden strategy is implemented, because every scenario uses it; the C++
+16. Only the Maximum hidden strategy is implemented, because every scenario uses it; the C++
     Ignore strategy was removed, which changes no Maximum result.
-16. The readable reference path (`solve_unrestricted`, `terminals.py`, `evaluate`) is kept next
+17. The readable reference path (`solve_unrestricted`, `terminals.py`, `evaluate`) is kept next
     to the fast path: it is the version to read, and the tests compare both move by move.
 
 ## License
