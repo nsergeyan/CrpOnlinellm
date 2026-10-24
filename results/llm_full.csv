@@ -1,0 +1,1275 @@
+date,method,model,alpha,seed,evaluations,train_fitness,test_total,valid_rate,llm_calls,seconds,code
+2026-10-22T15:16:15,eoh,qwen3:14b-nothink,0.5,1,500,24344,24822,0.772,585,2775.9,"def priority_v2(SH, EMP, AVG, CUR, RI, DIFF):  
+    if EMP == 0:  
+        return float('inf')  
+
+    # Free space benefit: more free space is better  
+    free_space_benefit = EMP / 10.0  
+
+    # Blocking risk: more blocking containers increase risk  
+    blocking_risk = RI * 1.0  
+
+    # Future retrieval potential: lower average ID means more likely to be retrieved soon  
+    future_retrieval_potential = 1 / (AVG + 1) if AVG != 0 else 1.0  
+
+    # Compactness factor: fewer containers in stack make it less compact  
+    compactness_factor = 1 / (SH + 1)  
+
+    # Proximity benefit: closer to target (smaller DIFF) is better  
+    proximity_benefit = 1 / (1 + abs(DIFF))  
+
+    # New priority score based on a different formulation  
+    priority = (1 / free_space_benefit) * (blocking_risk * compactness_factor) - (future_retrieval_potential * proximity_benefit)  
+
+    return priority
+"
+2026-10-22T15:48:04,reevo,qwen3:14b-nothink,0.5,1,500,27105,27728,0.976,940,1909.6,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Enhanced score function for candidate stacks in the container relocation problem.""""""
+    # Emphasize free space (EMP), reduce blocking (RI), improve ID alignment (DIFF)
+    # Adjust stack height (SH) impact for more balanced performance
+    priority = -EMP * 2.0 + RI * 1.5 - DIFF * 1.0 + (SH / 100) * 0.3
+    return priority
+"
+2026-10-22T16:41:47,eoh,qwen3:14b-nothink,0.3,1,500,25472,25940,0.834,581,3223.0,"def priority_v2(SH, EMP, AVG, CUR, RI, DIFF):
+    # Nonlinear reward for available space
+    space_reward = (EMP ** 1.5) * 0.0003
+    # Penalize stacks with high average ID relative to current
+    entanglement = (AVG - CUR) * 0.02 if AVG > CUR else 0
+    # Dynamic scaling factor based on available space and current ID
+    scale_factor = (EMP + 1) / (CUR + 1) if CUR > 0 else 1
+    # Adjust entanglement with scale factor
+    weighted_entanglement = entanglement * scale_factor
+    # Reward for stacks with lower average ID
+    avg_reward = max(0, CUR - AVG) * 0.0002
+    # Penalize stacks with many blocking containers
+    block_penalty = RI * 0.05 if RI > 0 else 0
+    # Estimate future entanglement based on average ID
+    future_entanglement = (AVG - CUR) * 0.00005 if AVG > CUR else 0
+    # Nonlinear penalty for stack height
+    height_penalty = (SH ** 2.0) * 0.00002
+    # Normalize DIFF penalty
+    diff_penalty = (DIFF / 1000000000) * 0.000005 if DIFF > 0 else 0
+    # Combine all factors
+    priority = -space_reward + weighted_entanglement - avg_reward + block_penalty + future_entanglement + height_penalty + diff_penalty
+    return priority
+"
+2026-10-22T17:16:13,reevo,qwen3:14b-nothink,0.3,1,500,27233,27746,0.996,940,2065.6,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Improved priority function with context-aware, adaptive, and non-linear weights for enhanced decision-making in container relocation.""""""
+    diff_value = 0 if DIFF == 2.1e9 else DIFF
+
+    # Adaptive weights based on context
+    weight_EMP = 4.0 if EMP < 5 else (3.0 if EMP < 10 else 2.5)
+    weight_RI = 3.5 if SH > 10 else (3.0 if SH > 5 else 4.0)
+    weight_AVG = 0.03 if AVG < CUR else (0.02 if AVG < CUR + 5 else 0.01)
+    weight_SH = 0.07 if SH > 20 else (0.05 if SH > 10 else 0.09)
+    weight_DIFF = 1.0 if diff_value > 100 else (0.8 if diff_value > 50 else 0.5)
+
+    # Dynamic, non-linear adjustment for container ID mismatch
+    id_mismatch_penalty = max(0, (AVG - CUR) * 0.001)
+    # Additional penalty for stacks that are too full, discouraging further congestion
+    fullness_penalty = max(0, (SH - 15) * 0.01)
+
+    # Priority calculation with dynamic weights and penalties
+    priority = -EMP * weight_EMP - diff_value * weight_DIFF + RI * weight_RI + AVG * weight_AVG + SH * weight_SH + id_mismatch_penalty + fullness_penalty
+    return priority
+"
+2026-10-22T17:53:46,eoh,qwen3:14b-nothink,0.1,1,500,29447,29983,0.83,580,2252.8,"def priority_v2(SH, EMP, AVG, CUR, RI, DIFF):  
+    priority = (RI * 0.8) - (EMP * 0.2) - (SH * 0.05) - (DIFF * 0.02) - (AVG * 0.01)  
+    return priority
+"
+2026-10-22T18:47:26,reevo,qwen3:14b-nothink,0.1,1,500,29415,29990,0.988,940,3220.8,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Enhanced priority function with stronger emphasis on future blockage prevention and better retrieval order alignment.""""""
+    # Normalize stack height (smaller is better)
+    normalized_SH = SH / 20.0
+    # Normalize free space (more is better)
+    normalized_EMP = EMP / 10.0
+    # Stronger penalty for future blockage (heavier penalty)
+    ri_penalty = RI * 0.6
+    # Reward stacks where the smallest ID is significantly larger than the current container
+    diff_factor = (DIFF if DIFF != 2.1e9 else 0.0) * 0.12
+    # Favor stacks where the average ID is close to the current container (better retrieval order alignment)
+    avg_proximity = abs(AVG - CUR) * 0.12
+    # Reward stacks with higher average ID (closer to future retrieval needs)
+    avg_reward = (AVG - CUR) * 0.12 if AVG > CUR else 0.0
+    # Stack utilization: balance between height and free space
+    stack_utilization = (EMP / (SH + 1)) * 0.06
+
+    # Combine all factors to compute the priority score
+    priority = normalized_SH - normalized_EMP - diff_factor + avg_proximity + ri_penalty + avg_reward + stack_utilization
+    return priority
+"
+2026-10-22T19:38:08,eoh,qwen3:14b-nothink,0.5,2,500,24265,24719,0.882,581,3041.9,"def priority_v2(SH, EMP, AVG, CUR, RI, DIFF):
+    # Exponential decay for stack height and available space with adjusted exponents
+    height_decay = 1 / (1 + SH ** 1.5)
+    space_decay = 1 / (1 + (EMP ** 1.2) if EMP > 0 else 1)
+
+    # Entropy-based penalty for stack disorder with different exponent and normalization
+    if DIFF == 2.1e9:
+        entropy_penalty = 0
+    else:
+        # Approximate entropy using AVG and ID difference with modified exponents
+        entropy_penalty = (abs(DIFF) ** 0.8) / (1 + AVG ** 0.6) if AVG > 0 else 0
+
+    # Dynamic penalty based on future blocking containers with different exponent
+    blocking_penalty = (RI ** 0.7) if RI > 0 else 0
+
+    # Combine components into final priority score
+    priority = height_decay + space_decay + entropy_penalty + blocking_penalty
+    return priority
+"
+2026-10-22T20:42:02,reevo,qwen3:14b-nothink,0.5,2,500,25292,25676,0.946,940,3833.6,"import numpy as np
+def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Priority function with refined nonlinear scaling, logarithmic saturation, and dynamic normalization.""""""
+
+    # Clamp inputs for numerical stability
+    SH = max(0.0, min(SH, 100.0))
+    EMP = max(0.0, min(EMP, 100.0))
+    AVG = max(0.0, min(AVG, 10000.0))
+    CUR = max(0.0, min(CUR, 10000.0))
+    RI = max(0.0, min(RI, 100.0))
+    DIFF = max(0.0, min(DIFF, 1000000000.0))
+
+    # Stack height score: Inverse exponential growth with saturation
+    sh_score = 1 / (1 + (SH ** 2.3) * (1 + SH ** 0.5))
+
+    # Free space score: Reward free space with logarithmic dampening
+    emp_score = (EMP ** 1.7) / (1 + (EMP ** 2.2) * (1 + EMP ** 0.5))
+
+    # Average ID score: Stronger penalty for higher average (only if above current)
+    avg_diff = max(0.0, AVG - CUR)
+    avg_score = (avg_diff ** 2.7) / (750 * (1 + (avg_diff / 1400)) * (1 + (avg_diff ** 0.3)))
+
+    # Blocking containers penalty: Smooth polynomial with diminishing returns
+    blocking_score = (RI ** 2.3) * (1 + (RI / 300)) * (4.0 / (1 + (RI / 360))) / (1 + (RI ** 0.5))
+
+    # DIFF score: Smooth cubic scaling with logarithmic saturation
+    if DIFF > 1000000000:
+        diff_score = (DIFF ** 2.8) / (2500000000000 * (1 + (DIFF / 1500000000))) / (1 + (DIFF ** 0.3))
+    else:
+        diff_score = 0.0
+
+    # Combine scores with dynamic normalization
+    priority = sh_score + emp_score + avg_score + blocking_score - diff_score
+    return priority / (1 + abs(priority)) if abs(priority) > 1e-6 else 0.0
+"
+2026-10-22T21:29:49,eoh,qwen3:14b-nothink,0.3,2,500,25303,25691,0.86,581,2866.9,"def priority_v2(SH, EMP, AVG, CUR, RI, DIFF):
+    # Constants for the new heuristic
+    ri_weight = 4.0
+    diff_weight = 1.0
+    height_factor = 0.1
+
+    # Calculate the impact of blocking containers
+    ri_component = ri_weight * RI
+
+    # Calculate the impact of the difference in IDs
+    diff_component = diff_weight * (1 / (1 + abs(DIFF)))
+
+    # Calculate adjustment based on stack height
+    height_component = height_factor / (1 + SH)
+
+    # Combine components into the final priority score
+    priority = ri_component - diff_component - height_component
+    return priority
+"
+2026-10-22T22:45:54,reevo,qwen3:14b-nothink,0.3,2,500,24757,25271,0.976,940,4565.3,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Improved priority function with stronger focus on free space, future blocking, and sharper normalization.""""""
+    # Handle empty stack case for DIFF
+    if DIFF == 2.1e9:
+        DIFF = float('inf')
+
+    # Normalize stack height: smaller is better
+    SH_norm = SH / 100.0  # Max stack height of 100
+
+    # Normalize free space: more is better
+    EMP_norm = EMP / 100.0  # Max free space of 100
+
+    # Normalize average ID: smaller is better
+    if AVG == 0:
+        AVG_norm = 1.0  # Empty stack is ideal
+    else:
+        buffer = CUR + 300  # Increased buffer for better responsiveness
+        AVG_norm = 1 - (AVG / buffer) if buffer > 0 else 0.0
+
+    # Normalize DIFF: larger is better
+    if DIFF == float('inf'):
+        DIFF_norm = 1.0  # Empty stack is ideal
+    else:
+        # Even sharper decay for DIFF
+        DIFF_norm = min(1.0, 1 / (1 + DIFF / 10)) if DIFF > 0 else 0.0
+
+    # Adaptive weights with even stronger focus on free space and future blocking
+    WEIGHT_SH = 0.0003  # Extremely light penalty for stack height
+    WEIGHT_EMP = 3.5  # Very strong preference for more free space
+    WEIGHT_AVG = 0.0005  # Minimal penalty for higher average ID
+    WEIGHT_RI = 0.8  # Very strong penalty for future blocking
+    WEIGHT_DIFF = 0.6  # Very strong preference for larger DIFF
+
+    # Calculate priority using optimized quadratic penalties and preferences
+    priority = (
+        WEIGHT_SH * (SH_norm ** 2)  # Quadratic penalty for higher stack
+        - WEIGHT_EMP * (EMP_norm ** 2)  # Quadratic preference for free space
+        + WEIGHT_AVG * AVG_norm  # Minimal penalty for higher average ID
+        + WEIGHT_RI * (RI ** 2)  # Strong quadratic penalty for future blocking
+        - WEIGHT_DIFF * (DIFF_norm ** 2)  # Strong quadratic preference for larger DIFF
+    )
+
+    return priority
+"
+2026-10-22T23:37:03,eoh,qwen3:14b-nothink,0.1,2,500,29344,30030,0.872,581,3068.9,"import numpy as np
+
+def priority_v2(SH, EMP, AVG, CUR, RI, DIFF):
+    # Parameters for the algorithm
+    alpha = 0.2
+    beta = 0.25
+    gamma = 0.1
+    epsilon = 1e-9  # Avoid division by zero
+
+    # Compute logarithmic penalty for inverse of available space ratio
+    available_ratio = (EMP + epsilon) / (SH + epsilon)
+    log_inverse_ratio = -np.log(available_ratio + epsilon)
+
+    # Compute exponential penalty for blocking containers
+    blocking_penalty = np.exp(RI + 1)  # +1 to avoid zero for RI
+
+    # Compute a linear factor from DIFF
+    diff_factor = max(0, (abs(DIFF) + 1) ** gamma)  # +1 to avoid log(0)
+
+    # Compute the priority score
+    priority = alpha * log_inverse_ratio + beta * blocking_penalty + (SH / (AVG + epsilon)) * diff_factor
+
+    return priority
+"
+2026-10-23T00:35:45,reevo,qwen3:14b-nothink,0.1,2,500,29105,29584,0.99,940,3521.6,"import numpy as np
+def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Avoid division by zero or very small numbers
+    EMP = max(EMP, 1e-9)
+    DIFF = max(DIFF, 1e-9)
+    
+    # Dynamic normalization based on inputs
+    norm_EMP = max(1.0, EMP + 1e-9)
+    norm_AVG = max(1.0, AVG + 1e-9)
+    norm_RI = max(1.0, RI + 1e-9)
+    norm_DIFF = max(1.0, DIFF + 1e-9)
+
+    # Calculate normalized components
+    # More free space is better
+    term1 = (norm_EMP - EMP) / norm_EMP
+    # Lower average ID is better (prefer stacks with lower average ID compared to CUR)
+    term2 = (AVG - CUR) / norm_AVG if AVG >= CUR else -1.0
+    # Fewer blocked containers is better
+    term3 = RI / norm_RI
+    # Smaller smallest ID is better
+    term4 = DIFF / norm_DIFF if DIFF >= 0 else -1.0
+
+    # Priority is a linear combination of the terms
+    # Strong emphasis on free space and blocking reduction, moderate on average ID, minimal on smallest ID
+    priority = (0.45 * term1) + (0.2 * term2) + (0.3 * term3) + (0.05 * term4)
+    return priority
+"
+2026-10-23T01:16:16,eoh,qwen3:14b-nothink,0.5,3,500,24468,24970,0.852,581,2430.8,"def priority_v2(SH, EMP, AVG, CUR, RI, DIFF):
+    # Logarithmic penalty for blocking containers
+    block_log_penalty = RI * (1 + math.log(1 + RI))
+    # Polynomial-based adjustment for available space
+    space_poly_adjustment = (EMP + 1) ** 0.75
+    # Logarithmic-based reward for proximity between average ID and current ID
+    if DIFF > 0:
+        diff_reward = (1 / (1 + (math.log(1 + DIFF) / 1000) ** 2)) * 0.1
+    else:
+        diff_reward = 0.1
+    # Calculate final priority score
+    priority = block_log_penalty / space_poly_adjustment - diff_reward
+    return priority
+"
+2026-10-23T02:26:19,reevo,qwen3:14b-nothink,0.5,3,500,25470,25852,0.97,940,4203.6,"import numpy as np
+def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Normalize inputs with dynamic max values based on CUR and adaptive scaling
+    max_sh = 100 + (CUR / 10)
+    normalized_sh = SH / max_sh if SH <= max_sh else 1.0
+
+    max_emp = 100 + (CUR / 10)
+    normalized_emp = EMP / max_emp if EMP <= max_emp else 1.0
+
+    max_avg = 1000 + (CUR / 10)
+    normalized_avg = AVG / max_avg if AVG <= max_avg else 1.0
+
+    max_diff = 1000000 + (CUR / 10)
+    normalized_diff = DIFF / max_diff if DIFF <= max_diff else 1.0
+
+    # Adaptive phase-based weights
+    phase = CUR / 1000
+    weight_sh = 0.85 + phase * 0.4
+    weight_emp = 4.5 + phase * 0.1
+    weight_avg = 0.15 + phase * 0.05
+    weight_ri = 8.0 + phase * 0.1
+    weight_diff = 0.25 + phase * 0.05
+
+    # Nonlinear scaling components
+    future_block_penalty = max(0, (AVG - CUR)) * (0.1 + phase * 0.1) ** 2
+    free_space_bonus = normalized_emp * (1.4 + phase * 0.05) ** 2
+    early_unblock_incentive = max(0, (CUR - AVG)) * (0.1 + phase * 0.05) ** 2
+    stack_height_impact = (SH / 10) ** 1.4
+
+    # Phase-based dynamic adjustment for early and later stages
+    if phase < 0.5:
+        # Early phase: emphasize unblocking and free space
+        weight_ri *= 0.9
+        weight_sh *= 1.1
+        weight_emp *= 1.2
+    else:
+        # Later phase: emphasize stability and future blocks
+        weight_diff *= 1.1
+        weight_avg *= 1.1
+
+    # Final priority score
+    priority = (
+        weight_sh * normalized_sh
+        - weight_emp * normalized_emp
+        - weight_avg * normalized_avg
+        + weight_ri * RI
+        + weight_diff * normalized_diff
+        + future_block_penalty
+        - free_space_bonus
+        + early_unblock_incentive
+        - stack_height_impact
+    )
+    return priority
+"
+2026-10-23T03:13:08,eoh,qwen3:14b-nothink,0.3,3,500,25887,26414,0.858,580,2808.8,"def priority_v2(SH, EMP, AVG, CUR, RI, DIFF):
+    # Weighted inverse of stack height: lower stack height is preferred
+    inv_stack_height = 1 / (SH + 1)
+    
+    # Weighted ratio of free space to blocking containers: higher free space relative to blocking is preferred
+    free_to_block_ratio = EMP / (RI + 1) if (RI + 1) > 0 else 0
+    
+    # Distance between average ID of stack and current container
+    avg_distance = abs(AVG - CUR)
+    
+    # Dynamic scaling factor based on smallest ID in the stack
+    scale_factor = 1 / (1 + abs(DIFF))
+    
+    # Compute final priority with dynamically scaled components and different weights
+    priority = inv_stack_height * 0.4 - free_to_block_ratio * 0.2 - avg_distance * scale_factor * 0.4
+    
+    return priority
+"
+2026-10-23T04:09:06,reevo,qwen3:14b-nothink,0.3,3,500,26506,26865,0.93,940,3358.4,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Nonlinear normalization
+    SH_normalized = 1 / (SH + 1)  # Prefer stacks with fewer containers
+    EMP_normalized = EMP / (EMP + 1)  # Prefer stacks with more free slots
+    RI_normalized = RI / (RI + 1)  # Prefer stacks with fewer blocking containers
+    DIFF_normalized = DIFF / (1000000000 + 1)  # Prefer smaller ID gap
+    AVG_normalized = abs(AVG - CUR) / (1000000 + 1)  # Prefer stacks with average ID close to current container
+
+    # Adjusted weights focusing on future alignment and container proximity
+    weight_SH = 0.15
+    weight_EMP = 0.30
+    weight_RI = 0.25
+    weight_DIFF = 0.05
+    weight_AVG = 0.25
+
+    # Calculate final priority score with more emphasis on average ID alignment and free space
+    priority = (
+        weight_SH * SH_normalized +
+        weight_EMP * (1 - EMP_normalized) +
+        weight_RI * RI_normalized +
+        weight_DIFF * (1 - DIFF_normalized) +
+        weight_AVG * AVG_normalized
+    )
+    return priority
+"
+2026-10-23T04:55:54,eoh,qwen3:14b-nothink,0.1,3,500,29089,29487,0.808,580,2807.4,"def priority_v2(SH, EMP, AVG, CUR, RI, DIFF):  
+    priority = 0  
+
+    # Simplified entropy-like measure based on ID distribution and height  
+    if SH == 0:  
+        entropy = 0  
+    else:  
+        entropy = (abs(AVG - CUR) + abs(DIFF)) / (SH + 1)  
+
+    # Adjusted adaptive weights influenced by free space and stack height  
+    w_entropy = 40 + (EMP * 0.8)  
+    w_ri = 150 - (EMP * 1.0)  
+    w_emp = 6 + (EMP ** 0.6)  
+    w_sh = 3 + (SH * 0.05)  
+
+    # Calculate final priority score  
+    priority = w_ri * RI + w_entropy * entropy - w_emp * (EMP ** 0.6) + w_sh * SH  
+
+    return priority
+"
+2026-10-23T05:41:32,reevo,qwen3:14b-nothink,0.1,3,500,29131,29523,0.952,940,2738.1,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Stronger penalty for blockage (RI) to even more aggressively reduce future relocations
+    ri_penalty = (RI + 1) ** 12
+    
+    # Even stronger incentive for free space (EMP) to maximize future flexibility
+    emp_incentive = 1 / (EMP + 1) ** 15
+    
+    # Slightly higher penalty for average ID (AVG) to prefer stacks with significantly lower ID containers
+    avg_penalty = (AVG + 1) ** 0.03
+    
+    # Slightly stronger penalty for DIFF to encourage even better ID alignment
+    diff_penalty = 1 / (1 + DIFF / 1e9) ** 5
+    
+    # Final priority with adjusted weights focusing heavily on blockage reduction and flexibility
+    priority = (0.6 * ri_penalty) + (0.3 * emp_incentive) + (0.08 * avg_penalty) + (0.02 * diff_penalty)
+    return priority
+"
+2026-10-23T06:29:36,eoh,qwen3:14b-nothink,0.5,4,500,24679,25164,0.802,584,2884.1,"def priority_v2(SH, EMP, AVG, CUR, RI, DIFF):  
+    # Avoid division by zero for empty stacks  
+    if SH == 0:  
+        entropy = 0.0  
+    else:  
+        # Improved entropy-like term based on ID difference and stack height  
+        entropy = (DIFF / 1000.0) * (1 / SH) * (1 / (SH + 1))  
+
+    # Normalize the entropy for stability  
+    normalized_entropy = entropy / 10.0  
+
+    # Calculate the harmonic mean of inverse average ID and inverse stack height  
+    if AVG == 0:  
+        harmonic_mean = 0.0  
+    else:  
+        harmonic_mean = 2 / ( (1 / AVG) + (1 / SH) )  
+
+    # Combine entropy, harmonic mean, and availability into a priority score  
+    priority = (normalized_entropy) + (harmonic_mean * (RI / EMP)) + (EMP / 20.0)  
+
+    return priority
+"
+2026-10-23T07:21:57,reevo,qwen3:14b-nothink,0.5,4,500,27128,27611,0.926,940,3140.5,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Mutated priority function with improved adaptive weights, logarithmic scaling, and future blockage estimation for the online container relocation problem.""""""
+    # Logarithmic scaling for stack height and average ID to balance influence
+    log_SH = max(1e-6, SH)
+    log_AVG = max(1e-6, AVG)
+    log_SH = 1 / (1 + log_SH)
+    log_AVG = 1 / (1 + log_AVG)
+
+    # Adaptive weights with emphasis on future blockage and balance utilization
+    w_log_SH = 0.20
+    w_EMP = 0.12
+    w_log_AVG = 0.06
+    w_RI = 0.18
+    w_DIFF = 0.04
+    w_CUR = 0.10
+    w_future_blockage = 0.30
+
+    # Future blockage estimation with nonlinear impact
+    future_blockage = (RI + 1) * (DIFF + 1)
+
+    # Cur factor with exponential decay
+    cur_factor = 1 / (1 + CUR + 1e-6)
+
+    # Calculate priority score with updated logarithmic scaling and weighting
+    priority = (log_SH * w_log_SH) - (EMP * w_EMP) + (log_AVG * w_log_AVG) - (RI * w_RI) - (DIFF * w_DIFF) + (cur_factor * w_CUR) - (future_blockage * w_future_blockage)
+    return priority
+"
+2026-10-23T08:13:35,eoh,qwen3:14b-nothink,0.3,4,500,25740,26244,0.78,580,3098.7,"import math
+
+def priority_v2(SH, EMP, AVG, CUR, RI, DIFF):
+    # Normalize stack height and available space using exponential decay
+    norm_SH = 1.0 / (1.0 + math.exp(SH / 10.0))
+    norm_EMP = math.log(EMP + 1) / math.log(10)
+
+    # Normalize average ID difference (lower is better)
+    norm_AvgDiff = abs(AVG - CUR) / 100.0
+
+    # Normalize number of blocking containers (lower is better)
+    norm_RI = RI / 5.0
+
+    # Normalize smallest ID difference (higher is better)
+    norm_DIFF = 1.0 / (abs(DIFF) + 1)
+
+    # Reward stacks that have a high potential for future efficiency
+    future_efficiency = norm_DIFF * 0.1
+
+    # Weighted immediate conflict resolution (lower is better)
+    immediate_resolution = (norm_AvgDiff * 0.5) + (norm_RI * 1.5)
+
+    # Compute dynamic balance based on stack utilization and future efficiency
+    dynamic_balance = (norm_SH + norm_EMP) * 0.4 + future_efficiency * 0.1
+
+    # Priority score combining all aspects
+    priority = (immediate_resolution - future_efficiency) / (1.0 + dynamic_balance)
+    return priority
+"
+2026-10-23T09:08:24,reevo,qwen3:14b-nothink,0.3,4,500,25767,26240,0.982,940,3288.5,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Improved score for candidate stack with refined nonlinear scaling and better balance.""""""
+    # Smooth nonlinear bonus for free space
+    emp_bonus = 1 / (1 + (40.0 - EMP) ** 1.8)
+    
+    # Encourage lower average ID (more likely to be retrieved before CUR)
+    avg_penalty = max(0, (AVG - CUR) / 420.0) if AVG > CUR else 0.0
+    
+    # Add a nonlinear penalty for higher average ID
+    avg_nonlinear_penalty = max(0, (AVG - CUR) ** 2.2 / 2100.0) if AVG > CUR else 0.0
+    
+    # Encourage higher DIFF (less potential future blocking)
+    diff_bonus = (DIFF / 1e9) * 260.0 if DIFF < 1e9 else 0.0
+    
+    # Penalize future blocking with smooth nonlinear scaling
+    ri_penalty = RI / 6.0
+    blocking_penalty = (RI ** 2.2) / 30.0
+    
+    # Penalize very full stacks with smooth nonlinear scaling
+    fullness_penalty = 1 / (1 + (40.0 - SH) ** 1.9)
+    
+    # Final priority score with refined balance
+    priority = (fullness_penalty - emp_bonus) + (avg_penalty + avg_nonlinear_penalty - diff_bonus) + (ri_penalty + blocking_penalty)
+    return priority
+"
+2026-10-23T09:55:12,eoh,qwen3:14b-nothink,0.1,4,500,29261,29593,0.86,580,2808.6,"def priority_v2(SH, EMP, AVG, CUR, RI, DIFF):
+    # Proximity bonus: stacks where the average ID is closer to the current container's ID
+    proximity_bonus = abs(AVG - CUR) * 0.01
+    
+    # Penalty for stacks with many lower-priority containers
+    lower_priority_penalty = RI * 0.2
+    
+    # Penalty for full stacks or stacks with high average ID
+    fullness_and_density_penalty = (SH / (SH + EMP + 1)) * (AVG / 1000) * 0.1
+    
+    # Bonus for stacks with a high DIFF value (fewer small IDs blocking future moves)
+    diff_bonus = max(0, DIFF) * 0.0001
+    
+    # Final priority score
+    priority = proximity_bonus + lower_priority_penalty + fullness_and_density_penalty - diff_bonus
+    return priority
+"
+2026-10-23T10:43:22,reevo,qwen3:14b-nothink,0.1,4,500,29182,29760,0.964,940,2890.2,"import math
+
+def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+
+    """"""Mutated priority function for online container relocation with limited look-ahead.""""""
+    # Prioritize reducing immediate blockage: logarithmic scaling for stability
+    block_penalty = RI * 0.48 / (1 + math.log(1 + RI))
+    # Reward stacks with more free space for flexibility (logarithmic scaling)
+    space_reward = 0.38 * (1 / (1 + math.log(1 + EMP))) if EMP > 0 else 0
+    # Favor stacks where average ID is close to current container (align with retrieval order)
+    avg_balance = 0.17 * min(CUR - AVG, 0)
+    # Penalize stacks with large IDs below current container (logarithmic scale)
+    diff_penalty = 0.07 * max(0, -DIFF) / (1 + math.log(1 + abs(DIFF)))
+    # Discourage stacks with high height (logarithmic scale)
+    height_penalty = 0.13 * (SH / (1 + math.log(1 + SH)))
+    # Align with future retrieval order: favor stacks with lower average ID (logarithmic scaling)
+    future_reward = 0.15 * min(0, CUR - AVG) / (1 + math.log(1 + abs(CUR - AVG)))
+    # Combine all components into final priority
+    priority = block_penalty + space_reward + avg_balance + diff_penalty + height_penalty + future_reward
+    return priority
+"
+2026-10-23T11:25:01,eoh,qwen3:14b-nothink,0.5,5,500,24865,25311,0.832,586,2498.6,"def priority_v2(SH, EMP, AVG, CUR, RI, DIFF):
+    if EMP == 0:
+        return float('inf')  # Cannot place in a full stack
+    # Calculate the ratio of blocking containers to the number of free slots
+    block_to_free_ratio = RI / EMP if EMP > 0 else 0
+    # Calculate the distance from current container's ID to the average ID of the stack
+    avg_distance = abs(AVG - CUR)
+    # Compute the priority score emphasizing lower block_to_free_ratio and smaller avg_distance
+    priority = (block_to_free_ratio * 50) + (avg_distance / (SH + 10))
+    return priority
+"
+2026-10-23T12:04:02,reevo,qwen3:14b-nothink,0.5,5,500,27070,27758,0.986,940,2340.9,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Emphasize future conflicts (DIFF) and blocking potential (RI) even more
+    # Slightly reduce emphasis on stack height (SH) and average ID (AVG)
+    # Prioritize free space (EMP) for potential future placements
+    weight_sh = 0.05
+    weight_emp = 0.48
+    weight_avg = 0.03
+    weight_ri = 0.40
+    weight_diff = 0.25
+
+    # The priority is a weighted combination of the features
+    # Lower SH, RI, and AVG are better; higher EMP and smaller DIFF are better
+    priority = (weight_sh * SH) - (weight_emp * EMP) - (weight_avg * AVG) + (weight_ri * RI) - (weight_diff * DIFF)
+    return priority
+"
+2026-10-23T12:47:54,eoh,qwen3:14b-nothink,0.3,5,500,25084,25402,0.792,586,2631.7,"def priority_v2(SH, EMP, AVG, CUR, RI, DIFF):  
+    if EMP == 0:  
+        return float('inf')  
+    # Reward stacks where the average ID is close to the current container using a logarithmic scale  
+    id_reward = 1 / (1 + abs(AVG - CUR))  
+    # Penalize stacks where the current container is likely to block many smaller containers (cubic penalty)  
+    block_penalty = RI ** 3  
+    # Reward stacks with more free space using a logarithmic function  
+    free_space_compensation = 1 / (1 + abs(EMP - 5))  
+    # Add a small bonus for stacks where the smallest ID is significantly larger than the current container  
+    diff_bonus = 1 / (1 + abs(DIFF)) if DIFF > 0 else 0.1  
+    # Combine the factors with adjusted weights  
+    priority = (1 - free_space_compensation) * id_reward + block_penalty - diff_bonus  
+    return priority
+"
+2026-10-23T13:31:32,reevo,qwen3:14b-nothink,0.3,5,500,27395,27924,0.85,940,2618.2,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Free space: higher is better
+    free_space_bonus = EMP
+
+    # Average ID: lower is better
+    avg_id_penalty = (AVG - CUR) if AVG > CUR else 0
+
+    # RI: lower is better
+    ri_penalty = RI
+
+    # DIFF: larger is worse
+    diff_penalty = DIFF
+
+    # Combine all factors with adjusted weights
+    priority = - (0.5 * free_space_bonus) - (0.45 * avg_id_penalty) - (0.05 * ri_penalty) - (0.1 * diff_penalty)
+    return priority
+"
+2026-10-23T14:26:38,eoh,qwen3:14b-nothink,0.1,5,500,29128,29703,0.85,585,3306.3,"import numpy as np
+
+def priority_v2(SH, EMP, AVG, CUR, RI, DIFF):
+    # Constants for sigmoid scaling
+    sigmoid_scale = 2.5  # Reduced scaling factor for milder rewards and penalties
+    
+    # Calculate utilization ratio (SH / (SH + EMP))
+    utilization = SH / (SH + EMP + 1e-9)  # Adding small epsilon to avoid division by zero
+    
+    # Inversely sigmoidally penalize low free space (milder penalty)
+    free_space_penalty = 1 / (1 + np.exp(sigmoid_scale * (EMP / (SH + 1e-9))))
+    
+    # Inversely sigmoidally penalize stacks with high blocking potential (milder penalty)
+    blocking_penalty = 1 / (1 + np.exp(sigmoid_scale * (RI / (SH + 1e-9))))
+    
+    # Reward stacks with high free space (stronger reward)
+    free_space_reward = 1 / (1 + np.exp(-sigmoid_scale * (EMP / (SH + EMP + 1e-9))))
+    
+    # Reward stacks with low average ID (stronger reward)
+    avg_reward = 1 / (1 + np.exp(-sigmoid_scale * (AVG - CUR)))
+    
+    # Reward stacks with large ID differences (milder reward)
+    diff_reward = 1 / (1 + np.exp(-sigmoid_scale * (DIFF + 1e-9)))
+    
+    # Combine components into a priority score
+    priority = free_space_penalty + blocking_penalty - free_space_reward - avg_reward - diff_reward
+    
+    return priority
+"
+2026-10-23T15:10:28,reevo,qwen3:14b-nothink,0.1,5,500,29317,29966,0.98,940,2629.3,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # 1. Lower stack height (SH) is better, so we add SH directly as a penalty.
+    # 2. More empty space (EMP) is better, so we subtract EMP as a reward with a slightly higher multiplier.
+    # 3. Lower average ID (AVG) is better, so we add a small factor multiplied by AVG.
+    # 4. More blocking containers (RI) is worse, so we add a large factor multiplied by RI.
+    # 5. If the stack has containers with IDs smaller than CUR (DIFF), it is less preferred.
+    #    For empty stacks (DIFF is 2.1e9), we treat it as very low priority to avoid placing on empty stacks.
+    # Optimized penalty weights for RI and DIFF, increased EMP multiplier, and refined AVG multiplier.
+    priority = SH - EMP * 0.7 + AVG * 0.015 + RI * 15 + (DIFF * 0.006 if DIFF < 2.1e9 else 0)
+    return priority
+"
+2026-10-23T15:44:37,eoh,qwen3:14b-nothink,0.5,6,500,24639,24974,0.778,582,2049.5,"def priority_v2(SH, EMP, AVG, CUR, RI, DIFF):
+    if EMP == 0:
+        return float('inf')
+    free_space = EMP
+    alignment = 1 / (1 + abs(DIFF))
+    blocking_penalty = RI
+    priority = 0.3 * (1 / (1 + abs(free_space - 10))) + 0.4 * (1 - alignment) + 0.3 * blocking_penalty
+    return priority
+"
+2026-10-23T16:36:32,reevo,qwen3:14b-nothink,0.5,6,500,25808,26080,0.982,940,3114.7,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Improved priority function with adaptive normalization, future blocking focus, and balanced stack utilization.""""""
+    # Adaptive normalization for free space (EMP)
+    max_EMP = SH + EMP
+    normalized_EMP = EMP / max_EMP if max_EMP > 0 else 0
+
+    # Adaptive normalization for average ID (AVG)
+    max_Avg = AVG + 100 if AVG > 0 else 100
+    normalized_Avg = (AVG - CUR) / max_Avg if max_Avg > 0 else 0
+
+    # Adaptive normalization for DIFF
+    max_DIFF = DIFF + 1000 if DIFF != 2.1e9 else 1000
+    normalized_DIFF = DIFF / max_DIFF if max_DIFF > 0 else 0
+
+    # Adaptive normalization for stack height (SH)
+    max_SH = SH + EMP
+    normalized_SH = SH / max_SH if max_SH > 0 else 0
+
+    # Priority calculation with refined weights
+    # Encourage stacks with more free space, lower average ID, fewer blocking containers, and lower stack height
+    # Discourage stacks with larger DIFF (more future blocking)
+    priority = 0.3 * normalized_EMP - 0.4 * normalized_Avg + 0.5 * RI - 0.1 * normalized_DIFF - 0.2 * normalized_SH
+    return priority
+"
+2026-10-23T17:15:41,eoh,qwen3:14b-nothink,0.3,6,500,25179,25437,0.864,585,2349.4,"def priority_v2(SH, EMP, AVG, CUR, RI, DIFF):  
+    # Calculate the ratio of blocking containers to free slots  
+    ratio = RI / (EMP + 1e-6)  
+
+    # Calculate the deviation in ID distribution  
+    id_diff = abs(DIFF) + 1  
+
+    # Compute a logarithmic combination of ratio and id_diff  
+    priority = (ratio + 1e-6) * (id_diff + 1e-6) ** 0.5  
+
+    return priority
+"
+2026-10-23T17:55:23,reevo,qwen3:14b-nothink,0.3,6,500,27131,27615,0.992,940,2382.2,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Improved priority function with context-aware dynamic weight adjustments.""""""
+    # Base weights
+    weight_SH = 0.0003
+    weight_EMP = 7.0
+    weight_AVR = 0.0001
+    weight_RI = 0.05
+    weight_DIFF = 6.0
+
+    # Dynamic adjustment for AVG based on CUR
+    if AVG > CUR:
+        weight_AVR *= 1.8
+    elif AVG < CUR:
+        weight_AVR *= 0.3
+
+    # Dynamic adjustment for DIFF based on EMP and RI
+    if EMP < 2:
+        weight_DIFF *= 3.5
+    elif 2 <= EMP < 5:
+        weight_DIFF *= 2.0
+    if RI > 0:
+        weight_DIFF *= 1.5
+
+    # Dynamic adjustment for EMP based on stack height
+    if SH > 15:
+        weight_EMP *= 0.6
+
+    # Dynamic adjustment for RI based on stack height
+    if SH > 10:
+        weight_RI *= 0.8
+
+    # Priority score calculation
+    priority = -weight_EMP * EMP - weight_DIFF * DIFF + weight_AVR * AVG + weight_RI * RI + weight_SH * SH
+    return priority
+"
+2026-10-23T18:33:12,eoh,qwen3:14b-nothink,0.1,6,500,29102,29513,0.79,584,2269.0,"import math
+
+def priority_v2(SH, EMP, AVG, CUR, RI, DIFF):
+    if EMP == 0:
+        EMP = 1e-9  # Avoid division by zero for completely full stacks
+    if DIFF == 0:
+        DIFF = 1e-9  # Avoid division by zero for DIFF
+    avg_diff = (AVG - CUR) / (DIFF + 1) if DIFF + 1 > 0 else 0
+    harmonic_mean = 2 / (1/(EMP + 1) + 1/(abs(avg_diff) + 1))
+    inverse_harmonic = 1 / (harmonic_mean + 1)
+    cubic_penalty = RI ** 3
+    priority = inverse_harmonic + cubic_penalty
+    return priority
+"
+2026-10-23T19:06:50,reevo,qwen3:14b-nothink,0.1,6,500,29867,30268,0.978,940,2017.6,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Improved priority function for the container relocation problem with refined emphasis on stability and free space.""""""
+    # Emphasize free space (EMP) and lower average ID (AVG)
+    # Reduce blockage (RI) and ID gap (DIFF) for better future relocation planning
+    # Fine-tuned coefficients for stability and minimal relocations
+    priority = (SH * 0.025) - (EMP * 0.50) - (AVG * 0.40) - (RI * 0.20) - (DIFF * 0.35) - (CUR * 0.015)
+    return priority
+"
+2026-10-23T19:51:41,eoh,qwen3:14b-nothink,0.5,7,500,24425,24699,0.826,580,2690.6,"def priority_v2(SH, EMP, AVG, CUR, RI, DIFF):
+    priority = 0
+    # Stronger penalty for blocking containers relative to free space
+    if EMP > 0:
+        priority += (RI / EMP) * 3.0
+    # Less emphasis on stack height
+    if SH > 0:
+        priority += (SH * (1 + (SH - 1) * 0.01)) * 0.02
+    # Reward free space with lower weight
+    if EMP > 0:
+        priority += (EMP * (1 + (EMP - 1) * 0.01)) * 0.1
+    # Minimal reward for stacks where the smallest ID is significantly smaller
+    if DIFF < 0:
+        priority += abs(DIFF) * 0.05
+    # Less emphasis on average ID
+    if AVG > 0:
+        priority += ((AVG - CUR) / (AVG + 1)) * 0.1
+    return priority
+"
+2026-10-23T20:52:03,reevo,qwen3:14b-nothink,0.5,7,500,25857,26307,0.954,940,3622.9,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Improved priority function with refined normalization exponents, weights, and uncertainty-aware thresholds.""""""
+    # Normalize free space with an even stronger emphasis on availability
+    norm_EMP = (EMP ** 0.2) / (SH + 1 + 1e-10)
+
+    # Normalize stack height with a more gentle sensitivity
+    norm_SH = (SH ** 0.5) / (SH + 1 + 1e-10)
+
+    # Normalize blocking impact with an even more severe penalty
+    norm_RI = (RI ** 4.5) / (SH + 1 + 1e-10)
+
+    # ID alignment normalization with even finer precision
+    delta = abs(AVG - CUR)
+    norm_AVG = delta / (max(CUR, AVG) + 1 + 1e-10)
+
+    # DIFF normalization with uncertainty handling
+    if DIFF > 1.0:
+        norm_DIFF = 0.0
+    else:
+        norm_DIFF = DIFF / (1.0 + 1e-10)
+
+    # Final priority calculation with adjusted weights
+    priority = (
+        norm_SH * 0.001  # Minimal influence of stack height
+        - norm_EMP * 1.3  # Stronger preference for free space
+        + norm_AVG * 0.005  # Slight emphasis on ID alignment
+        + norm_RI * 1.4  # Heavier penalty for blocking impact
+        - norm_DIFF * 1.1  # Stronger emphasis on proximity to smallest ID
+    )
+
+    return priority
+"
+2026-10-23T21:33:11,eoh,qwen3:14b-nothink,0.3,7,500,25524,25910,0.756,584,2467.6,"def priority_v2(SH, EMP, AVG, CUR, RI, DIFF):  
+    # Avoid division by zero for empty stacks  
+    if EMP == 0:  
+        return float('inf')  
+
+    # Calculate ratio of blocking containers to free space  
+    blocking_ratio = RI / EMP  
+
+    # Calculate logarithmic penalty for ID difference  
+    abs_diff = abs(DIFF)  
+    diff_penalty = 1 + (abs_diff ** 0.5)  # Logarithmic-style penalty  
+
+    # Apply a penalty based on the average ID in the stack  
+    avg_penalty = 1 + (AVG / (100 + abs(CUR)))  
+
+    # Calculate priority score emphasizing free space, ID difference, and average ID  
+    priority = (blocking_ratio * diff_penalty) + (avg_penalty * 0.2)  
+
+    return priority
+"
+2026-10-23T22:24:44,reevo,qwen3:14b-nothink,0.3,7,500,25997,26553,0.974,940,3092.5,"import numpy as np
+def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Enhanced priority function for container relocation with adaptive normalization and strategic bias.""""""
+    # Adaptive normalization based on dynamic ranges
+    max_SH = 100.0
+    max_EMP = 100.0
+    max_Avg = 1e6
+    max_RI = 100.0
+    max_DIFF = 1e9
+
+    # Normalize each input parameter to favor desirable properties
+    normalized_SH = SH / max_SH if max_SH > 0 else 0.0
+    normalized_EMP = EMP / max_EMP if max_EMP > 0 else 0.0
+    normalized_Avg = AVG / max_Avg if max_Avg > 0 else 0.0
+    normalized_RI = RI / max_RI if max_RI > 0 else 0.0
+    normalized_DIFF = DIFF / max_DIFF if max_DIFF > 0 else 0.0
+
+    # Adjust normalized_DIFF to penalize stacks where the smallest ID is much larger than current
+    adjusted_DIFF = 1.0 - normalized_DIFF  # higher value is better
+
+    # Combine the normalized terms with adaptive weights
+    priority = (0.25 * normalized_SH) + (0.25 * normalized_EMP) + (0.2 * normalized_Avg) + (0.15 * normalized_RI) + (0.15 * adjusted_DIFF)
+
+    return priority
+"
+2026-10-23T23:09:28,eoh,qwen3:14b-nothink,0.1,7,500,29451,29981,0.792,582,2684.8,"def priority_v2(SH, EMP, AVG, CUR, RI, DIFF):  
+    # Weight factors for the priority calculation  
+    w_sequence_complexity = 0.3  
+    w_retrieval_smoothness = 0.25  
+    w_emp = 0.1  
+    w_avg = 0.15  
+    w_ri = 0.1  
+    w_diff = 0.1  
+
+    # Estimate sequence complexity: higher values indicate more complex retrieval paths  
+    complexity_proxy = (RI + DIFF) / (SH + 1) if SH > 0 else 0  
+
+    # Estimate retrieval smoothness: stacks with lower AVG are more likely to allow smooth retrieval  
+    smoothness_proxy = 1 / (AVG + 1) if AVG > 0 else 0  
+
+    # Calculate the priority score based on the weighted factors  
+    priority = (w_sequence_complexity * complexity_proxy) - (w_retrieval_smoothness * smoothness_proxy) - (w_emp * EMP) - (w_avg * AVG) + (w_ri * RI) - (w_diff * DIFF)  
+    return priority
+"
+2026-10-24T00:02:20,reevo,qwen3:14b-nothink,0.1,7,500,29352,29951,0.996,940,3172.1,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Improved priority function with refined weights to prioritize immediate blocking reduction and better space utilization.""""""
+    # Immediate blocking reduction: penalize stacks with more blocking containers (higher weight)
+    ri_penalty = RI * 0.80
+    # Penalize stacks where the average ID is far from the current container (future blocking)
+    avg_penalty = abs(AVG - CUR) * 0.20
+    # Bonus for stacks where the smallest ID is larger than the current container (less future blocking)
+    diff_bonus = max(DIFF, 0) * 0.18
+    # Encourage stacks with more free space (promotes flexibility)
+    emp_bonus = EMP * 0.16
+    # Penalize overcrowded stacks (unfavorable for placements)
+    sh_penalty = max(0, SH - 12) * 0.04
+    # Bonus for stacks with better space utilization (balance between used and free slots)
+    space_balance_bonus = (EMP / (SH + 1e-6)) * 0.07
+    # Bonus for stacks where the current container is the smallest (reduces long-term blocking)
+    min_id_bonus = (DIFF > 0) * 0.10
+
+    # Final priority calculation: reduce immediate blocking and future interference while optimizing space use
+    priority = (ri_penalty + avg_penalty + sh_penalty) - (emp_bonus + diff_bonus + space_balance_bonus + min_id_bonus)
+    return priority
+"
+2026-10-24T00:41:57,eoh,qwen3:14b-nothink,0.5,8,500,25982,26353,0.782,584,2376.9,"def priority_v2(SH, EMP, AVG, CUR, RI, DIFF):
+    if SH == 0:
+        priority = 0
+    else:
+        # Encourage balanced utilization by penalizing stacks with extreme emptiness or fullness
+        utilization_penalty = (SH - EMP) * (SH - EMP) / 1000
+        # Reward stacks that align with the retrieval order of the current container
+        avg_alignment_reward = (AVG - CUR) * (AVG - CUR) / 10000
+        # Penalize stacks that are far from the retrieval order of the current container
+        diff_penalty = (DIFF * DIFF) / 100000
+        # Penalize stacks with more blocking containers
+        blocking_penalty = RI * 2
+        # Combine all components to calculate the overall priority
+        priority = utilization_penalty + avg_alignment_reward + diff_penalty + blocking_penalty
+    return priority
+"
+2026-10-24T01:15:44,reevo,qwen3:14b-nothink,0.5,8,500,25507,26163,0.94,940,2027.0,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Improved priority function for container relocation problem with limited look-ahead.""""""
+    epsilon = 1e-9
+    # Prioritize critical factors with inverse scaling
+    priority = - (1 / (DIFF + epsilon)) - (1 / (RI + epsilon))
+    # Use refined linear scaling for stack metrics with adjusted coefficients
+    priority += - (EMP * 0.035) + (SH * 0.015) - (AVG * 0.006)
+    return priority
+"
+2026-10-24T01:57:02,eoh,qwen3:14b-nothink,0.3,8,500,25443,25741,0.87,583,2478.0,"def priority_v2(SH, EMP, AVG, CUR, RI, DIFF):  
+    if SH == 0:  
+        future_blockage = 0  
+        current_blockage = 0  
+    else:  
+        future_blockage = (DIFF < 0) * (1e4 + RI * 2)  
+        current_blockage = RI  
+    avg_deviation = abs(AVG - CUR)  
+    free_space_ratio = (EMP + 1) ** 0.5 if EMP > 0 else 0  
+    flexibility_penalty = 1 / (EMP + 1) if EMP > 0 else 0  
+    priority = (avg_deviation / (SH + 1)) * 10 + (future_blockage / (free_space_ratio + 1e-6)) * 0.5 + flexibility_penalty * 1  
+    return priority
+"
+2026-10-24T02:44:47,reevo,qwen3:14b-nothink,0.3,8,500,25941,26477,0.952,940,2864.6,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Improved score function for the container relocation problem with limited look-ahead.""""""
+    # Prioritize stacks with more free space using a smooth exponential decay
+    space_factor = 1 / (EMP + 1) ** 8.0
+    
+    # Favor stacks with lower average ID using a logarithmic transformation to reduce sensitivity
+    avg_factor = (AVG - CUR) / (1 + (AVG + CUR + 1) ** 2.0) ** 0.5
+    
+    # Penalize stacks with more blocking containers using a smooth logarithmic function
+    block_factor = RI / (RI + 1) ** 0.65
+    
+    # Emphasize stacks with large ID differences to avoid future conflicts
+    if DIFF == 2.1e9:
+        diff_factor = 0.0
+    else:
+        diff_factor = 1 / (1 + (DIFF + 1000000) ** 4.0)
+    
+    # Combine factors with carefully adjusted weights
+    priority = (space_factor * 0.52) + (avg_factor * 0.08) + (block_factor * 0.38) + (diff_factor * 0.02)
+    return priority
+"
+2026-10-24T03:22:54,eoh,qwen3:14b-nothink,0.1,8,500,29387,29827,0.752,585,2287.5,"def priority_v2(SH, EMP, AVG, CUR, RI, DIFF):  
+    if EMP == 0:  
+        return float('inf')  # No free space, cannot use this stack  
+    avg_diff = (AVG - CUR) if AVG > CUR else 0  
+    base_priority = 1 / (EMP * (1 + avg_diff))  
+    penalty = RI * RI  
+    priority = base_priority + penalty  
+    return priority
+"
+2026-10-24T04:21:57,reevo,qwen3:14b-nothink,0.1,8,500,29034,29547,0.952,940,3543.0,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Base weights emphasizing future blockage reduction and stability
+    w_sh = 0.002
+    w_emp = 0.0005
+    w_avg = 0.01
+    w_ri = 0.9
+    w_diff = 0.0003
+
+    # Calculate initial terms
+    term_sh = SH * w_sh
+    term_emp = EMP * w_emp
+    term_avg = AVG * w_avg
+    term_ri = RI * w_ri
+    term_diff = DIFF * w_diff
+
+    # Dynamic weight adjustments based on stack conditions and future blockage
+    if EMP > 0:
+        if SH < 10:
+            w_emp += 0.0006  # Slight preference for stacks with more free space and low height
+        else:
+            w_emp -= 0.0003  # Slight penalty for stacks with high height despite free space
+    if AVG > 250:
+        w_avg += 0.008  # Stronger penalty for stacks with high average IDs
+    if RI > 35:
+        w_ri += 0.2  # Stronger emphasis on minimizing future blockage
+    if DIFF < 1:
+        w_diff += 0.0002  # Higher emphasis on stacks with minimal DIFF (closer matching IDs)
+
+    # Recalculate terms with dynamically adjusted weights
+    term_sh = SH * w_sh
+    term_emp = EMP * w_emp
+    term_avg = AVG * w_avg
+    term_ri = RI * w_ri
+    term_diff = DIFF * w_diff
+
+    # Adjust for interaction between current container ID and average ID in the stack
+    avg_diff = abs(AVG - CUR)
+    avg_term = avg_diff * 0.007
+    interaction_term = (avg_diff / (AVG + 1)) * 0.015 if AVG > 0 else 0.0
+
+    # Final priority: minimize relocations by reducing future blockage and promoting stability
+    priority = term_sh + term_emp + term_avg + term_ri - term_diff + avg_term + interaction_term
+    return priority
+"
+2026-10-24T05:13:47,eoh,qwen3:14b-nothink,0.5,9,500,24511,24944,0.856,581,3109.2,"def priority_v2(SH, EMP, AVG, CUR, RI, DIFF):
+    # Logistic transformation for free space
+    free_space_logistic = 1 / (1 + (EMP ** 0.5)) if EMP != 0 else float('inf')
+
+    # Sigmoid function for ID proximity
+    if AVG != 0:
+        id_proximity = 1 / (1 + (abs(AVG - CUR) / (1 + abs(DIFF))))
+    else:
+        id_proximity = 1
+
+    # Linear term for blocking potential
+    blocking_potential = (RI + 1)
+
+    # Weighted combination of factors
+    priority = free_space_logistic * 0.2 + id_proximity * 0.3 + blocking_potential * 0.5
+
+    return priority
+"
+2026-10-24T05:53:41,reevo,qwen3:14b-nothink,0.5,9,500,25025,25320,0.994,940,2394.7,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Improved priority function with highly context-aware dynamic weights for optimal container relocation.""""""
+    # Dynamic weights based on context
+    weight_ri = 7.0 if RI > 0 else 0.03  # Even stronger emphasis on urgent unblocking
+    weight_emp = 1.5 if EMP < 1 else 0.003  # Stronger prioritization of stacks with very limited space
+    weight_diff = 3.0 if DIFF <= 3 else 0.002  # Even stronger avoidance of future conflicts
+    weight_avg = 2.0 if AVG <= CUR else 0.008  # Stronger alignment with retrieval order
+
+    # Priority calculation
+    priority = (weight_ri * RI) - (weight_emp * EMP) - (weight_diff * DIFF) + (weight_avg * (AVG - CUR))
+    return priority
+"
+2026-10-24T06:39:18,eoh,qwen3:14b-nothink,0.3,9,500,25616,25965,0.776,580,2737.2,"def priority_v2(SH, EMP, AVG, CUR, RI, DIFF):
+    # Strong emphasis on the number of containers that will be blocked
+    block_impact = RI * 2.5
+
+    # Moderate adjustment using logarithmic scaling for the ID difference
+    diff_adjustment = abs(DIFF) / (10**9 + 1)
+    if diff_adjustment > 0:
+        diff_adjustment = -1.0 * (1 / (1 + abs(DIFF) / (10**9 + 1)))
+
+    # Proximity to current container with logarithmic scaling
+    avg_proximity = abs(CUR - AVG)
+    if avg_proximity > 0:
+        avg_proximity = -1.0 * (1 / (1 + abs(CUR - AVG) / (CUR + 1)))
+
+    # Penalty for stack height using logarithmic transform
+    height_penalty = SH / 150
+    if height_penalty > 0:
+        height_penalty = -1.0 * (1 / (1 + height_penalty))
+
+    # Reward for available space using logarithmic transform
+    space_reward = EMP / 60
+    if space_reward > 0:
+        space_reward = 1.0 * (1 / (1 + space_reward))
+
+    # Combine into final priority score
+    priority = 0.4 * block_impact + 0.2 * diff_adjustment + 0.2 * avg_proximity + 0.1 * height_penalty + 0.1 * space_reward
+
+    return priority
+"
+2026-10-24T07:45:40,reevo,qwen3:14b-nothink,0.3,9,500,26480,27010,0.972,940,3981.5,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Improved priority function with dynamic, nonlinear weights focusing on alignment, congestion, and free space.""""""
+    # Adaptive, nonlinear weights based on stack conditions
+    weight_SH = 0.3 if SH > 10 else (0.2 if SH > 5 else 0.1)
+    weight_EMP = 0.3 if EMP > 4 else (0.1 if EMP < 2 else 0.2)
+    weight_Avg = 0.2 if DIFF < 10 and AVG > CUR else 0.05
+    weight_RI = 0.3 if RI > 5 else 0.1
+    weight_DIFF = 0.25 if DIFF < 10 else 0.1
+    weight_CUR = 0.2 if abs(AVG - CUR) < 5 else 0.15
+    weight_spread = 0.07
+    weight_congestion = 0.15
+
+    # Term 1: Lower stack height is better to minimize future relocations
+    term1 = SH * weight_SH
+    # Term 2: Higher free space is better to reduce congestion
+    term2 = EMP * weight_EMP
+    # Term 3: Lower average ID is better to reduce future blocking
+    term3 = AVG * weight_Avg
+    # Term 4: Fewer blocking containers (RI) is better
+    term4 = RI * weight_RI
+    # Term 5: Smaller DIFF means closer alignment with retrieval order
+    term5 = DIFF * weight_DIFF if DIFF != 2.1e9 else float('inf') * weight_DIFF
+    # Term 6: Prioritize stacks where average ID is close to current container ID (better alignment)
+    term6 = abs(AVG - CUR) * weight_CUR
+    # Term 7: Penalize stacks with very low free space
+    term7 = (1 / (EMP + 1)) * 0.07 if EMP < 3 else 0.0
+    # Term 8: Encourage spreading out to reduce congestion
+    term8 = (SH / (EMP + 1)) * weight_spread if EMP > 0 else 0.0
+    # Term 9: Congestion penalty for high stacks with low free space
+    term9 = (SH / (EMP + 1)) * weight_congestion if EMP < 5 else 0.0
+
+    # Focus on long-term alignment with retrieval order
+    term10 = (DIFF + 1) * (1 / (AVG + 1)) if DIFF < 10 else 0.0
+    term11 = (RI + 1) * (SH / (EMP + 1)) if DIFF > 10 else 0.0
+
+    # Final priority score: Lower is better
+    priority = term1 - term2 - term3 - term4 - term5 - term6 - term7 - term8 - term9 - term10 - term11
+    return priority
+"
+2026-10-24T08:23:03,eoh,qwen3:14b-nothink,0.1,9,500,29466,30067,0.798,581,2242.6,"def priority_v2(SH, EMP, AVG, CUR, RI, DIFF):  
+    # Density is calculated as the ratio of containers to total height  
+    density = SH / (SH + EMP) if SH + EMP != 0 else 0  
+    # Future blocking potential is based on the count of smaller IDs  
+    blocking_factor = RI / (RI + 1) if RI != 0 else 0  
+    # Free space is weighted inversely to density to balance stacking  
+    free_space_utilization = EMP / (SH + EMP) if SH + EMP != 0 else 0  
+    # Emphasize stacks with lower density, fewer blocking containers, and more free space  
+    priority = density * 0.2 + blocking_factor * 0.5 - free_space_utilization * 0.3 + (CUR - AVG) * 0.02 - DIFF * 0.01  
+    return priority
+"
+2026-10-24T09:10:22,reevo,qwen3:14b-nothink,0.1,9,500,29064,29456,0.97,940,2839.3,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Enhanced priority function with optimized coefficients for minimizing relocations, blocking, and space usage.""""""
+    # Encourage stacks with more free space (higher EMP is better)
+    term1 = (10 - EMP) * 0.008
+    # Prioritize stacks with average ID closer to the current container's retrieval order
+    term2 = max(0, AVG - CUR) * 0.13
+    # Strongly reduce future blocking by preferring stacks with fewer smaller IDs
+    term3 = RI * 1.1
+    # Reward stacks with higher DIFF (less interference from smaller IDs)
+    term4 = max(0, DIFF - 1) * 0.035
+    # Penalize stacks that are nearing capacity to avoid overcrowding
+    term5 = max(0, SH - 9) * 0.28
+    # Encourage balanced usage by rewarding stacks with more space
+    term6 = (EMP / 10) * 0.07
+    # Adjust based on the relationship between AVG and CUR
+    term7 = max(0, (AVG - CUR) / (SH + 1)) * 0.07
+    # Combine terms for final priority score
+    priority = term1 + term2 + term3 + term5 - term4 + term6 + term7
+    return priority
+"
+2026-10-24T09:59:09,eoh,qwen3:14b-nothink,0.5,10,500,24967,25261,0.864,580,2927.0,"import numpy as np
+
+def priority_v2(SH, EMP, AVG, CUR, RI, DIFF):
+    # Normalize container ID relative to stack average
+    id_normalized = (CUR - AVG) / (1 + np.abs(CUR - AVG))
+    
+    # Normalize free space (EMP) as a fraction of stack height
+    emp_normalized = EMP / (SH + 1e-10)
+    
+    # Normalize blocking impact (RI)
+    ri_normalized = RI / (SH + 1e-10)
+    
+    # Normalize ID difference (DIFF)
+    diff_normalized = (DIFF + 1e-10) / (1e9 + 1e-10)
+    
+    # Harmonic mean of normalized features
+    harmonic_mean = 1 / ((1 / (id_normalized + 1e-10)) + (1 / (emp_normalized + 1e-10)) + (1 / (ri_normalized + 1e-10)) + (1 / (diff_normalized + 1e-10)))
+    
+    # Logarithmic weighting
+    log_weight = np.log(1 + np.abs(harmonic_mean))
+    
+    # Final priority score
+    priority = log_weight
+    return priority
+"
+2026-10-24T10:55:12,reevo,qwen3:14b-nothink,0.5,10,500,27060,27555,0.952,940,3363.4,"import numpy as np
+def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Improved priority function with context-aware normalization, adaptive weights, and balanced focus on stability and future blockage.""""""
+    # Normalize input values
+    SH_norm = SH / 50
+    EMP_norm = EMP / 50
+    AVG_norm = AVG / 1000
+    RI_norm = RI / 50
+    DIFF_norm = DIFF / 1000000
+
+    # Adaptive weights based on contextual normalization
+    weight_EMP = 0.3 / (EMP_norm + 1) if EMP_norm < 1 else 0.05
+    weight_RI = 0.25 * (RI_norm / 50) if RI_norm > 0 else 0.03
+    weight_DIFF = 0.2 / (DIFF_norm + 1) if DIFF_norm < 1000 else 0.03
+    weight_AVG = 0.15 / (AVG_norm + 1) if AVG_norm > 0 else 0.1
+    weight_SH = 0.05 * SH_norm if SH_norm < 1 else 0.02
+
+    # Priority score focusing on alignment with retrieval, blockage reduction, and operational balance
+    priority = (weight_SH * SH) - (weight_EMP * EMP) - (weight_AVG * abs(AVG - CUR)) - (weight_RI * RI) - (weight_DIFF * DIFF) - (0.03 * (RI + 1) * (DIFF + 1))
+    return priority
+"
+2026-10-24T11:41:33,eoh,qwen3:14b-nothink,0.3,10,500,26229,26305,0.882,580,2781.0,"import math
+
+def priority_v2(SH, EMP, AVG, CUR, RI, DIFF):
+    # Reduced emphasis on inverse stack height
+    logistic_SH = 1 / (1 + math.exp(0.05 * (SH - 5)))
+    
+    # Reduced emphasis on free space
+    logistic_EMP = 1 / (1 + math.exp(-0.02 * (EMP - 10)))
+    
+    # Stronger penalty based on blocking and ID differences
+    if DIFF > 1e9:
+        penalty = 0.0
+    else:
+        penalty = max(0, (CUR - (AVG - 1)) / 100)
+    
+    # Combine the transformed factors with new weights
+    priority = (logistic_EMP * 0.1) + (logistic_SH * 0.2) + (RI * 0.1) + (penalty * 0.6)
+    return priority
+"
+2026-10-24T12:25:00,reevo,qwen3:14b-nothink,0.3,10,500,25671,26118,0.924,940,2607.0,"import numpy as np
+def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Improved priority function with stronger nonlinear scaling, advanced interference handling, and enhanced emphasis on AVG-CUR differences for better relocation efficiency.""""""
+    
+    # Stronger nonlinear scaling on future blocking (RI) using an aggressive power law
+    scaled_RI = RI ** 6.0
+    
+    # Advanced interference handling using a logistic function with higher sensitivity
+    # This ensures stacks with very low interference (i.e. minimal disruption to future moves) are heavily prioritized
+    scaled_DIFF = 1 / (1 + (DIFF ** 2) / 500)
+    
+    # Improved balance between stack height and free space using logarithmic scaling
+    # This encourages the use of stacks with more spacing and penalizes overly full stacks
+    SH_EMP_balance = (np.log(1 + SH) / (1 + SH)) - (np.log(1 + EMP) / (1 + EMP))
+    
+    # Enhanced emphasis on stacks with average ID significantly lower than the current container
+    # This reduces the chance of future relocations by placing containers on stacks that are far ahead in retrieval order
+    avg_contribution = (AVG - CUR) / 10
+    
+    # Final priority score with optimized weight distribution
+    priority = scaled_RI * 0.9 + (1 - scaled_DIFF) * 0.8 + SH_EMP_balance * 0.4 + avg_contribution * 0.4
+    
+    return priority
+"
+2026-10-24T13:07:05,eoh,qwen3:14b-nothink,0.1,10,500,29195,29567,0.786,585,2524.5,"def priority_v2(SH, EMP, AVG, CUR, RI, DIFF):
+    # Normalize SH and EMP for scaling
+    norm_SH = SH / 10**9
+    norm_EMP = EMP / 10**9
+
+    # Calculate a weighted score based on available space, difference, stack height, and blocking containers
+    score = (norm_EMP * 0.6) + (DIFF / 10**9 * 0.2) - (norm_SH * 0.1) - (RI * 0.1)
+
+    # Adjust score with the average ID and current container ID
+    priority = (AVG * CUR / 10**9) - score
+
+    return priority
+"
+2026-10-24T14:09:33,reevo,qwen3:14b-nothink,0.1,10,500,29281,29993,0.984,940,3748.0,"import math
+
+def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    
+    # Normalize stack height: lower is better (scale to 0-1, max height 30)
+    norm_SH = SH / 30.0
+    # Normalize free space: higher is better (scale to 0-1, max free space 30)
+    norm_EMP = EMP / 30.0
+    # Normalize average ID: lower is better (scale to 0-1, max average ID 100)
+    norm_AVG = AVG / 100.0
+    # Normalize current container ID: lower is better (scale to 0-1, max ID 100)
+    norm_CUR = CUR / 100.0
+    # Normalize number of blocking containers: fewer is better (scale to 0-1, max blocked 10)
+    norm_RI = RI / 10.0
+    # Normalize DIFF: larger is better (scale to 0-1, max DIFF 1e6)
+    norm_DIFF = DIFF / 1000000.0
+
+    # Apply logarithmic scaling with adjusted sensitivity for RI
+    log_RI = math.log(norm_RI + 1) if norm_RI > 0 else 0
+
+    # Apply logarithmic scaling with adjusted sensitivity for EMP
+    log_EMP = math.log(norm_EMP + 1) if norm_EMP > 0 else 0
+
+    # Apply logarithmic scaling with adjusted sensitivity for DIFF
+    log_DIFF = math.log(norm_DIFF + 1) if norm_DIFF > 0 else 0
+
+    # Adjusted weights to better balance blockage reduction and lookahead impact
+    priority = (norm_SH * 0.0035) - (log_EMP * 0.32) + (norm_AVG * 0.014) + (norm_CUR * 0.0028) + (log_RI * 0.78) - (log_DIFF * 0.88)
+    return priority
+"
