@@ -68,6 +68,7 @@ pytest                      # 118 tests, about 40 seconds (the ReEvo/EoH tests a
 | One full GP run (51,000 evaluations, one core) | `python experiments/run_gp_many.py --alphas 0.5 --runs 1` | ~1.5 h |
 | The paper's 90 runs (30 seeds x 3 alphas, one run per core) | `caffeinate -i python experiments/run_gp_many.py` | ~12 h |
 | Results table from the CSV | `python experiments/summarize_results.py` | instant |
+| EoH convergence plot (needs `pip install -e ".[plot]"`) | `python experiments/plot_eoh_convergence.py` | instant |
 | Regenerate the training set (already done) | `python experiments/make_training_set.py` | instant |
 | One LLM run, quick test (30 evaluations) | `python experiments/run_llm.py --method eoh --alpha 0.5 --seed 1 --quick` | ~5-10 min on a laptop |
 | One full LLM run (500 evaluations) | `python experiments/run_llm.py --method reevo --alpha 0.5 --seed 1` | ~1-2 h on a laptop |
@@ -166,12 +167,19 @@ data/caserta_840 (840 test yards) ──► results/gp_full.csv
 15. The main experiment gives the LLM no CRP heuristic knowledge, close to the original EoH and
     ReEvo setups, so improvements can be attributed to the framework and not to our hints. A very
     short CRP hint is planned as a separate ablation experiment.
+16. The EoH convergence plot (`results/eoh_convergence.png`) shows the median and IQR over the 10
+    runs of the population's best and mean training total, plus the % of valid new rules, per
+    generation. It is rebuilt from the committed rule logs: EoH keeps the 10 best distinct totals,
+    so its population after generation g is the 10 best among the first 20 + 40*g rules, which
+    matches EoH's own saved populations for all 30 runs. Failed rules get `inf` in ReEvo's EoH
+    adapter instead of the original `None`, which EoH's population step does not filter out; this
+    never mattered, because every saved population holds 10 valid rules.
 
 ### Simplification
 
-16. Only the Maximum hidden strategy is implemented, because every scenario uses it; the C++
+17. Only the Maximum hidden strategy is implemented, because every scenario uses it; the C++
     Ignore strategy was removed, which changes no Maximum result.
-17. The readable reference path (`solve_unrestricted`, `terminals.py`, `evaluate`) is kept next
+18. The readable reference path (`solve_unrestricted`, `terminals.py`, `evaluate`) is kept next
     to the fast path: it is the version to read, and the tests compare both move by move.
 
 ## License

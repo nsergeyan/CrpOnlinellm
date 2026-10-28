@@ -15,6 +15,7 @@ dependencies = []  # standard library only
 dev = ["pytest"]
 # LLM phase only (EoH and ReEvo themselves come from frameworks/setup_reevo.sh).
 llm = ["numpy"]  # available to LLM-written rules as np
+plot = ["matplotlib"]  # result figures only
 
 [tool.setuptools.packages.find]
 where = ["src"]
