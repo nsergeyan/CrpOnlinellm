@@ -3,6 +3,7 @@
 # Tool and editor folders
 .vibe-wise/
 .idea/
+.DS_Store
 
 # Python and pytest caches, install metadata
 __pycache__/
