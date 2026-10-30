@@ -16,7 +16,7 @@ import subprocess
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Optional
 
 from crp.instance import Instance
 from crp.llm.evaluate import compile_rule, evaluate_rule
@@ -69,7 +69,18 @@ def run_experiment(method: str, alpha: float, seed: int, budget: int, model: str
     rule_log.unlink(missing_ok=True)  # a crashed earlier attempt must not mix in
     llm_calls = run_framework(method, alpha, budget, model, base_url, pop_size, init_pop_size,
                               rule_log, work_dir, echo)
+    return result_row(method, model, alpha, seed, budget, rule_log, test_instances, "priority_v2",
+                      llm_calls, time.perf_counter() - start)
 
+
+def result_row(method: str, model: str, alpha: float, seed: int, budget: int, rule_log: Path,
+               test_instances: list[Instance], func_name: Optional[str], llm_calls: int,
+               seconds: float) -> dict:
+    """A run's CSV row: the best of the first `budget` logged rules, scored once on the test set.
+
+    Shared by EoH and ReEvo (run_experiment) and CALM (experiments/calm_result.py), so all
+    three count the budget and pick the best rule in exactly the same way.
+    """
     rules = [json.loads(line) for line in rule_log.read_text().splitlines()][:budget]
     if len(rules) < budget:  # not written to the CSV, so the batch retries this run
         raise RuntimeError(f"only {len(rules)} scored rules, fewer than the budget {budget}")
@@ -77,7 +88,7 @@ def run_experiment(method: str, alpha: float, seed: int, budget: int, model: str
     if not valid:
         raise RuntimeError(f"no valid rule in {rule_log}")
     best = min(valid, key=lambda r: r["total"])  # first of the best on ties
-    test_total = evaluate_rule(compile_rule(best["code"], "priority_v2"), test_instances, alpha)
+    test_total = evaluate_rule(compile_rule(best["code"], func_name), test_instances, alpha)
     return {
         "date": datetime.now().isoformat(timespec="seconds"),
         "method": method,
@@ -89,7 +100,7 @@ def run_experiment(method: str, alpha: float, seed: int, budget: int, model: str
         "test_total": test_total,
         "valid_rate": round(len(valid) / len(rules), 3),
         "llm_calls": llm_calls,
-        "seconds": round(time.perf_counter() - start, 1),
+        "seconds": round(seconds, 1),
         "code": best["code"],
     }
 

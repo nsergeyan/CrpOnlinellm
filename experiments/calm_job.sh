@@ -1,8 +1,11 @@
 #!/bin/bash
 # One CALM run on the CRP as a Slurm job on ALICE (1 A100). From the repo folder:
 #   mkdir -p runs/calm   (once: Slurm needs the folder before it can write the output file)
-#   sbatch --partition=gpu-short --time=01:00:00 experiments/calm_job.sh 0.5 test 20
-# Arguments: alpha, run name, budget (scored rules). Output: runs/calm/<name>.{jsonl,out}
+#   sbatch --partition=gpu-short --time=01:00:00 experiments/calm_job.sh 0.5 1 20
+#       one run: alpha, seed (a run number), budget (scored rules, default 500)
+#   sbatch --array=0-29%4 --partition=gpu-short,gpu-a100-80g --time=04:00:00 experiments/calm_job.sh
+#       all 30 runs, at most 4 at a time; seed is the outer loop, as in the EoH batch
+# Output: runs/calm/calm_a<alpha>_s<seed>.{jsonl,row.json}; experiments/calm_result.py collect
 #SBATCH --job-name=calm-crp
 #SBATCH --gres=gpu:a100:1
 #SBATCH --cpus-per-task=10
@@ -10,7 +13,13 @@
 #SBATCH --output=runs/calm/%x_%j.out
 set -euo pipefail
 
-ALPHA=$1 NAME=$2 BUDGET=${3:-500}
+if [ -n "${SLURM_ARRAY_TASK_ID:-}" ]; then  # job array: 0-29 = seeds 1-10 x alphas 0.5, 0.3, 0.1
+    ALPHAS=(0.5 0.3 0.1)
+    ALPHA=${ALPHAS[$((SLURM_ARRAY_TASK_ID % 3))]} SEED=$((SLURM_ARRAY_TASK_ID / 3 + 1)) BUDGET=500
+else
+    ALPHA=$1 SEED=$2 BUDGET=${3:-500}
+fi
+NAME=calm_a${ALPHA}_s${SEED}
 ROOT=$PWD
 CALM=$ROOT/frameworks/calm
 DATA=/data1/liuw2/narek
@@ -32,3 +41,5 @@ export RAY_ADDRESS=127.0.0.1:$PORT
 cd "$CALM"
 "$CALM/.venv/bin/python" run_crp.py --alpha "$ALPHA" --model $DATA/models/qwen3-14b-nothink \
     --rule-log "$ROOT/runs/calm/$NAME.jsonl" --log-name "$NAME" --budget "$BUDGET"
+"$CALM/.venv/bin/python" "$ROOT/experiments/calm_result.py" row --alpha "$ALPHA" --seed "$SEED" \
+    --seconds "$SECONDS" --budget "$BUDGET"

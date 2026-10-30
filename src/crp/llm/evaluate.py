@@ -32,8 +32,9 @@ class RuleFailed(Exception):
     """The LLM's rule did something we cannot score."""
 
 
-def compile_rule(code: str, name: str) -> Callable[..., object]:
-    """Run the code text in a fresh namespace and return the function called `name`."""
+def compile_rule(code: str, name: Optional[str]) -> Callable[..., object]:
+    """Run the code text in a fresh namespace and return the function called `name`, or,
+    with name None, the only function the code defines (how CALM picks it)."""
     namespace: dict[str, object] = {"math": math}
     try:
         import numpy  # comes with the llm extra; the core project does not need it
@@ -41,9 +42,14 @@ def compile_rule(code: str, name: str) -> Callable[..., object]:
     except ImportError:
         pass
     exec(code, namespace)
-    func = namespace.get(name)
+    if name is None:
+        functions = [v for v in namespace.values() if callable(v) and hasattr(v, "__code__")]
+        func = functions[0] if len(functions) == 1 else None
+    else:
+        func = namespace.get(name)
     if not callable(func):
-        raise RuleFailed(f"no function named {name!r} in the code")
+        raise RuleFailed(f"no function named {name!r} in the code" if name
+                         else "the code does not define exactly one function")
     return func
 
 

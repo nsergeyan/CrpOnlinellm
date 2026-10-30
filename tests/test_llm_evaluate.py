@@ -82,6 +82,13 @@ def test_compile_errors():
         compile_rule(RETURN_SH, "priority_v2")
 
 
+def test_compile_without_name_takes_the_only_function(test_set):
+    renamed = RETURN_SH.replace("def priority(", "def lowest_stack(")  # CALM accepts any name
+    assert evaluate_rule(compile_rule(renamed, None), test_set, 0.5) == RETURN_SH_TEST
+    with pytest.raises(RuleFailed):                                     # two functions: ambiguous
+        compile_rule(RETURN_SH + "\ndef helper(x):\n    return x\n", None)
+
+
 def run_cli(tmp_path, code: str, *args: str) -> str:
     path = tmp_path / "gpt.py"
     path.write_text(code)
