@@ -4,19 +4,16 @@ Canned answers, no API key, no cost. Both frameworks are untouched: they talk to
 server through ReEvo's normal base_url setting. Skipped until frameworks/setup_reevo.sh has run.
 """
 import csv
-import itertools
 import json
 import os
 import re
 import subprocess
-import threading
-from contextlib import contextmanager
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import pytest
 
 from crp.paths import ROOT
+from fake_llm import fake_llm
 
 REEVO = Path(os.environ.get("REEVO_DIR", ROOT / "frameworks" / "reevo")).resolve()
 pytestmark = pytest.mark.skipif(not (REEVO / ".venv" / "bin" / "python").exists(),
@@ -24,7 +21,6 @@ pytestmark = pytest.mark.skipif(not (REEVO / ".venv" / "bin" / "python").exists(
 
 SIGNATURE = "def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:"
 # Totals on the training set at alpha 0.5: return RI = 26,452; math.sqrt(SH) + 100 * RI = 27,047
-HINT = "Prefer stacks with low RI; never add DIFF."
 
 # ReEvo: plain code blocks
 REEVO_ANSWERS = [f"```python\n{SIGNATURE}\n    {body}\n```" for body in [
@@ -43,41 +39,6 @@ EOH_ANSWERS = [f"{{{idea}}}\n```python\n{SIGNATURE}\n{body}\n```" for idea, body
     ("Square root of height plus heavy RI penalty.", "    priority = math.sqrt(SH) + 100 * RI\n    return priority"),
     ("Always NaN.", "    priority = float('nan')\n    return priority"),
 ]]
-
-
-@contextmanager
-def fake_llm(answers: list[str]):
-    """A tiny OpenAI-style server that cycles through canned answers."""
-    replies = itertools.cycle(answers)
-    lock = threading.Lock()  # the frameworks send several requests at the same time
-
-    class Handler(BaseHTTPRequestHandler):
-        def do_POST(self):
-            body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
-            prompt = body["messages"][-1]["content"]
-            with lock:
-                content = HINT if "hints" in prompt else next(replies)  # ReEvo's reflections ask for hints
-            reply = json.dumps({
-                "id": "fake", "object": "chat.completion", "created": 0, "model": body["model"],
-                "choices": [{"index": 0, "finish_reason": "stop",
-                             "message": {"role": "assistant", "content": content}}],
-                "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
-            }).encode()
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(reply)))
-            self.end_headers()
-            self.wfile.write(reply)
-
-        def log_message(self, *args):  # keep test output quiet
-            pass
-
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)  # port 0 = any free port
-    threading.Thread(target=server.serve_forever, daemon=True).start()
-    try:
-        yield f"http://127.0.0.1:{server.server_port}/v1"
-    finally:
-        server.shutdown()
 
 
 def run_main(algorithm: str, answers: list[str], out: Path) -> tuple[str, list[float]]:

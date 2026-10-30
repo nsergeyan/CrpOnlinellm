@@ -1,0 +1,9 @@
+# CALM settings for the CRP (copied to CALM's configs/crp_online/ by install_calm_files.py).
+# Everything not listed keeps the paper version's default (CALM's args.py): population 10,
+# 4 answers per prompt, learning rate 5e-5, collapse chance 0.0005 per stuck round.
+problem_name: crp_online
+seed_algo_fp: configs/crp_online/seed.py
+template_fp: configs/crp_online/template.py
+max_stuck_threshold: 25   # C = 25 as in the paper (the code would use max_steps // 20)
+max_steps: 1000           # only a safety cap: run_crp.py stops CALM once the budget is used
+# model_name is given to run_crp.py (the model folder differs per server)
