@@ -4,6 +4,8 @@
 # Safe to run again: it reuses the clone and the environment, and re-copies our files.
 # On Linux (GPU server) it installs everything for fine-tuning; on macOS only what CALM's
 # API mode needs, which is enough for tests/test_llm_calm.py with a fake LLM.
+# The Python must include its header files (Python.h): on the GPU node, Triton compiles a
+# small C helper. A Python installed by uv has them; ALICE's /usr/bin/python3.11 does not.
 set -euo pipefail
 
 CALM_URL=https://github.com/whxru/CALM
@@ -13,12 +15,15 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DIR=${CALM_DIR:-"$ROOT/frameworks/calm"}
 
 # CALM's own list pins libraries from early 2025 that cannot load Qwen3, so these are the
-# oldest versions that can; trl stays at CALM's version. ray, grpcio and aiohttp are pinned
+# oldest versions that can; trl stays at CALM's version. Libraries that Unsloth and TRL work
+# closely with (accelerate, peft, bitsandbytes, datasets) are pinned to Unsloth's release
+# month, May 2025: newer ones break Unsloth's patches. ray, grpcio and aiohttp are pinned
 # because newer ones break Ray's helper processes. setuptools is needed by triton.
 GPU_PACKAGES=(vllm==0.8.5.post1 transformers==4.51.3 trl==0.15.1 unsloth==2025.5.9
-              unsloth_zoo==2025.5.11 "ray[cgraph]==2.46.0" setuptools nvidia-ml-py)
+              unsloth_zoo==2025.5.11 accelerate==1.7.0 peft==0.15.2 bitsandbytes==0.45.5
+              "ray[cgraph]==2.46.0" setuptools nvidia-ml-py)
 API_PACKAGES=(ray==2.46.0)
-COMMON_PACKAGES=(grpcio==1.70.0 aiohttp==3.11.12 datasets openai numpy scipy pyyaml)
+COMMON_PACKAGES=(grpcio==1.70.0 aiohttp==3.11.12 datasets==3.6.0 openai numpy scipy pyyaml)
 
 echo "1/4 CALM code at commit $CALM_COMMIT"
 if [ ! -d "$DIR/.git" ]; then

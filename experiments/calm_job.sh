@@ -15,6 +15,7 @@ ROOT=$PWD
 CALM=$ROOT/frameworks/calm
 DATA=/data1/liuw2/narek
 export HF_HOME=$DATA/cache/hf VLLM_CACHE_ROOT=$DATA/cache/vllm TRITON_CACHE_DIR=$DATA/cache/triton
+export PYTHONUNBUFFERED=1  # write CALM's output to the .out file at once, not in chunks
 
 echo "Job $SLURM_JOB_ID on $(hostname), GPU given by Slurm: ${CUDA_VISIBLE_DEVICES:-none}"
 nvidia-smi -L
