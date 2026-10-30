@@ -47,3 +47,32 @@ PATH="$PWD/.venv/bin:$PATH" python main.py problem=crp_online problem.problem_si
 ```
 
 `tests/test_llm_reevo.py` runs the real ReEvo against a fake LLM server (skipped until the setup has run).
+
+## CALM
+
+CALM (ICLR 2026) is set up separately, at the paper's commit `ecb3cad`, used unchanged.
+`frameworks/setup_calm.sh` clones it to `frameworks/calm`, creates `frameworks/calm/.venv`
+(Python 3.11 with its header files), installs the pinned libraries (the GPU set on Linux, only
+CALM's API mode on macOS) and our `crp` code, and adds our files. It refuses to continue if
+CALM's own files were edited.
+
+| In this repo | Copied to `frameworks/calm/` |
+|---|---|
+| `frameworks/calm_crp/crp_online.py` (description, yards, scoring with `crp.llm.evaluate`) | `problems/crp_online.py` |
+| `frameworks/calm_crp/crp_online.yaml` (settings) | `configs/crp_online/crp_online.yaml` |
+| generated from `src/crp/llm/prompts.py` | `configs/crp_online/{seed,template}.py` |
+| `frameworks/calm_crp/run.py` (launcher) | `run_crp.py` |
+
+`run_crp.py` starts CALM's `main.py` with our settings and swaps two of CALM's helpers at run
+time, without editing CALM's files: `evaluate_code`, to log every scored rule and stop CALM at the
+budget, and `extract_function_from_string`, to give the LLM's code `math` and `np`. Run it from
+CALM's folder:
+
+```bash
+cd frameworks/calm
+.venv/bin/python run_crp.py --alpha 0.5 --model /path/to/qwen3-14b-nothink --rule-log rules.jsonl --log-name test --budget 20
+```
+
+On ALICE, `experiments/calm_job.sh` does this inside a Slurm job, with its own 8-worker Ray.
+`tests/test_llm_calm.py` runs the real CALM in its API mode against a fake LLM server (skipped
+until the setup has run).

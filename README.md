@@ -6,9 +6,10 @@ genetic-programming experiments from:
 > Đurasević, Đumić & Gil-Gala (2026). *Automated design of relocation rules with genetic
 > programming for the online container relocation problem.* Expert Systems with Applications.
 
-The same code also scores relocation rules written by LLMs, with two published frameworks
-([EoH](https://github.com/FeiLiu36/EoH) and [ReEvo](https://github.com/ai4co/reevo)), so GP and
-the LLM methods are compared on exactly the same data, scheme and scorer.
+The same code also scores relocation rules written by LLMs, with three published frameworks
+([EoH](https://github.com/FeiLiu36/EoH), [ReEvo](https://github.com/ai4co/reevo) and
+[CALM](https://github.com/whxru/CALM), which also fine-tunes the LLM during the search), so GP
+and the LLM methods are compared on exactly the same data, scheme and scorer.
 
 ## The problem in short
 
@@ -57,7 +58,8 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 pip install -e ".[dev,llm]"   # only for the LLM experiments
 bash frameworks/setup_reevo.sh  # only for the LLM experiments: ReEvo + original EoH (Python 3.11, see frameworks/README.md)
-pytest                      # 118 tests, about 40 seconds (the ReEvo/EoH tests are skipped until setup)
+bash frameworks/setup_calm.sh   # only for CALM: GPU libraries on Linux, API mode for the tests on macOS (see frameworks/README.md)
+pytest                      # 121 tests, about 40 seconds (the ReEvo/EoH and CALM end-to-end tests are skipped until setup)
 ```
 
 ## How to run
@@ -73,6 +75,10 @@ pytest                      # 118 tests, about 40 seconds (the ReEvo/EoH tests a
 | One LLM run, quick test (30 evaluations) | `python experiments/run_llm.py --method eoh --alpha 0.5 --seed 1 --quick` | ~5-10 min on a laptop |
 | One full LLM run (500 evaluations) | `python experiments/run_llm.py --method reevo --alpha 0.5 --seed 1` | ~1-2 h on a laptop |
 | All 60 LLM runs (2 methods x 3 alphas x 10 seeds), resumable | `python experiments/run_llm_many.py` | days; meant for the GPU server |
+| GP at the LLM budget (500 evaluations, 2 settings x 90 runs) | `python experiments/run_gp_many.py --population 50 --generations 9 --out results/gp_500.csv` (and `--population 100 --generations 4`) | a few minutes |
+| One CALM run on ALICE (one A100) | `sbatch --partition=gpu-short --time=04:00:00 experiments/calm_job.sh 0.5 1` | ~2 h |
+| All 30 CALM runs (10 seeds x 3 alphas), at most 4 at a time | `sbatch --array=0-29%4 --partition=gpu-short,gpu-a100-80g --time=04:00:00 experiments/calm_job.sh` | 1-2 days, depends on the queue |
+| CALM rows into `results/llm_full.csv` (after copying `runs/calm/` from ALICE) | `python experiments/calm_result.py collect` | instant |
 
 Full runs go to `results/gp_full.csv`, quick ones to `results/gp_quick.csv`. LLM runs go to
 `results/llm_full.csv` (quick: `llm_quick.csv`), every scored rule of a run to
@@ -107,8 +113,8 @@ data/caserta_840 (840 test yards) ──► results/gp_full.csv
 | `src/crp/schemes.py` | unrestricted scheme: readable reference + a fast version that GP uses |
 | `src/crp/pu.py` | PU1 and PU2, the paper's hand-made baselines |
 | `src/crp/gp/` | GP: `tree`, `crossover` (5), `mutation` (7), `algorithm` (the loop), `expression` (parse and compile formulas), `fitness` (with a cache), `experiment` (runs and CSV) |
-| `src/crp/llm/` | LLM part: `evaluate` (scores LLM-written code, same scheme as GP), `prompts` (texts shared by EoH and ReEvo), `experiment` (one run and CSV) |
-| `frameworks/` | ReEvo + original EoH setup (`setup_reevo.sh`) and our plug-in files; see `frameworks/README.md` |
+| `src/crp/llm/` | LLM part: `evaluate` (scores LLM-written code, same scheme as GP), `prompts` (texts shared by EoH and ReEvo), `experiment` (one run, the result row shared by EoH, ReEvo and CALM, CSV) |
+| `frameworks/` | ReEvo + original EoH setup (`setup_reevo.sh`), CALM setup (`setup_calm.sh`), and our plug-in files; see `frameworks/README.md` |
 | `src/crp/paper.py` | every paper number we reproduce |
 | `src/crp/paths.py` | data and results folders |
 | `experiments/` | scripts listed under "How to run" |
@@ -181,6 +187,58 @@ data/caserta_840 (840 test yards) ──► results/gp_full.csv
     Ignore strategy was removed, which changes no Maximum result.
 18. The readable reference path (`solve_unrestricted`, `terminals.py`, `evaluate`) is kept next
     to the fast path: it is the version to read, and the tests compare both move by move.
+
+### GP at the LLM budget
+
+19. GP is also run with 500 evaluations, the LLM methods' budget, with population 50 x 9
+    generations and 100 x 4; both are reported. Only the number of evaluations is matched to
+    EoH, not its population or generations. The 51,000-evaluation runs stay as the full-budget
+    reference.
+
+### CALM: decisions
+
+20. CALM (ICLR 2026) is the fine-tuning method: an EoH-like search whose LLM is trained during
+    the search with reinforcement learning (GRPO) on a LoRA adapter (about 1% of the weights).
+    It is compared with EoH, the strongest published framework known to us.
+21. The paper version of CALM (commit `ecb3cad`, "Release CALM"), unchanged. A later rewrite
+    (June 2026) adds features the paper does not describe and switches the collapse off by default.
+22. The same model as EoH: Qwen3-14B with thinking off through the official non-thinking
+    template (empty think block), here set in the model's chat template. It is loaded as
+    Unsloth's 4-bit version (bnb nf4) instead of Ollama's Q4_K_M, because training needs a format
+    Unsloth can fine-tune: the same model, slightly different compression.
+23. CALM's pinned libraries cannot load Qwen3, so the oldest versions that can are used
+    (transformers 4.51.3, vLLM 0.8.5.post1, Unsloth 2025.5.9); trl stays at CALM's 0.15.1.
+    Libraries that Unsloth patches are pinned to its release month (accelerate 1.7.0, peft
+    0.15.2, bitsandbytes 0.45.5, datasets 3.6.0), because newer ones crash. Ray 2.46.0, grpcio
+    1.70.0 and aiohttp 3.11.12 keep Ray's helper processes working. Python needs its header files
+    (a uv-installed Python has them), because Triton compiles a small C helper on the GPU node.
+    All of this is in `frameworks/setup_calm.sh`.
+24. CALM's settings are the paper's defaults: population 10, 4 answers per prompt, learning rate
+    5e-5, collapse chance 0.0005 per stuck round, and C = 25 (collapse after 25 rounds without a
+    new best), the value the paper reports. The paper's code uses rounds / 20 instead, which would
+    be 7 in our shorter runs; the paper's own ablation shows that collapsing too early hurts.
+25. The same seed rule, problem description, scorer and `math`/`np` as EoH and ReEvo: CALM's
+    problem file scores with `crp.llm.evaluate`, and `run_crp.py` gives the LLM's code `math` and
+    `np`, as `compile_rule` does. CALM's own choices stay: it takes the one function in an answer
+    whatever its name, and it rejects rules whose code contains "random" (EoH accepted them,
+    scored with a fixed seed).
+26. The budget works as in decision 10: the best of the first 500 scored rules. CALM has no hook
+    like `eval.py`, so `run_crp.py` wraps CALM's `evaluate_code` to log every scored rule and
+    stops CALM once 500 are logged. A rule counts once it reaches the scorer; CALM drops answers
+    without an idea, a code block or exactly one function before that, which in the pilot was
+    under 1% of answers (at most 4 of 504). The seed rule is not counted, as in EoH.
+27. CALM's Ray starts one worker per CPU core, which hit the thread limit of a shared server and
+    froze. `calm_job.sh` therefore starts an 8-worker Ray per job (its own port and temp folder),
+    which CALM then uses. The number of workers changes only the speed, not the scores.
+28. CALM runs on ALICE (Leiden's cluster) through Slurm, on one A100 80 GB per run: the 14B
+    model with training needs about 22 GB, too much for the shared 24 GB GPUs. One run takes
+    about 2 hours. The 30 runs run as one job array, at most 4 at a time. Each job writes its own
+    result row, and `calm_result.py collect` merges them into `results/llm_full.csv` with the same
+    `result_row` as EoH and ReEvo.
+29. `seed` is only a run number, as in decision 12: CALM's paper version takes no random seed.
+30. CALM's paper version calls a missing `save_trace` after every round; it prints the error and
+    continues. Because of this, the fine-tuned LoRA weights are not saved. The results do not
+    depend on it.
 
 ## License
 
