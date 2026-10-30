@@ -25,6 +25,9 @@ CALM=$ROOT/frameworks/calm
 DATA=/data1/liuw2/narek
 export HF_HOME=$DATA/cache/hf VLLM_CACHE_ROOT=$DATA/cache/vllm TRITON_CACHE_DIR=$DATA/cache/triton
 export PYTHONUNBUFFERED=1  # write CALM's output to the .out file at once, not in chunks
+# a rerun starts clean: CALM appends to an existing log folder, and an old row file must not
+# be merged with a new rule log (run_crp.py already deletes the old rule log)
+rm -rf "$CALM/calm_saved/crp_online/$NAME" "$ROOT/runs/calm/$NAME.row.json"
 
 echo "Job $SLURM_JOB_ID on $(hostname), GPU given by Slurm: ${CUDA_VISIBLE_DEVICES:-none}"
 nvidia-smi -L
