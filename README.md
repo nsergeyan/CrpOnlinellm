@@ -239,6 +239,13 @@ data/caserta_840 (840 test yards) ──► results/gp_full.csv
 30. CALM's paper version calls a missing `save_trace` after every round; it prints the error and
     continues. Because of this, the fine-tuned LoRA weights are not saved. The results do not
     depend on it.
+31. A run whose selected rule fails on the test set keeps that failure: the rule is chosen on
+    the training set only, and the test set is used once, to score it. (Choosing another rule
+    because it works on the test set would use the test set for selection.) In the comparisons
+    such a run counts as the worst result, which can only make its method look worse. This
+    happened once: CALM's best rule at alpha 0.1, seed 1 (29,279 on training) divides by zero on
+    2 of the 840 test yards (data10-10-24 and data10-10-38), in a situation that never occurs in
+    the training yards.
 
 ## License
 
