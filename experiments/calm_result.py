@@ -45,7 +45,8 @@ def collect(out: Path) -> None:
         append_row(out, result)
         rule_log = path.with_name(path.name.replace(".row.json", ".jsonl"))
         shutil.copy(rule_log, RESULTS / "llm_runs_full" / rule_log.name)
-        print(f"added {path.name.removesuffix('.row.json')}: test {result['test_total']:,}")
+        test = "failed on the test set" if result["test_total"] is None else f"{result['test_total']:,}"
+        print(f"added {path.name.removesuffix('.row.json')}: test {test}")
 
 
 def main() -> None:
