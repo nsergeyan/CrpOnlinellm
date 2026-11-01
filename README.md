@@ -81,6 +81,7 @@ pytest                      # 121 tests, about 40 seconds (the ReEvo/EoH and CAL
 | CALM rows into `results/llm_full.csv` (after copying `runs/calm/` from ALICE) | `python experiments/calm_result.py collect` | instant |
 | CALM's population per round (after copying CALM's logs to `runs/calm/calm_logs/`) | `python experiments/calm_result.py pools` | instant |
 | CALM convergence plot (needs `pip install -e ".[plot]"`) | `python experiments/plot_calm_convergence.py` | instant |
+| LLM methods vs GP: tables and tests (`results/llm_comparison.md`) | `python experiments/compare_methods.py` | instant |
 
 Full runs go to `results/gp_full.csv`, quick ones to `results/gp_quick.csv`. LLM runs go to
 `results/llm_full.csv` (quick: `llm_quick.csv`), every scored rule of a run to
@@ -255,6 +256,11 @@ data/caserta_840 (840 test yards) ──► results/gp_full.csv
     whole pool after every round; `calm_result.py pools` keeps the 10 best totals per round
     (the rules CALM picks parents from) in `results/llm_runs_full/calm_*.pool.jsonl`. One round
     scores up to 4 rules, so round r is drawn at 4*r evaluations.
+33. `results/llm_comparison.md` compares all methods on the test totals with two-sided
+    Mann-Whitney U tests (normal approximation with tie correction, written out in
+    `compare_methods.py`, so no extra library is needed) and the effect size A12, the chance that
+    a run of one method beats a run of the other. With 10 LLM runs per alpha, differences of a
+    few hundred relocations are often not significant; A12 shows the direction anyway.
 
 ## License
 
