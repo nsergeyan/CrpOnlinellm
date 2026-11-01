@@ -6,11 +6,16 @@
     python experiments/calm_result.py collect
         appends every new row to results/llm_full.csv and copies its rule log to
         results/llm_runs_full/, next to the EoH and ReEvo runs
+    python experiments/calm_result.py pools
+        reads CALM's own logs (copied from ALICE to runs/calm/calm_logs/) and writes, per run,
+        results/llm_runs_full/calm_a0.5_s1.pool.jsonl: CALM's 10 best totals after every
+        round and whether a collapse came before it (for experiments/plot_calm_convergence.py)
 
 Each job writes its own row file, so parallel jobs never write to the same file.
 """
 import argparse
 import json
+import re
 import shutil
 from pathlib import Path
 
@@ -20,8 +25,11 @@ from crp.paths import RESULTS, ROOT, TEST_SET
 
 RUNS = ROOT / "runs" / "calm"
 CALM_LOGS = ROOT / "frameworks" / "calm" / "calm_saved" / "crp_online"
+COPIED_LOGS = RUNS / "calm_logs"  # CALM's log folders, copied from ALICE
 MODEL = "qwen3-14b-nothink"   # unsloth/Qwen3-14B-unsloth-bnb-4bit, thinking off
 ANSWERS_PER_ROUND = 4         # CALM's default n_generations
+POP_SIZE = 10                 # CALM's default population_size: parents come from the 10 best
+YARDS = 840                   # CALM logs minus the relocations per yard; times 840 = the total
 
 
 def name(alpha: float, seed: int) -> str:
@@ -49,6 +57,22 @@ def collect(out: Path) -> None:
         print(f"added {path.name.removesuffix('.row.json')}: test {test}")
 
 
+def pools(logs: Path) -> None:
+    """CALM prints its whole pool after every round, best first; keep the 10 best per round."""
+    for log in sorted(logs.glob("calm_a*_s*/output.log")):
+        lines, collapse = [], False
+        for line in log.read_text().splitlines():
+            if "Collapse after" in line:
+                collapse = True
+            found = re.search(r"Step (\d+)> Number of algos: \d+, Perfs: (.*)", line)
+            if found:
+                best10 = [round(-float(p) * YARDS) for p in found.group(2).split(",")][:POP_SIZE]
+                lines.append(json.dumps({"round": int(found.group(1)), "best10": best10, "collapse": collapse}))
+                collapse = False
+        (RESULTS / "llm_runs_full" / f"{log.parent.name}.pool.jsonl").write_text("\n".join(lines) + "\n")
+        print(f"wrote {log.parent.name}.pool.jsonl: {len(lines)} rounds")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -59,11 +83,15 @@ def main() -> None:
     one.add_argument("--budget", type=int, default=500)
     merge = commands.add_parser("collect", help="add all new rows to the results CSV")
     merge.add_argument("--out", type=Path, default=RESULTS / "llm_full.csv")
+    pool = commands.add_parser("pools", help="write each run's population per round")
+    pool.add_argument("--logs", type=Path, default=COPIED_LOGS)
     args = parser.parse_args()
     if args.command == "row":
         row(args.alpha, args.seed, args.seconds, args.budget)
-    else:
+    elif args.command == "collect":
         collect(args.out)
+    else:
+        pools(args.logs)
 
 
 if __name__ == "__main__":
