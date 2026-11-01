@@ -1,9 +1,11 @@
 #!/bin/bash
-# One CALM run on the CRP as a Slurm job on ALICE (1 A100). From the repo folder:
+# One CALM run on the CRP as a Slurm job on one A100 (tested on ALICE, Leiden's cluster; the
+# partition names are ALICE's). CALM_DATA is your folder with models/qwen3-14b-nothink and cache/.
+# From the repo folder:
 #   mkdir -p runs/calm   (once: Slurm needs the folder before it can write the output file)
-#   sbatch --partition=gpu-short --time=01:00:00 experiments/calm_job.sh 0.5 1 20
+#   CALM_DATA=/your/folder sbatch --partition=gpu-short --time=01:00:00 experiments/calm_job.sh 0.5 1 20
 #       one run: alpha, seed (a run number), budget (scored rules, default 500)
-#   sbatch --array=0-29%4 --partition=gpu-short,gpu-a100-80g --time=04:00:00 experiments/calm_job.sh
+#   CALM_DATA=/your/folder sbatch --array=0-29%4 --partition=gpu-short,gpu-a100-80g --time=04:00:00 experiments/calm_job.sh
 #       all 30 runs, at most 4 at a time; seed is the outer loop, as in the EoH batch
 # Output: runs/calm/calm_a<alpha>_s<seed>.{jsonl,row.json}; experiments/calm_result.py collect
 #SBATCH --job-name=calm-crp
@@ -22,7 +24,7 @@ fi
 NAME=calm_a${ALPHA}_s${SEED}
 ROOT=$PWD
 CALM=$ROOT/frameworks/calm
-DATA=/data1/liuw2/narek
+DATA=${CALM_DATA:?set CALM_DATA to the folder that holds models/ and cache/}
 export HF_HOME=$DATA/cache/hf VLLM_CACHE_ROOT=$DATA/cache/vllm TRITON_CACHE_DIR=$DATA/cache/triton
 export PYTHONUNBUFFERED=1  # write CALM's output to the .out file at once, not in chunks
 # a rerun starts clean: CALM appends to an existing log folder, and an old row file must not

@@ -76,8 +76,8 @@ pytest                      # 121 tests, about 40 seconds (the ReEvo/EoH and CAL
 | One full LLM run (500 evaluations) | `python experiments/run_llm.py --method reevo --alpha 0.5 --seed 1` | ~1-2 h on a laptop |
 | All 60 LLM runs (2 methods x 3 alphas x 10 seeds), resumable | `python experiments/run_llm_many.py` | days; meant for the GPU server |
 | GP at the LLM budget (500 evaluations, 2 settings x 90 runs) | `python experiments/run_gp_many.py --population 50 --generations 9 --out results/gp_500.csv` (and `--population 100 --generations 4`) | a few minutes |
-| One CALM run on ALICE (one A100) | `sbatch --partition=gpu-short --time=04:00:00 experiments/calm_job.sh 0.5 1` | ~2 h |
-| All 30 CALM runs (10 seeds x 3 alphas), at most 4 at a time | `sbatch --array=0-29%4 --partition=gpu-short,gpu-a100-80g --time=04:00:00 experiments/calm_job.sh` | 1-2 days, depends on the queue |
+| One CALM run on ALICE (one A100) | `CALM_DATA=/your/folder sbatch --partition=gpu-short --time=04:00:00 experiments/calm_job.sh 0.5 1` | ~2 h |
+| All 30 CALM runs (10 seeds x 3 alphas), at most 4 at a time | `CALM_DATA=/your/folder sbatch --array=0-29%4 --partition=gpu-short,gpu-a100-80g --time=04:00:00 experiments/calm_job.sh` | 1-2 days, depends on the queue |
 | CALM rows into `results/llm_full.csv` (after copying `runs/calm/` from ALICE) | `python experiments/calm_result.py collect` | instant |
 | CALM's population per round (after copying CALM's logs to `runs/calm/calm_logs/`) | `python experiments/calm_result.py pools` | instant |
 | CALM convergence plot (needs `pip install -e ".[plot]"`) | `python experiments/plot_calm_convergence.py` | instant |
