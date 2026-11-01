@@ -4,9 +4,14 @@ Run from PyCharm (green button), or: python experiments/compare_methods.py
 
 All methods use the same training and test yards and scorer. EoH, ReEvo, CALM and GP-500 have
 500 evaluations; GP-51,000 is the full-budget reference. A run whose best rule fails on the test
-set counts as the worst result (README decision 31). Significance: two-sided Mann-Whitney U
-test (normal approximation with tie correction); A12 = the chance that a run of the row method
-beats a run of the column method (0.5 = equal, above 0.5 = the row method is usually better).
+set counts as the worst result (README decision 31).
+
+Significance: two-sided exact Mann-Whitney U test (the exact distribution of the rank sum over
+all ways to split the runs into the two groups, so it is valid for small samples and ties).
+The research question is CALM against each other method; those p-values are also Holm-corrected,
+because running several tests makes a chance "significant" result more likely. CALM vs EoH is
+the main comparison. The other pairs are context, uncorrected. A12 = the chance that a run of the
+first method beats a run of the second (0.5 = equal, above 0.5 = the first is usually better).
 """
 import csv
 import itertools
@@ -35,22 +40,47 @@ def total(value: str) -> float:
     return math.inf if value in ("", "None") else float(value)
 
 
-def mann_whitney_p(a: list[float], b: list[float]) -> float:
-    """Two-sided p-value of the Mann-Whitney U test, normal approximation with tie correction."""
+def ranks(a: list[float], b: list[float]) -> list[tuple[float, int]]:
+    """(rank, group) for all runs of both samples; equal values share their average rank."""
     values = sorted((v, group) for group, sample in enumerate((a, b)) for v in sample)
-    ranks, ties, i = [0.0] * len(values), 0.0, 0
+    ranked, i = [], 0
     while i < len(values):
         j = i
         while j < len(values) and values[j][0] == values[i][0]:
             j += 1
-        for k in range(i, j):
-            ranks[k] = (i + j + 1) / 2  # average rank of a group of equal values
-        ties += (j - i) ** 3 - (j - i)
+        ranked += [((i + j + 1) / 2, values[k][1]) for k in range(i, j)]
         i = j
-    n1, n2, n = len(a), len(b), len(a) + len(b)
-    u = sum(r for r, (_, group) in zip(ranks, values) if group == 0) - n1 * (n1 + 1) / 2
-    variance = n1 * n2 / 12 * ((n + 1) - ties / (n * (n - 1)))
-    return math.erfc(abs(u - n1 * n2 / 2) / math.sqrt(2 * variance))
+    return ranked
+
+
+def mann_whitney_p(a: list[float], b: list[float]) -> float:
+    """Two-sided exact p-value of the Mann-Whitney U test.
+
+    Counts, over every way to pick len(a) of all the ranks, how often the picked ranks sum to each
+    value (ranks are doubled so ties of .5 stay whole numbers), then p = 2 x the smaller tail.
+    """
+    ranked = ranks(a, b)
+    observed = sum(round(2 * r) for r, group in ranked if group == 0)
+    ways = [dict() for _ in range(len(a) + 1)]  # ways[k][s]: subsets of k ranks with doubled sum s
+    ways[0][0] = 1
+    for r, _ in ranked:
+        for k in range(len(a), 0, -1):
+            for s, count in ways[k - 1].items():
+                ways[k][s + round(2 * r)] = ways[k].get(s + round(2 * r), 0) + count
+    total_ways = sum(ways[len(a)].values())
+    low = sum(c for s, c in ways[len(a)].items() if s <= observed) / total_ways
+    high = sum(c for s, c in ways[len(a)].items() if s >= observed) / total_ways
+    return min(1.0, 2 * min(low, high))
+
+
+def holm(p_values: list[float]) -> list[float]:
+    """Holm-corrected p-values: the k-th smallest is multiplied by (m - k + 1), kept increasing."""
+    order = sorted(range(len(p_values)), key=lambda i: p_values[i])
+    corrected, running = [0.0] * len(p_values), 0.0
+    for rank, i in enumerate(order):
+        running = max(running, min(1.0, (len(p_values) - rank) * p_values[i]))
+        corrected[i] = running
+    return corrected
 
 
 def a12(a: list[float], b: list[float]) -> float:
@@ -100,11 +130,19 @@ def main() -> None:
             lines.append(f"| {NAMES[m]} | {len(values)} | {fmt(median)} | {fmt(q1)} - {fmt(q3)} "
                          f"| {fmt(min(values))} | {fmt(max(values))} | {sum(map(math.isinf, values))} |")
 
-        lines += ["", "**Pairwise tests on the test totals** (A12 > 0.5: the first method is usually better)", "",
-                  "| methods | p (Mann-Whitney) | A12 |", "|---|---|---|"]
-        for a, b in itertools.combinations(tests, 2):
-            p = mann_whitney_p(tests[a], tests[b])
-            lines.append(f"| {NAMES[a]} vs {NAMES[b]} | {p:.4f}{' *' if p < 0.05 else ''} | {a12(tests[a], tests[b]):.2f} |")
+        others = [m for m in tests if m != "calm"]
+        p_calm = [mann_whitney_p(tests["calm"], tests[m]) for m in others]
+        lines += ["", "**CALM vs each method** (exact Mann-Whitney; Holm-corrected over these comparisons; "
+                  "CALM vs EoH is the main comparison)", "",
+                  "| comparison | p | p, Holm-corrected | A12 (CALM wins) |", "|---|---|---|---|"]
+        for m, p, ph in zip(others, p_calm, holm(p_calm)):
+            lines.append(f"| CALM vs {NAMES[m]} | {p:.4f} | {ph:.4f}{' *' if ph < 0.05 else ''} "
+                         f"| {a12(tests['calm'], tests[m]):.2f} |")
+        lines += ["", "**Other pairs** (context: exact Mann-Whitney, not corrected)", "",
+                  "| comparison | p | A12 (first wins) |", "|---|---|---|"]
+        for a, b in itertools.combinations(others, 2):
+            lines.append(f"| {NAMES[a]} vs {NAMES[b]} | {mann_whitney_p(tests[a], tests[b]):.4f} "
+                         f"| {a12(tests[a], tests[b]):.2f} |")
 
         logs = {m: rule_logs(m, alpha) for m in LLM_METHODS}
         lines += ["", "**Median best training total after k evaluations**", "",
@@ -130,8 +168,8 @@ def main() -> None:
             lines.append(f"| {NAMES[m]} | {statistics.median(valid):.1%} | {statistics.median(same_total):.1%} "
                          f"| {statistics.median(same_code):.1%} | {statistics.median(distinct):.0f} "
                          f"| {statistics.median(gap):+,.0f} |")
-    lines += ["", "\\* p < 0.05. IQR = the middle 50% of the runs. A failed run (its best rule crashed on a test",
-              "yard) counts as the worst result in the medians and tests."]
+    lines += ["", "\\* p < 0.05 after Holm correction. IQR = the middle 50% of the runs. A failed run (its best",
+              "rule crashed on a test yard) counts as the worst result in the medians and tests."]
     path = RESULTS / "llm_comparison.md"
     path.write_text("\n".join(lines) + "\n")
     print(f"wrote {path}")

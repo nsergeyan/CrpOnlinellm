@@ -256,11 +256,21 @@ data/caserta_840 (840 test yards) ──► results/gp_full.csv
     whole pool after every round; `calm_result.py pools` keeps the 10 best totals per round
     (the rules CALM picks parents from) in `results/llm_runs_full/calm_*.pool.jsonl`. One round
     scores up to 4 rules, so round r is drawn at 4*r evaluations.
-33. `results/llm_comparison.md` compares all methods on the test totals with two-sided
-    Mann-Whitney U tests (normal approximation with tie correction, written out in
-    `compare_methods.py`, so no extra library is needed) and the effect size A12, the chance that
-    a run of one method beats a run of the other. With 10 LLM runs per alpha, differences of a
-    few hundred relocations are often not significant; A12 shows the direction anyway.
+33. `results/llm_comparison.md` compares the methods on the test totals with two-sided exact
+    Mann-Whitney U tests (the exact distribution of the rank sum, valid for small samples and
+    ties; written out in `compare_methods.py`, so no extra library is needed) and the effect size
+    A12, the chance that a run of one method beats a run of the other. The research question is
+    CALM against each other method; those p-values are Holm-corrected, because several tests make
+    a chance "significant" result more likely. CALM vs EoH is the main comparison. The other pairs
+    are context, uncorrected. With 10 LLM runs per alpha, differences of a few hundred relocations
+    are often not significant; A12 shows the direction anyway.
+34. Limitations of the CALM comparison, none of which changes the main result (CALM did not beat
+    EoH): (a) CALM's sampler (vLLM) has a fixed seed, so all CALM runs start with the same first
+    4 to 9 rules before they diverge; (b) CALM samples at temperature 0.9 (TRL's default, kept by
+    CALM's paper code), EoH and ReEvo at 1.0, which may add to CALM's repeats; (c) ReEvo spends 1
+    of its 500 evaluations on the seed rule, EoH and CALM do not; (d) CALM uses a different 4-bit
+    format of the same model (decision 22); (e) 10 runs per LLM method detect large differences
+    only. All 90 LLM result rows were recomputed from their rule logs with the scorer and match.
 
 ## License
 

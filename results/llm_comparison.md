@@ -18,25 +18,30 @@ off; GP: 30 runs per alpha. Every method except GP-51,000 has 500 evaluations. G
 | GP-500 (pop 100) | 30 | 25,174 | 24,833 - 25,590 | 24,389 | 25,899 | 0 |
 | GP-51,000 | 30 | 24,074 | 24,039 - 24,123 | 23,961 | 24,210 | 0 |
 
-**Pairwise tests on the test totals** (A12 > 0.5: the first method is usually better)
+**CALM vs each method** (exact Mann-Whitney; Holm-corrected over these comparisons; CALM vs EoH is the main comparison)
 
-| methods | p (Mann-Whitney) | A12 |
+| comparison | p | p, Holm-corrected | A12 (CALM wins) |
+|---|---|---|---|
+| CALM vs EoH | 0.1230 | 0.1230 | 0.29 |
+| CALM vs ReEvo | 0.0232 | 0.0929 | 0.80 |
+| CALM vs GP-500 (pop 50) | 0.0461 | 0.1022 | 0.29 |
+| CALM vs GP-500 (pop 100) | 0.0341 | 0.1022 | 0.28 |
+| CALM vs GP-51,000 | 0.0000 | 0.0000 * | 0.00 |
+
+**Other pairs** (context: exact Mann-Whitney, not corrected)
+
+| comparison | p | A12 (first wins) |
 |---|---|---|
-| CALM vs EoH | 0.1124 | 0.29 |
-| CALM vs ReEvo | 0.0233 * | 0.80 |
-| CALM vs GP-500 (pop 50) | 0.0456 * | 0.29 |
-| CALM vs GP-500 (pop 100) | 0.0350 * | 0.28 |
-| CALM vs GP-51,000 | 0.0000 * | 0.00 |
-| EoH vs ReEvo | 0.0009 * | 0.94 |
-| EoH vs GP-500 (pop 50) | 0.6172 | 0.55 |
-| EoH vs GP-500 (pop 100) | 0.4167 | 0.59 |
-| EoH vs GP-51,000 | 0.0000 * | 0.00 |
-| ReEvo vs GP-500 (pop 50) | 0.0000 * | 0.07 |
-| ReEvo vs GP-500 (pop 100) | 0.0000 * | 0.07 |
-| ReEvo vs GP-51,000 | 0.0000 * | 0.00 |
-| GP-500 (pop 50) vs GP-500 (pop 100) | 0.8130 | 0.52 |
-| GP-500 (pop 50) vs GP-51,000 | 0.0000 * | 0.00 |
-| GP-500 (pop 100) vs GP-51,000 | 0.0000 * | 0.00 |
+| EoH vs ReEvo | 0.0003 | 0.94 |
+| EoH vs GP-500 (pop 50) | 0.6335 | 0.55 |
+| EoH vs GP-500 (pop 100) | 0.4283 | 0.59 |
+| EoH vs GP-51,000 | 0.0000 | 0.00 |
+| ReEvo vs GP-500 (pop 50) | 0.0000 | 0.07 |
+| ReEvo vs GP-500 (pop 100) | 0.0000 | 0.07 |
+| ReEvo vs GP-51,000 | 0.0000 | 0.00 |
+| GP-500 (pop 50) vs GP-500 (pop 100) | 0.8172 | 0.52 |
+| GP-500 (pop 50) vs GP-51,000 | 0.0000 | 0.00 |
+| GP-500 (pop 100) vs GP-51,000 | 0.0000 | 0.00 |
 
 **Median best training total after k evaluations**
 
@@ -67,25 +72,30 @@ off; GP: 30 runs per alpha. Every method except GP-51,000 has 500 evaluations. G
 | GP-500 (pop 100) | 30 | 26,048 | 25,829 - 26,334 | 25,370 | 26,620 | 0 |
 | GP-51,000 | 30 | 24,768 | 24,730 - 24,790 | 24,706 | 24,866 | 0 |
 
-**Pairwise tests on the test totals** (A12 > 0.5: the first method is usually better)
+**CALM vs each method** (exact Mann-Whitney; Holm-corrected over these comparisons; CALM vs EoH is the main comparison)
 
-| methods | p (Mann-Whitney) | A12 |
+| comparison | p | p, Holm-corrected | A12 (CALM wins) |
+|---|---|---|---|
+| CALM vs EoH | 0.0753 | 0.1505 | 0.26 |
+| CALM vs ReEvo | 0.6305 | 0.6305 | 0.57 |
+| CALM vs GP-500 (pop 50) | 0.0355 | 0.1422 | 0.28 |
+| CALM vs GP-500 (pop 100) | 0.0426 | 0.1422 | 0.28 |
+| CALM vs GP-51,000 | 0.0000 | 0.0000 * | 0.00 |
+
+**Other pairs** (context: exact Mann-Whitney, not corrected)
+
+| comparison | p | A12 (first wins) |
 |---|---|---|
-| CALM vs EoH | 0.0696 | 0.26 |
-| CALM vs ReEvo | 0.5967 | 0.57 |
-| CALM vs GP-500 (pop 50) | 0.0363 * | 0.28 |
-| CALM vs GP-500 (pop 100) | 0.0423 * | 0.28 |
-| CALM vs GP-51,000 | 0.0000 * | 0.00 |
-| EoH vs ReEvo | 0.0102 * | 0.84 |
-| EoH vs GP-500 (pop 50) | 0.6619 | 0.55 |
-| EoH vs GP-500 (pop 100) | 0.2173 | 0.63 |
-| EoH vs GP-51,000 | 0.0000 * | 0.00 |
-| ReEvo vs GP-500 (pop 50) | 0.0054 * | 0.20 |
-| ReEvo vs GP-500 (pop 100) | 0.0041 * | 0.19 |
-| ReEvo vs GP-51,000 | 0.0000 * | 0.00 |
-| GP-500 (pop 50) vs GP-500 (pop 100) | 0.6735 | 0.53 |
-| GP-500 (pop 50) vs GP-51,000 | 0.0000 * | 0.00 |
-| GP-500 (pop 100) vs GP-51,000 | 0.0000 * | 0.00 |
+| EoH vs ReEvo | 0.0089 | 0.84 |
+| EoH vs GP-500 (pop 50) | 0.6725 | 0.55 |
+| EoH vs GP-500 (pop 100) | 0.2236 | 0.63 |
+| EoH vs GP-51,000 | 0.0000 | 0.00 |
+| ReEvo vs GP-500 (pop 50) | 0.0043 | 0.20 |
+| ReEvo vs GP-500 (pop 100) | 0.0031 | 0.19 |
+| ReEvo vs GP-51,000 | 0.0000 | 0.00 |
+| GP-500 (pop 50) vs GP-500 (pop 100) | 0.6784 | 0.53 |
+| GP-500 (pop 50) vs GP-51,000 | 0.0000 | 0.00 |
+| GP-500 (pop 100) vs GP-51,000 | 0.0000 | 0.00 |
 
 **Median best training total after k evaluations**
 
@@ -116,25 +126,30 @@ off; GP: 30 runs per alpha. Every method except GP-51,000 has 500 evaluations. G
 | GP-500 (pop 100) | 30 | 29,454 | 29,197 - 29,636 | 29,057 | 30,317 | 0 |
 | GP-51,000 | 30 | 28,985 | 28,959 - 29,034 | 28,929 | 29,090 | 0 |
 
-**Pairwise tests on the test totals** (A12 > 0.5: the first method is usually better)
+**CALM vs each method** (exact Mann-Whitney; Holm-corrected over these comparisons; CALM vs EoH is the main comparison)
 
-| methods | p (Mann-Whitney) | A12 |
+| comparison | p | p, Holm-corrected | A12 (CALM wins) |
+|---|---|---|---|
+| CALM vs EoH | 0.2475 | 0.3886 | 0.66 |
+| CALM vs ReEvo | 0.1903 | 0.3886 | 0.68 |
+| CALM vs GP-500 (pop 50) | 0.0083 | 0.0331 * | 0.22 |
+| CALM vs GP-500 (pop 100) | 0.1295 | 0.3886 | 0.34 |
+| CALM vs GP-51,000 | 0.0000 | 0.0000 * | 0.00 |
+
+**Other pairs** (context: exact Mann-Whitney, not corrected)
+
+| comparison | p | A12 (first wins) |
 |---|---|---|
-| CALM vs EoH | 0.2265 | 0.66 |
-| CALM vs ReEvo | 0.1736 | 0.68 |
-| CALM vs GP-500 (pop 50) | 0.0095 * | 0.22 |
-| CALM vs GP-500 (pop 100) | 0.1259 | 0.34 |
-| CALM vs GP-51,000 | 0.0000 * | 0.00 |
 | EoH vs ReEvo | 1.0000 | 0.50 |
-| EoH vs GP-500 (pop 50) | 0.0006 * | 0.13 |
-| EoH vs GP-500 (pop 100) | 0.0060 * | 0.21 |
-| EoH vs GP-51,000 | 0.0000 * | 0.00 |
-| ReEvo vs GP-500 (pop 50) | 0.0005 * | 0.13 |
-| ReEvo vs GP-500 (pop 100) | 0.0060 * | 0.21 |
-| ReEvo vs GP-51,000 | 0.0000 * | 0.00 |
-| GP-500 (pop 50) vs GP-500 (pop 100) | 0.0646 | 0.64 |
-| GP-500 (pop 50) vs GP-51,000 | 0.0000 * | 0.02 |
-| GP-500 (pop 100) vs GP-51,000 | 0.0000 * | 0.00 |
+| EoH vs GP-500 (pop 50) | 0.0003 | 0.13 |
+| EoH vs GP-500 (pop 100) | 0.0049 | 0.21 |
+| EoH vs GP-51,000 | 0.0000 | 0.00 |
+| ReEvo vs GP-500 (pop 50) | 0.0002 | 0.13 |
+| ReEvo vs GP-500 (pop 100) | 0.0049 | 0.21 |
+| ReEvo vs GP-51,000 | 0.0000 | 0.00 |
+| GP-500 (pop 50) vs GP-500 (pop 100) | 0.0648 | 0.64 |
+| GP-500 (pop 50) vs GP-51,000 | 0.0000 | 0.02 |
+| GP-500 (pop 100) vs GP-51,000 | 0.0000 | 0.00 |
 
 **Median best training total after k evaluations**
 
@@ -152,5 +167,5 @@ off; GP: 30 runs per alpha. Every method except GP-51,000 has 500 evaluations. G
 | EoH | 80.3% | 5.7% | 2.4% | 369 | +485 |
 | ReEvo | 97.9% | 31.1% | 7.8% | 336 | +544 |
 
-\* p < 0.05. IQR = the middle 50% of the runs. A failed run (its best rule crashed on a test
-yard) counts as the worst result in the medians and tests.
+\* p < 0.05 after Holm correction. IQR = the middle 50% of the runs. A failed run (its best
+rule crashed on a test yard) counts as the worst result in the medians and tests.
