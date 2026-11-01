@@ -1273,3 +1273,1192 @@ def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: 
     priority = (norm_SH * 0.0035) - (log_EMP * 0.32) + (norm_AVG * 0.014) + (norm_CUR * 0.0028) + (log_RI * 0.78) - (log_DIFF * 0.88)
     return priority
 "
+2026-10-31T03:07:27,calm,qwen3-14b-nothink,0.1,1,500,29279,,0.958,508,7698.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Normalize AVG relative to the current container's ID
+    avg_relative = (AVG - CUR) / (CUR + 1) if CUR != 0 else AVG
+
+    # Normalize free space relative to stack capacity
+    space_available = EMP / (SH + 1)
+
+    # Compute a blocking effectiveness metric: how much of the stack is above the current container
+    block_ratio = RI / (SH + 1)
+
+    # Compute a metric for free space efficiency: space left relative to how many containers could be blocked
+    space_efficiency = space_available / (block_ratio + 1e-9)
+
+    # Compute proximity alignment coefficient: how centered the current container is in the stack
+    if SH == 0:
+        proximity_alignment = 0.0
+    else:
+        # Normalize CUR's position within the stack (0 = top, 1 = bottom)
+        normalized_position = (SH - RI) / SH
+        proximity_alignment = 1 - abs(normalized_position - 0.5)
+
+    # Compute future obstruction avoidance: estimate future blockage potential
+    if SH == 0:
+        future_obstruction = 0.0
+    else:
+        avg_id_in_stack = AVG
+        future_obstruction = (avg_id_in_stack - CUR) / (CUR + 1) if CUR != 0 else (avg_id_in_stack / (CUR + 1))
+        future_obstruction = future_obstruction * (1 - (DIFF / (CUR + 1)))  # reduce if DIFF is large, meaning few unknowns
+
+    # Compute geometric compactness: how close the current container is to the center of the stack
+    geometric_compactness = proximity_alignment * (1 - (1 - space_available))  # combine with space efficiency
+
+    # Derive weights based on current stack state: occupancy and obstruction potential
+    if SH == 0:
+        weight_avg = 0.2
+        weight_space = 0.3
+        weight_proximity = 0.2
+        weight_future = 0.3
+    else:
+        # Instance-dependent weight adjustment based on observed values
+        weight_avg = 0.2 + 0.005 * (AVG - CUR) / (CUR + 1)
+        weight_space = 0.3 + 0.005 * (EMP / (SH + 1))
+        weight_proximity = 0.2 - 0.005 * (1 - proximity_alignment)
+        weight_future = 0.3 + 0.005 * (future_obstruction)
+
+    # Ensure weights sum to 1.0
+    total_weights = weight_avg + weight_space + weight_proximity + weight_future
+    weight_avg /= total_weights
+    weight_space /= total_weights
+    weight_proximity /= total_weights
+    weight_future /= total_weights
+
+    # Temporal obstruction sensitivity: penalize stacks that are more likely to cause future obstructions
+    temporal_sensitivity = 1 - (future_obstruction / (1 + future_obstruction))  # sensitivity increases as obstruction decreases
+
+    # Combine into a unified score with context-aware weights
+    priority = avg_relative * weight_avg + (1 - space_efficiency) * weight_space + (1 - geometric_compactness) * weight_proximity + future_obstruction * weight_future - temporal_sensitivity * 0.1
+    return priority"
+2026-10-31T18:01:50,calm,qwen3-14b-nothink,0.1,10,500,29248,29824,0.946,504,6410.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    if EMP == 0:
+        blocking_ratio = float('inf')
+    else:
+        blocking_ratio = RI / EMP
+
+    if SH == 0:
+        avg_deviation = 0
+    else:
+        avg_deviation = abs(AVG - CUR) / SH
+
+    # Temporal urgency bias: prioritize stacks with higher alignment to the current retrieval
+    urgency_bias = (CUR + 1) / (AVG + 1) if AVG != 0 else 1.0
+    # Future obstruction potential
+    future_obstruction = (blocking_ratio + 1) * (1 + avg_deviation)
+    # Relative entropy: stack that has similar IDs are more predictable
+    relative_entropy = 1 - (avg_deviation / (CUR + 1)) if CUR > 0 else 0.5
+    # Stack utilization (higher utilization = more likely to cause future blockage)
+    stack_utilization = SH / (SH + EMP) if (SH + EMP) > 0 else 1.0
+    # Dynamic scaling factor based on urgency and stack availability
+    scaling_factor = (1 - stack_utilization) * urgency_bias * relative_entropy
+    # Combine components with clear weight distribution
+    priority = (
+        (blocking_ratio * (1 + avg_deviation)) * 0.3 +
+        (future_obstruction * (1 - stack_utilization)) * 0.25 +
+        (SH + 1) * (RI + 1) * 0.15 +
+        (1 - relative_entropy) * (CUR + 1) * 0.1 +
+        (1 - scaling_factor) * 0.1 +
+        (SH / (EMP + 1)) * 0.05
+    )
+    return priority"
+2026-10-31T04:52:42,calm,qwen3-14b-nothink,0.1,2,500,29350,29928,0.996,504,6996.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    stack_count = SH + 1
+    if stack_count == 0:
+        return 0.0
+
+    # Compute blocking impact: how many smaller IDs are blocked by this container
+    block_impact = RI / stack_count
+
+    # Compute urgency: how much this container's ID exceeds the stack's average
+    urgency = (CUR - AVG) / (CUR + 1) if CUR + 1 > 0 else 0
+
+    # Compute space efficiency: how much free space remains in the stack
+    space_efficiency = EMP / stack_count
+
+    # Compute congestion: proportion of occupied slots in the stack
+    congestion = (SH - EMP) / stack_count
+
+    # Adaptive urgency weight based on the number of containers that will be blocked
+    urgency_weight = 0.1 * (RI / (stack_count))
+
+    # Adjust congestion weight based on stack occupancy (higher occupancy increases congestion weight)
+    congestion_weight = 0.05 * (SH / (SH + 1))
+
+    # Introduce a dynamic adjustment for future block potential
+    future_block_potential = (CUR - AVG) / (CUR + 1)
+
+    # Retroactive stability: penalize stacks where inserting CUR creates large gaps in retrieval order
+    retroactive_stability = (CUR - AVG) / (CUR + 1)
+
+    # Predictive temporal congestion: penalize stacks where high ID clusters may hinder retrieval later
+    predictive_temporal_congestion = (AVG - CUR) / (CUR + 1) if CUR + 1 > 0 else 0
+
+    # Combine factors with adjusted weights
+    priority = (block_impact * 0.7) + (urgency * urgency_weight) + (space_efficiency * -0.05) + (congestion * congestion_weight) - (future_block_potential * 0.1) - (retroactive_stability * 0.05) - (predictive_temporal_congestion * 0.03)
+    return priority"
+2026-10-31T06:32:37,calm,qwen3-14b-nothink,0.1,3,500,29091,29493,0.978,504,7344.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    if AVG == 0:
+        avg_diff = CUR  # Treat empty stacks as having AVG = 0, so proximity to CUR is directly CUR
+    else:
+        avg_diff = abs(AVG - CUR)
+    
+    # Density factor: penalizes stacks with more concentrated retrieval IDs
+    density_penalty = 1 / (AVG + 1) if AVG != 0 else 0
+    
+    # Disruption factor: higher if more containers are blocked by the current one
+    disruption = RI / (SH + 1)
+    
+    # Proximity factor: lower is better, but scaled by density to account for spread
+    proximity = avg_diff * density_penalty
+    
+    # Future congestion prediction: stacks with high average IDs may block more in the future
+    future_congestion = AVG / (CUR + 1) if CUR != 0 else 0
+    
+    # Temporal alignment: rewards stacks where the current container aligns with the average ID
+    # to reduce future blocking by aligning with the flow of retrieval
+    temporal_alignment = 1 - abs((AVG - CUR) / (CUR + 1)) if CUR != 0 else 0
+    
+    # Structural relevance: proportion of the stack that will not be blocked by the newly placed container
+    structural_relevance = (SH - RI) / (SH + 1)
+    
+    # Dynamic weight based on proximity and disruption intensity
+    dynamic_weight = (1 + disruption) / (density_penalty + 1e-6)
+    
+    # Combining factors: proximity and disruption are scaled dynamically, others are weighted based on their contribution
+    priority = proximity * dynamic_weight + disruption * dynamic_weight + future_congestion * (1 - structural_relevance) + temporal_alignment * structural_relevance
+    
+    # New component: retrieval ordinal coherence
+    # Measures the coherence of retrieval order in the stack relative to current container's retrieval order
+    # Favors stacks where the stack alignment with the current container enhances the retrieval coherence
+    if avg_diff == 0:
+        retrieval_coherence = 1.0
+    else:
+        retrieval_coherence = 1 / (avg_diff + 1)
+    priority += retrieval_coherence * (1 - disruption)
+    
+    return priority"
+2026-10-31T08:03:37,calm,qwen3-14b-nothink,0.1,4,500,29194,29795,0.978,504,7859.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    
+    # Normalize stack height to avoid overly full stacks
+    stack_height_factor = SH / (SH + 15)
+    
+    # Normalize average ID: prioritize stacks with IDs closer to the current container
+    if AVG == 0:
+        avg_retrieval_gap = 0.0
+    else:
+        avg_retrieval_gap = (AVG - CUR) / (AVG + CUR)
+        avg_retrieval_gap = max(0, min(1, avg_retrieval_gap))
+    
+    # Normalize available space: more empty slots are better
+    available_space_factor = 1 / (EMP + 2)
+    
+    # Estimate the number of new blocks this container may cause
+    if RI == 0:
+        blocking_risk = 0
+    else:
+        blocking_risk = (RI + 1) / (RI + 6)
+    
+    # Estimate interference caused to future retrievals
+    if AVG == 0:
+        interference_factor = 0.0
+    else:
+        interference_factor = (AVG - CUR) / (AVG + 1)
+        interference_factor = max(0, min(1, interference_factor))
+    
+    # Estimate how many containers below CUR are not yet retrieved (future blockage)
+    if AVG == 0:
+        containers_below = 0
+    else:
+        containers_below = max(0, AVG - CUR)
+    
+    # Estimate reuseability: higher is better (i.e., fewer future retrievals blocked)
+    reuseability = 1 / (containers_below + 1)
+    
+    # Estimate how much this container could block future retrievals (reuseability heuristic)
+    future_blockage = (RI + 1) / (RI + 2) if RI > 0 else 0
+    
+    # Estimate coldness of stack: avoid putting low ID containers on high ID stacks
+    # This helps prevent unnecessary blocking of soon-to-be-retrieved containers
+    if AVG == 0:
+        stack_coldness = 0.0
+    else:
+        stack_coldness = (AVG - CUR) / (AVG + 1)  # Stack is ""cold"" if AVG >> CUR
+        stack_coldness = max(0, min(1, stack_coldness))
+    
+    # Combine all factors with adjusted weights to minimize future relocations
+    priority = (stack_height_factor * 2.0) + (avg_retrieval_gap * 1.6) - (available_space_factor * 1.2) + (blocking_risk * 3.3) + (interference_factor * 2.8) + (future_blockage * 1.5) - (reuseability * 0.5) - (stack_coldness * 0.3)
+    
+    return priority"
+2026-10-31T09:11:53,calm,qwen3-14b-nothink,0.1,5,500,29287,29909,0.948,504,5265.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    if EMP == 0:
+        return float('inf')
+    
+    # Normalize the number of containers in the stack
+    normalized_SH = SH / (SH + 1)
+    
+    # Normalize the available space in the stack
+    normalized_EMP = EMP / (EMP + 1)
+    
+    # Normalize the number of containers in the stack that will be blocked by the current container
+    normalized_RI = RI / (RI + 1)
+    
+    # Compute a modified urgency ratio based on the current container's ID relative to the stack's average
+    if AVG > 0:
+        urgency_ratio = CUR / (AVG + 1)
+    else:
+        urgency_ratio = CUR
+    
+    # The constant 0.5 is chosen to balance the urgency with stack sustainability
+    # It ensures that neither factor dominates too heavily
+    priority = (normalized_SH + normalized_RI) * (1 / (normalized_EMP + 1)) * (1 / (urgency_ratio + 0.5))
+    return priority"
+2026-10-31T11:07:19,calm,qwen3-14b-nothink,0.1,6,500,28842,29361,0.954,504,5754.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Normalize the average ID of the stack relative to the current container ID
+    avg_factor = AVG / (CUR + 1)
+    # Calculate the ratio of empty space to stack height as a measure of flexibility
+    flexibility = EMP / (SH + 1)
+    # Adjust target focus based on flexibility and relative average ID
+    adjusted_avg = avg_factor * (1 + flexibility)
+    # Combine factors to derive a priority score that prioritizes low average ID and high flexibility
+    priority = (1 - flexibility) + adjusted_avg + RI
+
+    # Introduce a stabilizing factor based on the predictability of future retrieval
+    predictability = DIFF / (AVG + 1)
+    # Adjust the priority by subtracting the stabilizing factor for better long-term planning
+    priority -= predictability
+
+    # Introduce a new component: retrieval contiguity
+    # This quantifies how close the average ID in the stack is to the current one
+    # A stack with more contiguous IDs is more likely to be useful for future retrievals
+    contiguity = 1 - abs(AVG - CUR) / (CUR + 1)
+    # Add contiguity as a stabilizing factor to prefer stacks with contiguous IDs
+    priority -= contiguity
+
+    # Introduce a new component: future blockage potential
+    # Estimate how many future containers (those with ID > CUR) will be blocked by placing this container
+    # The number is proportional to how many containers in the stack have IDs smaller than CUR
+    # and how much the current container's ID is below the stack's average
+    future_blockage = (RI / (SH + 1)) * (AVG - CUR + 1) / (CUR + 1)
+    # Increase priority to avoid stacks that create more future blockage
+    priority += future_blockage
+
+    # Introduce a new component: dynamic alignment metric
+    # Quantifies the alignment of the average ID with the future retrieval sequence
+    # Favor stacks where the average ID is significantly below the current ID
+    alignment = (CUR - AVG) / (CUR + 1)
+    # Enhance alignment with the global trend for better retrieval efficiency
+    priority -= alignment
+
+    return priority"
+2026-10-31T12:26:20,calm,qwen3-14b-nothink,0.1,7,500,28755,29161,0.96,504,4733.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Calculate urgency based on how many containers below the current one will be blocked
+    urgency = (RI + 1) / (CUR + 1)
+    # Calculate the future impact of placing the container on the stack
+    future_impact = (CUR - AVG + 1) * (1 - urgency)
+    # Penalize stacks with fewer available slots proportionally to the urgency
+    space_penalty = (RI + 1) / (EMP + 1)
+    # Temporal equilibrium: balance urgency and slot availability
+    temporal_equilibrium = (urgency * EMP) / (SH + 1)
+    # Estimate future risk based on how much space is left and the spread of container IDs
+    risk_factor = (SH / (SH + 1)) * (AVG / (CUR + 1))
+    # Dynamic risk mitigation: subtract the long-term risk from the penalty
+    dynamic_mitigation = (space_penalty * risk_factor)
+    # Final priority is the weighted sum of future impact, mitigation, and equilibrium
+    dynamic_weight = 1.0 / (1.0 + (SH / 10.0))
+    priority = SH * future_impact * dynamic_weight + temporal_equilibrium + dynamic_mitigation
+    return priority"
+2026-10-31T14:08:18,calm,qwen3-14b-nothink,0.1,8,500,29035,29506,0.976,504,5954.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    
+    # Favor stacks with more free space
+    space_score = 1 / (EMP + 1) if EMP != 0 else float('inf')
+    
+    # Favor stacks with a lower average ID, penalizing stacks far ahead
+    avg_score = (AVG - CUR) / (CUR + 1) if CUR + 1 != 0 else 0.0
+    
+    # Penalize stacks that are more likely to block other containers
+    block_score = RI * (RI + 1) / 2.0
+    
+    # Temporal offset based on stack height and expected retrieval flow
+    retrieval_flow = CUR + 1  # Approximation for upcoming containers
+    if AVG + 1 != 0:
+        temp_offset_score = (AVG - CUR) / (AVG + 1)
+    else:
+        temp_offset_score = 0.0
+    
+    # Calculate potential future flow imbalance as a measure of stack readiness
+    future_flow = CUR + 1
+    future_flow_imbalance = abs((AVG - CUR) / (future_flow + 1)) if future_flow != 0 else 0.0
+    
+    # Introduce future readiness score based on free space and flow alignment
+    readiness_score = future_flow_imbalance * (EMP + 1)
+    
+    # Combine all components into a deterministic priority score
+    priority = space_score + avg_score * 1.2 + block_score * 0.8 + temp_offset_score * 0.7 + readiness_score * 0.6
+    return priority"
+2026-10-31T16:36:20,calm,qwen3-14b-nothink,0.1,9,500,28845,29373,0.96,520,9675.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+
+    # Favor nearly full stacks to avoid underutilization
+    fullness_weight = SH / (SH + EMP + 1)
+    # Penalize stacks where this container will block many smaller ID containers
+    blockage_weight = RI
+    # Favor stacks where this container won’t raise average ID too much
+    avg_impact_weight = max(0, AVG - CUR)
+    # Use DIFF to encourage stacks that will be retrieved closer in time
+    diff_impact_weight = max(0, (AVG - CUR) - DIFF)
+
+    # Adjust weights using logarithmic scaling for better differentiation
+    diff_log = abs(DIFF) + 1
+    log_diff_weight = (diff_log ** 0.5) if diff_log > 0 else 1.0
+
+    avg_impact_weight *= log_diff_weight
+    diff_impact_weight *= log_diff_weight
+
+    # Normalize blockage effect by future retrieval density
+    future_density = 1 / (AVG + 1) if AVG != 0 else 0
+    blockage_weight = blockage_weight / (future_density + 1e-10)
+
+    # Introduce a dynamic penalty for container age differential to encourage consistency
+    age_diff = max(0, AVG - CUR)
+    age_penalty = (age_diff ** 1.0) / (SH + 1)  # Encourage stacks with less age impact per container
+
+    # Introduce spatial coherence function to penalize stacks that increase fragmentation
+    if AVG == 0:
+        coherence_weight = 0.0
+    else:
+        # Encourage stacks with less divergence in retrieval sequence
+        # Use a concave function to penalize large divergence less severely
+        coherence_weight = ((AVG - CUR) ** 2) / (SH + 1 + abs(DIFF))
+
+    # Introduce uncertainty penalty for stacks with high numbers of uncertain containers
+    unknown_count = 0
+    if AVG > CUR:
+        unknown_count = AVG - CUR  # Approximates number of unknown containers in stack
+    unknown_penalty = (unknown_count ** 0.5) / (SH + 1 + abs(DIFF))
+
+    # Compute spatial coherence for aligning with retrieval order
+    alignment_weight = 0.0
+    if AVG != 0:
+        expected_retrieval = AVG  # Assume next expected is AVG
+        current_retrieval = CUR
+        alignment_weight = ((expected_retrieval - current_retrieval) ** 2) / (SH + 1 + abs(DIFF))
+
+    # Contrast-based decision mechanism: prioritize stacks with lower deviation in container IDs
+    if AVG == 0:
+        contrast_weight = 0.0
+    else:
+        # Encourage stacks where container ID aligns more closely with stack's average ID
+        contrast_weight = (AVG - CUR) / (SH + 1 + abs(DIFF))
+
+    # Ensure differentiation among stacks by introducing selective emphasis
+    # Replace equal or near-equal credits with deterministic differentiation
+    if SH == 0:
+        diff_factor = 0.0
+    else:
+        diff_factor = (AVG - CUR) / SH  # normalize by SH for consistent differentiation
+
+    # Combine factors into a single priority score
+    priority = fullness_weight + blockage_weight + avg_impact_weight + diff_impact_weight + age_penalty + coherence_weight + unknown_penalty + alignment_weight + contrast_weight + diff_factor
+    return priority"
+2026-10-31T02:40:13,calm,qwen3-14b-nothink,0.3,1,500,26445,26917,0.974,504,6842.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Predictive alignment: prioritize stacks where the average ID aligns closely with the current container
+    avg_diff = (AVG - CUR) / (AVG + 1) if AVG != 0 else 0
+
+    # Blockage avoidance: prioritize stacks with higher availability relative to potential blocks
+    block_avoidance = (EMP + 1) / (RI + 1)
+
+    # Density balance: favor stacks that maintain moderate levels of fullness to avoid overpacked stacks
+    stack_density = (SH - EMP) / (SH + 1)
+
+    # Future blockage prediction: prioritize stacks with fewer containers that will block this one in the future
+    future_block = (RI + 1) / (SH + 1) if SH != 0 else 0
+
+    # Future uncertainty: prioritize stacks with smaller ID differences, indicating fewer unknown containers
+    future_uncertainty = DIFF / 1000000000
+
+    # Adjust the weight of each factor based on the number of free slots (EMP)
+    avg_diff_weight = 0.9 + EMP * 0.001
+    block_avoidance_weight = 1.0 - EMP * 0.001
+    stack_density_weight = 0.7 + EMP * 0.0006
+    future_block_weight = 0.75 - EMP * 0.0006
+    future_uncertainty_weight = 0.25 + EMP * 0.0001
+
+    # Combine the factors into a deterministic priority score
+    priority = avg_diff * avg_diff_weight - block_avoidance * block_avoidance_weight - stack_density * stack_density_weight - future_block * future_block_weight - future_uncertainty * future_uncertainty_weight
+    return priority"
+2026-10-31T16:38:40,calm,qwen3-14b-nothink,0.3,10,500,26864,27459,0.97,504,8255.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+
+    # Avoid division by zero
+    if SH + 1 == 0:
+        space_ratio = 0.0
+    else:
+        space_ratio = EMP / (SH + 1)
+
+    block_ratio = RI / (SH + 1)
+
+    avg_distance = abs(AVG - CUR)
+    avg_distance = 1.0 / (avg_distance + 1) if avg_distance != 0 else 0.0
+
+    max_diff_value = 1000000000
+    diff_score = DIFF / max_diff_value
+
+    strategic_alignment = 1.0 / (1.0 + (avg_distance * diff_score))
+
+    free_space_weight = space_ratio * 0.5
+
+    block_penalization = block_ratio * 1.8
+
+    future_block = (SH + 1 - RI) / (SH + 1)
+
+    urgency = (1.0 / (1.0 + avg_distance)) * (1.0 / (1.0 + diff_score))
+
+    uncertainty_factor = (1 + diff_score) * (1 + block_ratio)
+    uncertainty_influence = 1.0 / (1.0 + uncertainty_factor)
+
+    stacking_potential = (space_ratio * strategic_alignment) * uncertainty_influence
+
+    # Introduce contextual urgency bias based on future impact
+    contextual_urgency = (1.0 / (1.0 + future_block)) * urgency
+
+    # Introduce adaptive spatial resonance mechanism
+    resonance_shift = (abs(AVG - CUR) / (SH + 1)) ** 0.5
+    harmonic_product = resonance_shift * strategic_alignment * uncertainty_influence
+
+    # Final priority synthesis incorporating all major components
+    priority = (
+        block_penalization -
+        free_space_weight -
+        strategic_alignment -
+        future_block * 0.25 +
+        urgency * 0.4 +
+        stacking_potential * 0.3 +
+        contextual_urgency * 0.2 +
+        harmonic_product * 0.15
+    )
+
+    return priority"
+2026-10-31T04:04:33,calm,qwen3-14b-nothink,0.3,2,500,25020,25282,0.986,504,8484.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Normalize the number of free slots relative to stack height
+    space_score = EMP / (SH + 1) if SH + 1 > 0 else 0.0
+
+    # Align stacks with the current retrieval order
+    avg_similarity = 1.0 - (abs(AVG - CUR) / (CUR + 1)) if CUR + 1 > 0 else 0.0
+
+    # Penalize stacks with more blocking containers
+    blocking_penalty = RI / (SH + 1) if SH + 1 > 0 else 0.0
+
+    # Normalize stack height to encourage moderate fullness
+    height_score = SH / (SH + 1) if SH + 1 > 0 else 0.0
+
+    # Use DIFF to prioritize stacks closer to the current retrieval order
+    diff_weight = 1.0 / (DIFF + 1) if DIFF + 1 > 0 else 0.0
+
+    # Estimate uncertainty based on how far the stack is from known retrieval order
+    uncertainty_estimate = 1.0 / (DIFF + 1) if DIFF + 1 > 0 else 0.0
+
+    # Estimate retrieval foresight based on how far into the unknown we are
+    foresight_estimate = 1.0 / (DIFF + 1) if DIFF + 1 > 0 else 0.0
+
+    # Resonance of current retrieval with future prediction
+    predictive_resonance = (CUR / (DIFF + 1)) if (DIFF + 1) > 0 else 0.0
+
+    # Anticipation of future spatial needs
+    spatial_anticipation = 1.0 / (1.0 + (SH - CUR) ** 2 + DIFF) if (DIFF + 1) > 0 else 0.0
+
+    # Temporal-age alignment: stacks that are in sync with the timeline of retrieval have higher relevance
+    temporal_age = CUR / (DIFF + 1) if (DIFF + 1) > 0 else 0.0
+
+    # Predictive spatial entropy: stacks that have high variety in container IDs may be more reactive to future moves
+    spatial_entropy = 1.0 / (1.0 + abs(AVG - CUR) + DIFF) if (DIFF + 1) > 0 else 0.0
+
+    # Temporal navigation flux: measures how reflective the stack is of the retrieval timeline
+    temporal_navigation_flux = (abs(AVG - CUR) + DIFF) / (DIFF + 1) if (DIFF + 1) > 0 else 0.0
+
+    # Resonance coefficient: higher when stack is closer in retrieval and spatial alignment
+    resonance_coeff = (1.0 / (1.0 + abs(AVG - CUR) + DIFF)) * (1.0 / (DIFF + 1)) if (DIFF + 1) > 0 else 0.0
+
+    # Adaptive flux: measures deviation from current temporal and spatial alignment
+    adaptive_flux = (abs(AVG - CUR) + DIFF) / (DIFF + 1) if (DIFF + 1) > 0 else 0.0
+
+    # Final priority: balance between alignment, entropy, flux, and blocking penalty
+    priority = (
+        (1.0 - space_score) - avg_similarity + blocking_penalty - height_score - diff_weight - uncertainty_estimate - foresight_estimate - predictive_resonance - spatial_anticipation
+        + temporal_age * spatial_entropy - temporal_navigation_flux + resonance_coeff - adaptive_flux
+    )
+    return priority"
+2026-10-31T05:08:11,calm,qwen3-14b-nothink,0.3,3,500,24742,25087,0.982,504,6239.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Normalize the number of containers in the stack
+    normalized_SH = SH / 10.0
+    # Normalize the available space in the stack
+    normalized_EMP = EMP / 10.0
+    # Normalize the density of future retrievals in the stack
+    if SH > 0:
+        future_density = RI / (SH + 1)
+    else:
+        future_density = 0.0
+    # Temporal Blocking: prefer stacks with an average ID lower than the current container
+    if SH > 0:
+        temporal_blocking = (CUR - AVG) / 1000000.0
+    else:
+        temporal_blocking = 0.0
+    # Normalize the temporal adjustment based on the minimum ID difference
+    if DIFF > 0:
+        temporal_adjustment = 1.0 / (DIFF / 1e9)
+    else:
+        temporal_adjustment = 0.0
+    # Compute a weighted score that combines density, space, blocking, and adjustment
+    priority = future_density * 1.45 - normalized_EMP * 1.15 + normalized_SH * 0.45 + temporal_blocking * 0.75 - temporal_adjustment * 0.035
+    return priority"
+2026-10-31T07:09:12,calm,qwen3-14b-nothink,0.3,4,500,26754,27424,0.98,504,7257.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Normalize EMP to emphasize stacks with more space
+    space_weight = EMP / (SH + 1)
+    # Penalize stacks with a high average ID, as they lead to more potential blockage
+    avg_penalty = max(0, AVG - CUR) / (1 + abs(AVG - CUR) + CUR)
+    # Normalize the number of blocking containers
+    block_factor = RI / (SH + 1)
+    # Normalize the average ID to promote stacks with more known containers
+    avg_normalization = (CUR - AVG) / (1 + abs(CUR - AVG))
+    # Normalize DIFF to emphasize stacks with known containers
+    diff_normalization = (1 + DIFF) / (1 + DIFF + 1000000000)
+    # Structural flexibility: assess the spread of IDs in the stack to gauge adaptability
+    structural_flexibility = 1 / (1 + abs(AVG - CUR) + SH)
+    # Temporal coherence: evaluate how well the stack's composition aligns with the expected retrieval order
+    temporal_coherence = 1 / (1 + abs(AVG - CUR) + SH + 10)
+    # Future coherence: evaluate the proximity of the stack's median ID to the current container
+    future_coherence = 1 / (1 + abs(AVG - (CUR + (SH + 1) * 0.5)) + SH + 10)
+    # Adaptive boosting: prioritize stacks that better align with the future flow of containers
+    future_boost = 1 / (1 + abs(AVG - (CUR + (SH + 1) * 0.5)) + SH + 5)
+    # Stack foresight fragmentation: penalize stacks where the current container might cause future fragmentation
+    fragmentation_factor = abs(AVG - (CUR + (SH + 1) * 0.5)) / (1 + abs(AVG - (CUR + (SH + 1) * 0.5)) + SH + 100)
+    # Compute a combination of the above factors with interpretable weights
+    priority = (1 - space_weight) * 0.25 + avg_penalty * 0.35 + block_factor * 1.0 + avg_normalization * 0.15 + diff_normalization * 0.1 - structural_flexibility * 0.15 + temporal_coherence * 0.15 + future_coherence * 0.2 + future_boost * 0.1 - fragmentation_factor * 0.1
+    return priority"
+2026-10-31T09:31:03,calm,qwen3-14b-nothink,0.3,5,500,26584,27110,0.938,560,10136.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Normalize urgency: how close the current container is to the average in the stack
+    if CUR == 0:
+        urgency_factor = 0.0
+    else:
+        urg_diff = CUR - AVG
+        urgency_factor = urg_diff / (CUR + 1)
+
+    # Normalize space availability: prioritize empty space
+    space_factor = EMP / (SH + EMP + 1)
+
+    # Blockage factor: penalize stacks with more containers that would be blocked
+    block_factor = RI / (SH + 1)
+
+    # Distance factor: prioritize stacks with smaller DIFF
+    diff_factor = 1 / (1 + DIFF / 1000000000)
+
+    # Relative density: higher is worse
+    density_factor = SH / (SH + EMP + 1)
+
+    # Perturbation factor: stacks with similar average ID are more stable
+    if CUR == 0:
+        diff_ratio = 0.0
+    else:
+        diff_ratio = abs(AVG - CUR) / (CUR + 1)
+    perturbation_factor = 1 / (1 + diff_ratio)
+
+    # Sequence alignment factor: how well the current container fits with the stack's average
+    if SH == 0:
+        avg_sequence = CUR / 1.0
+    else:
+        avg_sequence = AVG / SH
+    CUR_sequence = CUR / (SH + 1)
+    displacement = abs(avg_sequence - CUR_sequence)
+    sequence_harmony = 1 / (1 + displacement * (SH + 1))
+    sequence_alignment_factor = sequence_harmony / (1 + sequence_harmony)
+
+    # Sequence Anticipation Bias: estimate the likelihood of future retrievals
+    # based on sequence proximity, penalizing stacks that are likely to be retrieved
+    # after the current container, thus anticipating their need for displacement
+    if SH == 0:
+        sequence_anticipation = 0.0
+    else:
+        avg_sequence_float = AVG / SH
+        cur_sequence_float = CUR / (SH + 1)
+        anticipated_relevance = abs(avg_sequence_float - cur_sequence_float)
+        sequence_anticipation = 1 / (1 + anticipated_relevance * (SH + 1))
+
+    # Normalized factors
+    normalized_urgency = urgency_factor / (1 + abs(urgency_factor))
+    normalized_block = block_factor / (1 + block_factor)
+    normalized_diff = diff_factor / (1 + diff_factor)
+    normalized_density = 1 / (1 + density_factor)
+    normalized_perturbation = perturbation_factor / (1 + perturbation_factor)
+    normalized_sequence_alignment = sequence_alignment_factor / (1 + sequence_alignment_factor)
+    normalized_sequence_anticipation = sequence_anticipation / (1 + sequence_anticipation)
+
+    # Weights based on factor importance
+    weight_urgency = 0.15
+    weight_block = 0.25
+    weight_diff = 0.15
+    weight_density = 0.15
+    weight_perturbation = 0.15
+    weight_sequence_alignment = 0.15
+    weight_sequence_anticipation = 0.15
+
+    # Combined priority score
+    priority = (
+        (1 - space_factor) * 0.25 +
+        normalized_urgency * weight_urgency +
+        normalized_block * weight_block +
+        normalized_diff * weight_diff +
+        normalized_density * weight_density +
+        normalized_perturbation * weight_perturbation +
+        normalized_sequence_alignment * weight_sequence_alignment +
+        normalized_sequence_anticipation * weight_sequence_anticipation
+    )
+    return priority"
+2026-10-31T10:47:18,calm,qwen3-14b-nothink,0.3,6,500,25611,26193,0.974,504,6792.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Emphasize stack emptiness with a decaying factor based on current container ID
+    emptiness_factor = EMP / (SH + 1) * (CUR / 1000)
+    # Adjust average ID with a harmonic decay to prioritize aligned stacks
+    avg_factor = abs(AVG - CUR) / (CUR + 1) * (1 / (1 + SH * 0.01))
+    # Penalize blocking potential with a logarithmic decay
+    block_factor = RI / (1 + SH * 0.01) * (1 / (1 + RI * 0.005))
+    # Normalize DIFF with a scaled harmonic inverse
+    diff_factor = DIFF / 2100000000 * (1 / (1 + DIFF * 0.000001))
+    # New component: Retrieval-Specific Stack Proximity
+    # Measures how close the stack is to a retrieval-ready state
+    proximity_factor = EMP / (SH + 1) * (CUR - AVG) / (CUR + 1)
+    # Combine factors with a deterministic, systematically weighted aggregation
+    priority = -emptiness_factor + avg_factor + block_factor + diff_factor - proximity_factor
+    return priority"
+2026-10-31T12:28:50,calm,qwen3-14b-nothink,0.3,7,500,26686,27144,0.986,508,8866.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    denominator = SH + 1
+    normalized_SH = SH / denominator if denominator > 0 else 0.0
+    normalized_EMP = EMP / denominator if denominator > 0 else 0.0
+
+    avg_divergence = abs(AVG - CUR)
+    normalized_divergence = avg_divergence / (CUR + 1) if CUR + 1 > 0 else 0.0
+
+    # Urgency based on available space
+    urgency = 1.0
+    if EMP == 0:
+        urgency = 2.4
+    elif EMP < SH * 0.25:
+        urgency = 2.0
+    elif EMP < SH * 0.5:
+        urgency = 1.6
+    else:
+        urgency = 1.0
+
+    # Blocking penalty based on RI
+    blocking_penalty = RI / denominator if denominator > 0 else 0.0
+
+    # DIFF penalty to discourage use of stacks with unknown containers
+    diff_penalty = DIFF / 1000000000
+
+    # Entropy-like metric for disorder
+    entropy_scaled = RI / SH if SH > 0 else 0.0
+    entropy_reward = 1.0 - entropy_scaled
+
+    # Curvature-aware divergence filtering
+    curvature_factor = 1.0 / (1.0 + (normalized_divergence ** 2) * SH)
+
+    # Geometric alignment based on divergence
+    geometric_alignment = 1.0 / (1.0 + (SH * normalized_divergence) / 1000000.0)
+
+    # Coherence-based entropy normalization
+    entropy_normalization = 1.0 - (entropy_scaled * curvature_factor * 0.6)
+
+    # Urgency-entropy quotient with dynamic adaptation
+    urgency_entropy_quotient = urgency / (1.0 + entropy_scaled * 12.0)
+
+    # Composite priority score
+    priority = (normalized_SH * 0.35) - (normalized_EMP * urgency * 0.4) + (blocking_penalty * 1.3)
+    priority += diff_penalty
+    priority -= (entropy_reward * 0.35)
+    priority *= curvature_factor
+    priority *= geometric_alignment
+    priority *= entropy_normalization
+    priority *= urgency_entropy_quotient
+
+    return priority"
+2026-10-31T14:20:35,calm,qwen3-14b-nothink,0.3,8,500,25908,26082,0.968,504,8100.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Space availability is crucial to prevent future relocations
+    space_factor = EMP / (SH + 1)
+    # Urgency is determined by how far ahead the current container is relative to the stack average
+    urgency_factor = (CUR - AVG) / max(1, CUR + 1)
+    # Blocking factor is derived from how many smaller IDs are above the current container
+    blocking_factor = RI / (SH + 1)
+    # Future blocking potential is measured by how many smaller IDs exist in the stack
+    future_block_factor = RI / max(1, SH + 1)
+    # Lookahead penalty encourages avoiding stacks that might introduce more uncertainty
+    lookahead_penalty = (DIFF + CUR) / max(1, DIFF + CUR + 1)
+    # Future Clearance Potential: evaluates how many containers in the stack have IDs higher than the current container, suggesting fewer future relocations
+    future_clearance_factor = (SH - RI) / (SH + 1)
+    # Dynamic influence metric that evolves with the state of the yard
+    dynamic_influence = (EMP + CUR) / (SH + 1)
+    
+    # Strategic Placement Factor: measures how the placement of the current container affects future arrivals
+    strategic_factor = (EMP + 1) / (SH + 1)
+
+    # Compute normalization constants using the input statistics
+    normalization_constant = max(abs(space_factor), abs(urgency_factor), abs(blocking_factor), 
+                                 abs(future_block_factor), abs(lookahead_penalty), 
+                                 abs(future_clearance_factor), abs(dynamic_influence), abs(strategic_factor))
+    normalization_factor = max(1.0, normalization_constant)
+
+    # Normalize each factor by its maximum absolute value
+    normalized_space = space_factor / normalization_factor
+    normalized_urgency = urgency_factor / normalization_factor
+    normalized_blocking = blocking_factor / normalization_factor
+    normalized_future_block = future_block_factor / normalization_factor
+    normalized_lookahead = lookahead_penalty / normalization_factor
+    normalized_future_clearance = future_clearance_factor / normalization_factor
+    normalized_dynamic_influence = dynamic_influence / normalization_factor
+    normalized_strategic = strategic_factor / normalization_factor
+
+    # Combine the weighted factors to form the priority score
+    priority = -(normalized_space) + normalized_urgency + normalized_blocking + normalized_future_block - normalized_lookahead + normalized_future_clearance + normalized_dynamic_influence + normalized_strategic
+    return priority"
+2026-10-31T15:45:29,calm,qwen3-14b-nothink,0.3,9,500,26091,26612,0.984,508,9140.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    space_ratio = EMP / (SH + 1)
+    avg_diff = (AVG - CUR) / (CUR + 1)
+    block_ratio = RI / (SH + 1)
+    diff_penalty = DIFF / 1000000000
+    urgency = CUR / (SH + 1)
+    fill_factor = SH / (SH + 1)
+    weight = fill_factor * 0.5 + (1 - fill_factor) * 0.3
+    dynamic_factor = (block_ratio + avg_diff) * (1 - space_ratio)
+    future_block = (CUR - AVG) / (CUR + 1)
+    stability = (AVG - (CUR + 1)) / (CUR + 1)
+    predictive_horizon = max((DIFF / 1000000000), 0.001)
+    predictive_weight = predictive_horizon * (fill_factor * 0.4 + (1 - fill_factor) * 0.2)
+
+    credit = (1 - space_ratio) * weight + avg_diff * (1 - weight) + block_ratio - diff_penalty - dynamic_factor - predictive_weight * future_block - stability
+
+    adjustment_factor = (fill_factor * 0.6) + (block_ratio * 0.4)
+    modulated_credit = credit * adjustment_factor
+
+    urgency_depth = CUR / (CUR + 1)
+    urgency_multiplier = max(0.0, (urgency_depth * 0.7) + (fill_factor * 0.3))
+    modulated_credit = modulated_credit * urgency_multiplier
+
+    stability_forecast = (stability + (1 - fill_factor)) * (1 - space_ratio) * 0.15
+    effective_forecast = stability_forecast * (1 - urgency_multiplier)
+
+    priority = modulated_credit - effective_forecast
+
+    avg_id_offset = (AVG - CUR) / (CUR + 1)
+    entropy_factor = (avg_id_offset + block_ratio) * 0.25
+    entropy_mod = max(0.0, (1 - entropy_factor) * 0.5)
+    effective_priority = priority * entropy_mod
+
+    fill_weight = 0.3 if fill_factor < 0.8 else 0.7
+    final_priority = effective_priority * fill_weight
+
+    # Introduce a stacking-phase sensitive weight adjustment
+    phase_weight = 0.5 + 0.5 * (fill_factor * 0.7 + block_ratio * 0.3)
+    final_priority = final_priority * phase_weight
+
+    # Compute uncertainty metric: a synthetic measure of future blocking and retrieval deviation
+    future_urgency = (CUR + 1) / (CUR + 10)
+    uncertainty = max(0.0, (1 - future_urgency) * 0.3)
+    uncertainty = uncertainty * (1 - stability)  # amplify uncertainty when stability is low
+
+    adaptive_weight = max(0.0, (1 - uncertainty) * 0.6)
+    final_priority = final_priority * (1 + adaptive_weight)
+
+    # Introduce a contextual uncertainty-aware adjustment based on available space and stability
+    stability_flattening = max(0.0, (1 - future_urgency) * 0.3)
+    phase_mod = max(0.0, (1 - stability_flattening) * 0.8)
+    final_priority = final_priority * phase_mod
+
+    return final_priority"
+2026-10-30T23:47:54,calm,qwen3-14b-nothink,0.5,1,500,25032,25366,0.964,504,6952.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    if EMP == 0:
+        return float('inf')  # Avoid division by zero
+
+    CUR_plus_1 = CUR + 1.0
+    if CUR_plus_1 == 0:
+        return float('inf')  # Prevent division by zero
+
+    normalized_avg = AVG / CUR_plus_1
+    proximity_factor = abs(AVG - CUR) / CUR_plus_1
+    forecast_bias = abs(DIFF) / CUR_plus_1
+    temporal_weight = CUR / CUR_plus_1
+    backtracking_factor = RI / CUR_plus_1
+
+    alignment = 1.0 / (1.0 + abs(normalized_avg - 1.0))
+    dependency_harmony = (1.0 / (RI + 1.0)) * (1.0 + (EMP * normalized_avg) / CUR_plus_1)
+    cascading_impact = 1.0 / (backtracking_factor + 1.0)
+    space_factor = 1.0 / (EMP + 1.0)
+    retrieval_forecast = temporal_weight * forecast_bias
+    coherence_bonus = alignment * retrieval_forecast
+
+    # Introduce dynamic dependency modulation based on future blocking potential
+    future_dependency_modulation = 1.0 / (1.0 + backtracking_factor / CUR_plus_1)
+
+    # Introduce retrieval urgency sensitivity based on stack density
+    if SH > 0:
+        retrieval_density_factor = CUR / (CUR_plus_1 * SH)
+    else:
+        retrieval_density_factor = 0.0
+
+    # Contextual adaptability scaling factor derived from retrieval urgency
+    adaptability_factor = max(1.0 - retrieval_density_factor, 0.1)
+
+    # Modulate dependency and cascading impact dynamically based on adaptability
+    dependency_harmony *= retrieval_forecast * adaptability_factor
+    cascading_impact *= retrieval_forecast * adaptability_factor
+
+    # Apply final dependency modulation for future blocking impact
+    priority = backtracking_factor * space_factor * coherence_bonus * dependency_harmony * cascading_impact * future_dependency_modulation
+    return priority"
+2026-10-31T16:14:34,calm,qwen3-14b-nothink,0.5,10,500,24819,25279,0.966,512,7564.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Prioritize stacks that are expected to be retrieval-ready based on current and future needs
+    if AVG == 0:
+        predictive_readiness = 1.0
+    else:
+        if CUR == 0:
+            predictive_readiness = 0.0
+        else:
+            predictive_readiness = (AVG - CUR) / (CUR + 1) if AVG > CUR else 0.0
+
+    # Encourage stacks that are coherent with the current container
+    if AVG == 0:
+        coherence_bonus = 1.0
+    else:
+        if CUR == 0:
+            coherence_bonus = 0.0
+        else:
+            coherence_bonus = (AVG - CUR) / (AVG + 1) if AVG > CUR else 0.0
+
+    # Blockage factor: fewer containers with smaller IDs mean less blocking
+    blockage_factor = (RI + 1)
+
+    # Encourage free space: stacks with more available slots are better
+    space_factor = 1 / (EMP + 1)
+
+    # Stacks with lower average IDs are more retrieval-ready if they are known
+    if CUR == 0:
+        stability_factor = 0.0
+    else:
+        stability_factor = AVG / (CUR + 1)
+
+    # Urgency: prioritize stacks where current container can be placed without blocking
+    if AVG == 0:
+        urgency_factor = 1.0
+    else:
+        urgency_factor = (CUR / AVG) * (RI + 1)
+
+    # Readiness: smaller stacks with lower average IDs have better potential
+    readiness = (1 / (SH + 1)) * (1 / (AVG + 1)) if AVG != 0 else 0.0
+
+    # Future blockage estimation based on unknowns
+    if CUR == 0:
+        future_blockage = 0.0
+    else:
+        if AVG == 0:
+            future_blockage = 1.0
+        else:
+            future_blockage = max(0, (CUR - AVG) / (CUR + 1)) * 0.5
+
+    # Adaptive coherence: stacks with average close to current container are more future-ready
+    if CUR == 0:
+        adaptive_coherence = 0.0
+    elif AVG == 0:
+        adaptive_coherence = 1.0
+    else:
+        adaptive_coherence = max(0, (AVG - CUR) / (AVG + 1)) * 0.6
+
+    # Combine all contributions with systematic weights, introducing a small deterministic differentiator
+    priority = (
+        (blockage_factor * space_factor) +
+        (stability_factor * 0.2) +
+        (urgency_factor * 0.25) +
+        (EMP * 0.05) +
+        (coherence_bonus * 0.15) +
+        (readiness * 0.1) +
+        (future_blockage * 0.15) +
+        (predictive_readiness * 0.1) +
+        (adaptive_coherence * 0.1) +
+        (AVG * 0.001)  # Introduce a small deterministic differentiator
+    )
+    return priority"
+2026-10-31T02:55:09,calm,qwen3-14b-nothink,0.5,2,500,25437,25948,0.982,504,6239.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Favor stacks with more available space using logarithmic emphasis
+    space_factor = 1 / (EMP + 1)
+    # Encourage stacks with lower average IDs to align with retrieval order
+    order_factor = AVG / (CUR + 1)
+    # Penalize stacks with more potential blocking containers
+    block_factor = (RI + 1) / (SH + 1)
+    # Reduce the impact of stack height
+    height_factor = SH / (SH + 1)
+    # Introduce anticipation factor based on relative order
+    anticipation_factor = CUR / (AVG + 1) if AVG != 0 else 0
+    # Combine factors into a normalized, deterministic score
+    priority = (space_factor * (1 + 0.06 * EMP)) * (order_factor * (1 + 0.06 * (CUR / (AVG + 1)))) * block_factor * height_factor * (1 + 0.05 * anticipation_factor)
+    # Incorporate predictive horizon and spatial prudence
+    efficiency_factor = (RI * (SH + 1)) / (EMP + 1)
+    priority += efficiency_factor * 0.14
+
+    # Differentiate based on normalized difference between average ID and current ID
+    avg_diff = abs(AVG - CUR)
+    diff_factor = avg_diff / (CUR + 1) if CUR != 0 else 0
+    priority += diff_factor * 0.02
+
+    # Adjust priority based on predictive horizon
+    forecast_factor = DIFF / (AVG + 1) if AVG != 0 else 0
+    priority += forecast_factor * 0.05
+
+    # Assign differentiated credit based on combinations of both average ID and current ID
+    avg_cur_comparison = abs(AVG - CUR)
+    avg_cur_weight = (avg_cur_comparison / (CUR + 1)) * 0.01
+    priority += avg_cur_weight
+
+    # Introduce a deterministic weighting based on proximity of average ID to current ID
+    avg_cur_diff = abs(AVG - CUR)
+    avg_cur_weighted = (avg_cur_diff / (CUR + 1 if CUR != 0 else 1)) * 0.01
+    priority += avg_cur_weighted
+
+    # Adjust based on effective stacking by comparing CUR to AVG and penalizing mismatch
+    effective_stack_factor = abs(CUR - AVG) / (CUR + 1) if CUR != 0 else 0
+    priority += effective_stack_factor * 0.03
+
+    return priority"
+2026-10-31T04:30:02,calm,qwen3-14b-nothink,0.5,3,500,25405,25840,0.938,504,4918.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    if EMP == 0:
+        return float('inf')
+    # Weights derived from the observed impact of each factor
+    avg_diff = max(0, AVG - CUR)
+    avg_proximity = max(0, CUR - AVG)
+    interference = max(0, AVG - CUR)
+    urgency = RI * (1 + SH)
+    future_accessibility = min(EMP, 10)  # Limit the effect of free space
+    height_penalty = SH / (SH + 1)
+    avg_contribution = avg_diff / (1 + CUR)
+    age_proximity_penalty = max(0, AVG - CUR) / (1 + CUR)
+    combined_penalty = avg_contribution + age_proximity_penalty
+    free_space_factor = EMP * (1 + AVG)
+    interference_factor = max(0, AVG - CUR)
+    strategic_interference = max(0, CUR - AVG)
+    combined_factor = (urgency * (1 + combined_penalty + strategic_interference)) / (free_space_factor * (1 + interference_factor) * (1 + future_accessibility))
+    return combined_factor * height_penalty"
+2026-10-31T06:32:21,calm,qwen3-14b-nothink,0.5,4,500,24188,24565,0.956,504,7218.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    if EMP == 0:
+        return float('inf')
+    
+    epsilon = 1e-10
+
+    urgency = RI / (RI + 1 + epsilon)
+    structural_weight = SH / (SH + 1 + epsilon)
+    avg_diff = abs(CUR - AVG) if AVG != 0 else float('inf')
+    compat = 1.0 / (avg_diff + 1 + epsilon)
+    
+    if DIFF == 0:
+        blockage_risk = 1.0
+    else:
+        blockage_risk = 1.0 / (abs(DIFF) + 1 + epsilon)
+
+    avg_entropy = 0.0
+    if AVG != 0:
+        avg_entropy = abs(CUR - AVG) / (abs(CUR - AVG) + 1 + epsilon)
+
+    entropy_weight = blockage_risk * avg_entropy
+    space_norm = EMP / (EMP + 1 + epsilon)
+
+    urgency_balance = urgency * (SH / (SH + EMP + 1))
+    spatial_urgency = urgency_balance * structural_weight
+    urgency_balance = (urgency + spatial_urgency) / 2
+
+    priority = (urgency_balance * structural_weight) - (compat * entropy_weight)
+
+    # Retrieval Interference Estimation
+    interference = 0.0
+    if AVG != 0:
+        if CUR > AVG:
+            interference = (CUR - AVG) / (CUR + 1 + epsilon)
+        else:
+            interference = 0.0
+
+    interference_penalty = interference * (1.0 / (EMP + 1 + epsilon))
+    priority += interference_penalty
+
+    # Contextual adjustment based on environmental density
+    density_ratio = SH / (SH + EMP)
+    if density_ratio > 0.8:
+        priority *= 1.1
+    elif density_ratio < 0.4:
+        priority *= 0.9
+
+    # New component: dynamics-aware retrieval compatibility
+    if AVG != 0 and CUR > AVG:
+        compatibility_shift = (CUR - AVG) / (CUR + 1 + epsilon)
+    else:
+        compatibility_shift = 0.0
+    compatibility_bonus = (1.0 - compatibility_shift) * 0.2
+    priority = priority - compatibility_bonus
+
+    return priority"
+2026-10-31T08:30:56,calm,qwen3-14b-nothink,0.5,5,500,25476,25986,0.976,504,7072.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Normalize stack density and free space for geometric balance
+    norm_SH = 1 / (SH + 1)
+    norm_EMP = EMP / (EMP + 1)
+
+    # Calculate deviation of stack's average ID from current container
+    if CUR == 0:
+        avg_deviation = 0.0
+    else:
+        avg_deviation = (AVG - CUR) ** 2 / (CUR ** 2 + 1)
+
+    # Evaluate positional impact based on future blocking potential
+    if RI == 0:
+        positional_impact = 0.0
+    else:
+        positional_impact = (RI + 1) * (AVG / (CUR + 1))
+
+    # Compute rearrangement entropy based on stack heterogeneity
+    if SH == 0:
+        rearrangement_entropy = 0.0
+    else:
+        avg_id_diff = abs(AVG - CUR) / (CUR + 1)
+        rearrangement_entropy = avg_id_diff * (SH / (SH + 1)) * (1 - (CUR / (CUR + 1)))
+
+    # Introduce predictive spatial resonance compensation
+    resonance_factor = 0
+    if CUR != 0 and AVG != 0:
+        resonance_spacing = abs(AVG - CUR)
+        resonance_resonance = resonance_spacing / (CUR + 1)
+        # Normalize resonance factor using stack height and average ID
+        resonance_factor = resonance_resonance * (SH / (SH + 1)) * (1 - (AVG / (CUR + 1)))
+
+    # Introduce predictive container dispersion minimization
+    dispersion_factor = 0
+    if CUR != 0 and AVG != 0:
+        dispersion_diff = abs(AVG - CUR) / (CUR + 1)
+        dispersion_factor = dispersion_diff * (SH / (SH + 1)) * (1 - (EMP / (EMP + 1)))
+
+    # Introduce predictive stacking equilibrium
+    equilibrium_factor = 0
+    if CUR != 0 and AVG != 0:
+        equilibrium_diff = abs(AVG - CUR) / (CUR + 1)
+        equilibrium_factor = equilibrium_diff * (SH / (SH + 1)) * (EMP / (EMP + 1))
+
+    # Adjust weights dynamically based on free space and stack height
+    geo_weight = 0.2 * (1 - norm_SH * norm_EMP)
+    avg_weight = 0.35 * (1 - (1 / (norm_SH + 1)))
+    pos_weight = 0.42 * (RI / (RI + 1))
+    ent_weight = 0.03 * (1 - (SH / (SH + 1)))
+    res_weight = 0.05 * (1 - (EMP / (EMP + 1)))
+    dis_weight = 0.1 * (EMP / (EMP + 1))  # dispersion minimization weight
+    eq_weight = 0.05 * (SH / (SH + 1))  # stacking equilibrium weight
+
+    priority = (norm_SH * norm_EMP * geo_weight) + (avg_deviation * avg_weight) + (positional_impact * pos_weight) + (rearrangement_entropy * ent_weight) + (resonance_factor * res_weight) + (dispersion_factor * dis_weight) + (equilibrium_factor * eq_weight)
+    return priority"
+2026-10-31T09:38:33,calm,qwen3-14b-nothink,0.5,6,500,25361,25782,0.976,504,5548.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Avoid division by zero
+    if EMP == 0:
+        return float('inf')
+    
+    # Favor stacks with lower average ID. Add 1 to avoid division by zero
+    avg_factor = (AVG + 1) / (CUR + 1)
+    
+    # Encourage stacks with more free space. Use inverse so that higher EMP is better
+    space_factor = 1 / (EMP + 1)
+    
+    # Future blockage factor: fewer containers that will be blocked is better
+    future_blockage_factor = RI / (CUR + 1)
+    
+    # Urgency factor: higher urgency for containers that will be retrieved sooner
+    # Normalized to the relative urgency compared to the nearest higher-priority container
+    urgency_factor = (CUR + 1) / (CUR + 1 + DIFF + 1)
+    
+    # Additional factor to balance space utilization with blocking containers
+    balance_factor = (EMP + 1) / (RI + 1)
+    
+    # Combine all factors to get a balanced priority score
+    priority = avg_factor * space_factor * future_blockage_factor * urgency_factor * balance_factor
+    
+    return priority"
+2026-10-31T11:19:12,calm,qwen3-14b-nothink,0.5,7,500,25982,26325,0.968,508,6008.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Normalize stack height to favor stacks with fewer containers
+    normalized_SH = SH / (SH + 1)
+    # Normalize free space to favor stacks with more available slots
+    normalized_EMP = EMP / (EMP + 1)
+    # Normalize average ID to favor stacks with retrieval order closer to the current container
+    normalized_AVG = abs(CUR - AVG) / (CUR + 1)
+    # Normalize potential blocking impact to penalize stacks with more blocking containers
+    normalized_RI = RI / (RI + 1)
+
+    # Dynamic weights based on empirical distribution of values
+    weight_SH = 0.15 * normalized_SH
+    weight_EMP = 0.2 * normalized_EMP
+    weight_AVG = 0.25 * normalized_AVG
+    weight_RI = 0.4 * normalized_RI
+
+    # Introduce Future Blocking Coefficient - estimate future blockage potential
+    # based on container's position relative to the average of the stack
+    future_blockage = (normalized_AVG * normalized_RI) * (1 - normalized_EMP)
+
+    # Priority is a linear combination of normalized and weighted features
+    # adjusted by the future_blockage factor to reduce future blocking
+    priority = (weight_SH) + (weight_EMP) + (weight_AVG) + (weight_RI) + future_blockage
+    return priority"
+2026-10-31T12:39:19,calm,qwen3-14b-nothink,0.5,8,500,24305,24555,0.976,504,5323.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    utilization = EMP / (SH + 1)
+    future_avoidance = 1 / (1 + abs(DIFF))
+    future_proximity = 1 / (1 + abs(CUR - AVG))
+    temporal_factor = SH / (1 + abs(DIFF))
+    exposure = future_avoidance * future_proximity * temporal_factor
+    isolation = 1 / (1 + abs(DIFF) + abs(CUR - AVG))
+    uncertainty = 1 / (1 + abs(DIFF) + abs(utilization - future_proximity))
+    weight = 1 / (1 + abs(utilization - future_avoidance) + abs(DIFF))
+    
+    # Adaptive weighting based on future avoidance and temporal factor
+    temporal_weight = 1 / (1 + abs(utilization - future_avoidance) + abs(DIFF) + abs(temporal_factor - future_avoidance))
+    
+    # Introduce a dynamic scoring factor that combines exposure with isolation and uncertainty
+    dynamic_score = isolation * exposure * temporal_weight + uncertainty * (1 - temporal_weight)
+    
+    # Final priority score: penalize more blocking and favor stacks that reduce future blocking
+    priority = RI - weight * (dynamic_score + utilization * future_avoidance)
+    return priority"
+2026-10-31T13:49:24,calm,qwen3-14b-nothink,0.5,9,500,25565,25950,0.954,504,4638.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    if EMP == 0:
+        return float('inf')
+    # Normalize free space to emphasize stacks with more space
+    space_factor = 1 / (EMP + 1)
+    # Normalize stack height to prioritize lower stacks
+    height_factor = SH / (SH + 1)
+    # Adjust for the average ID in the stack; prioritize stacks with lower average IDs
+    avg_factor = 1 / (AVG + 2)
+    # Adjust for retrieval urgency using a deterministic function of RI
+    urgency_factor = RI / (RI + 1)
+    # Combine factors with deterministic weights
+    priority = space_factor * height_factor * avg_factor * urgency_factor
+    return priority"
