@@ -105,6 +105,7 @@ def test_full_run_counts_every_yard_simulation(tmp_path):
     statuses = {e["status"] for e in log}
     assert {"evaluated", "duplicate_code", "duplicate_behaviour", "no_code"} <= statuses
     assert log[-1]["status"] == "stalled"  # the fake LLM's answers all repeat after one round
+    assert all(e["answer"] == "Sorry, no code." for e in log if e["status"] == "no_code")
     assert "crash" in statuses or any(e["repairs"] for e in log)
     assert sum(e["cost"] for e in log) == summary["budget_used"] == log[-1]["used"] <= 8_000
     for e in log:

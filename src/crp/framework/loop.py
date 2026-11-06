@@ -8,7 +8,8 @@ yards scored with it), so a full evaluation costs exactly 840. The seed's evalua
 fully evaluated rule.
 
 Every proposed rule gets one line in the JSONL log: operator, parents, idea, code, the gate where
-it stopped (status), its cost, repairs, and its quick and full results.
+it stopped (status), its cost, repairs, and its quick and full results; the raw answer when it
+has no code.
 """
 from __future__ import annotations
 
@@ -76,7 +77,10 @@ def run(settings: Settings, llm: LLM, log_path: Path) -> tuple[Rule, dict]:
                     entry["status"] = "crash"
                     return None
                 entry["repairs"] += 1
-                new_code, new_idea = read_rule(llm.ask(system, prompts.repair(code, error)))
+                answer = llm.ask(system, prompts.repair(code, error))
+                new_code, new_idea = read_rule(answer)
+                if new_code is None:
+                    entry["answer"] = answer  # to see why it has no code
                 if new_code is None or (settings.dedup and plain_code(new_code) in state["seen_code"]):
                     entry["status"] = "crash"
                     return None
@@ -142,8 +146,11 @@ def run(settings: Settings, llm: LLM, log_path: Path) -> tuple[Rule, dict]:
                 raise BudgetEnd
             step += 1
             operator, parents, prompt = propose()
-            code, idea = read_rule(llm.ask(system, prompt))
+            answer = llm.ask(system, prompt)
+            code, idea = read_rule(answer)
             entry = new_entry(step, operator, parents, code, idea)
+            if code is None:
+                entry["answer"] = answer  # to see why it has no code
             try_rule(code, idea, entry)
     except BudgetEnd:
         entry["status"] = entry["status"] or "budget_end"  # None: the budget ended inside a proposal
