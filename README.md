@@ -82,6 +82,8 @@ pytest                      # 121 tests, about 40 seconds (the ReEvo/EoH and CAL
 | CALM's population per round (after copying CALM's logs to `runs/calm/calm_logs/`) | `python experiments/calm_result.py pools` | instant |
 | CALM convergence plot (needs `pip install -e ".[plot]"`) | `python experiments/plot_calm_convergence.py` | instant |
 | LLM methods vs GP: tables and tests (`results/llm_comparison.md`) | `python experiments/compare_methods.py` | instant |
+| One run of our framework (needs Ollama with `qwen3:14b-nothink`) | `python experiments/run_framework.py run --alpha 0.5 --seed 1` (add `--seed-rule lowest` or `--off pareto,feedback` for the other versions) | not measured yet |
+| Our framework's rows into `results/llm_full.csv` | `python experiments/run_framework.py collect` | instant |
 
 Full runs go to `results/gp_full.csv`, quick ones to `results/gp_quick.csv`. LLM runs go to
 `results/llm_full.csv` (quick: `llm_quick.csv`), every scored rule of a run to
@@ -117,6 +119,7 @@ data/caserta_840 (840 test yards) ──► results/gp_full.csv
 | `src/crp/pu.py` | PU1 and PU2, the paper's hand-made baselines |
 | `src/crp/gp/` | GP: `tree`, `crossover` (5), `mutation` (7), `algorithm` (the loop), `expression` (parse and compile formulas), `fitness` (with a cache), `experiment` (runs and CSV) |
 | `src/crp/llm/` | LLM part: `evaluate` (scores LLM-written code, same scheme as GP), `prompts` (texts shared by EoH and ReEvo), `experiment` (one run, the result row shared by EoH, ReEvo and CALM, CSV) |
+| `src/crp/framework/` | our LLM framework (design: `docs/framework_design.md`): `settings` (switches), `knowledge` (CRP text, seeds), `scoring` (yards with a time limit), `population` (Pareto selection), `prompts`, `llm` (Ollama client), `loop` |
 | `frameworks/` | ReEvo + original EoH setup (`setup_reevo.sh`), CALM setup (`setup_calm.sh`), and our plug-in files; see `frameworks/README.md` |
 | `src/crp/paper.py` | every paper number we reproduce |
 | `src/crp/paths.py` | data and results folders |
@@ -271,6 +274,32 @@ data/caserta_840 (840 test yards) ──► results/gp_full.csv
     of its 500 evaluations on the seed rule, EoH and CALM do not; (d) CALM uses a different 4-bit
     format of the same model (decision 22); (e) 10 runs per LLM method detect large differences
     only. All 90 LLM result rows were recomputed from their rule logs with the scorer and match.
+
+### Our framework: decisions
+
+The design and the reason for each part are in `docs/framework_design.md`.
+
+35. The budget is counted in yard simulations: 420,000 per run, the same as 500 full evaluations
+    of 840 yards (GP-500, EoH, ReEvo, CALM). A cheaper screening step lets the framework try more
+    rules within that budget; the LLM calls are reported separately, so the extra calls are
+    visible. Each yard is simulated at most once per rule (the quick test reuses the crash
+    test's yards, the full evaluation the quick test's), so a full evaluation costs exactly 840.
+    The seed's evaluation is counted. A step that does not fit in the budget is not started.
+36. Rules are scored one yard at a time in a worker process with a 60-second limit, the limit of
+    EoH and ReEvo. The random seed is fixed per yard, so a yard's result never depends on the
+    other yards scored with it. For a deterministic rule this gives the same total as the
+    shared scorer; a rule that uses random numbers can differ slightly from it.
+37. The quick test lets a rule through only if its total on the 84 yards beats the worst rule of
+    the population on the same 84 yards, i.e. only if it could enter the population.
+38. Duplicates: code that is identical apart from comments, docstrings and spacing is rejected
+    for free; a rule whose results on the 84 yards are identical to an earlier rule's is
+    rejected after the quick test. If 100 proposals in a row cost nothing (only repeats), the
+    run stops as "stalled", since the LLM is no longer producing anything new.
+39. The LLM is Qwen3-14B through Ollama, with the same model file, 4-bit format, temperature 1.0
+    and thinking-off setting as EoH and ReEvo, so against EoH only the method differs.
+40. Every component has a switch (`src/crp/framework/settings.py`), so each ablation runs the same
+    code with one setting changed. The method name in the results says what differs from the
+    full framework, e.g. `ours-lowest` or `ours-no_pareto`.
 
 ## License
 
