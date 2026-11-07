@@ -84,6 +84,8 @@ pytest                      # 121 tests, about 40 seconds (the ReEvo/EoH and CAL
 | LLM methods vs GP: tables and tests (`results/llm_comparison.md`) | `python experiments/compare_methods.py` | instant |
 | One run of our framework (needs Ollama with `qwen3:14b-nothink`) | `python experiments/run_framework.py run --alpha 0.5 --seed 1` (add `--seed-rule lowest` or `--off pareto,feedback` for the other versions) | not measured yet |
 | Our framework's rows into `results/llm_full.csv` | `python experiments/run_framework.py collect` | instant |
+| Ollama + Qwen3-14B (thinking off) + `.venv` on ALICE, once, on the login node | `CRP_DATA=/your/folder bash frameworks/setup_ollama.sh` | ~30 min (11 GB download) |
+| One run of our framework on ALICE (one A100) | `CRP_DATA=/your/folder sbatch --partition=gpu-short --time=04:00:00 experiments/framework_job.sh 0.5 1` | not measured yet |
 
 Full runs go to `results/gp_full.csv`, quick ones to `results/gp_quick.csv`. LLM runs go to
 `results/llm_full.csv` (quick: `llm_quick.csv`), every scored rule of a run to
@@ -300,6 +302,9 @@ The design and the reason for each part are in `docs/framework_design.md`.
 40. Every component has a switch (`src/crp/framework/settings.py`), so each ablation runs the same
     code with one setting changed. The method name in the results says what differs from the
     full framework, e.g. `ours-lowest` or `ours-no_pareto`.
+41. On ALICE the framework uses the same Ollama version as the laptop (0.34.4) and the same
+    Qwen3-14B with the thinking-off template (`frameworks/setup_ollama.sh`). Each Slurm job starts
+    its own model server on its own port, so two jobs on one node never share one.
 
 ## License
 
