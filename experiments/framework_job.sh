@@ -17,7 +17,14 @@ set -euo pipefail
 ALPHA=$1 SEED=$2
 shift 2
 DATA=${CRP_DATA:?set CRP_DATA to the folder filled by frameworks/setup_ollama.sh}
-export PATH=$DATA/ollama/bin:$PATH OLLAMA_MODELS=$DATA/ollama/models
+export OLLAMA_MODELS=$DATA/ollama/models
+# Ollama's program files on the node's local disk: from the network disk, starting CUDA takes
+# longer than Ollama waits for it, and it falls back to the slower Vulkan (no MIG support)
+LOCAL=${TMPDIR:-/tmp}/ollama_$SLURM_JOB_ID
+mkdir -p "$LOCAL" && cp -r "$DATA/ollama/bin" "$DATA/ollama/lib" "$LOCAL"
+trap 'rm -rf "$LOCAL"' EXIT
+export PATH=$LOCAL/bin:$PATH
+export OLLAMA_LOAD_TIMEOUT=30m  # the first load of the 9 GB model from the network disk can take minutes
 # its own port, so two jobs on the same node never share a model server
 export OLLAMA_HOST=127.0.0.1:$((20000 + SLURM_JOB_ID % 10000))
 export PYTHONUNBUFFERED=1  # write the output to the .out file at once, not in chunks
