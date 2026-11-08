@@ -18,7 +18,9 @@ LOCAL=${TMPDIR:-/tmp}/ollama_$SLURM_JOB_ID
 mkdir -p "$LOCAL" && cp -r "$DATA/ollama/bin" "$DATA/ollama/lib" "$LOCAL"
 trap 'rm -rf "$LOCAL"' EXIT
 export PATH=$LOCAL/bin:$PATH
-export OLLAMA_LOAD_TIMEOUT=30m OLLAMA_NUM_PARALLEL=8
+# room for 16,384 tokens per request, about 3x our longest prompt plus answer; Ollama's default
+# (32,768 on a 40 GB GPU) times 8 requests does not fit, and part of the model moves to the CPU
+export OLLAMA_LOAD_TIMEOUT=30m OLLAMA_NUM_PARALLEL=8 OLLAMA_CONTEXT_LENGTH=16384
 export OLLAMA_HOST=127.0.0.1:$((20000 + SLURM_JOB_ID % 10000))
 export PYTHONUNBUFFERED=1
 
