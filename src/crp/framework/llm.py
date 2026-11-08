@@ -6,9 +6,11 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 import time
 import urllib.error
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 
 CODE_BLOCK = re.compile(r"```(?:python)?\s*\n(.*?)```", re.DOTALL)
 IDEA_LINE = re.compile(r"^\s*\**Idea:?\**:?\s*(.+)$", re.MULTILINE | re.IGNORECASE)
@@ -19,6 +21,7 @@ class LLM:
         self.model, self.url, self.temperature = model, base_url.rstrip("/") + "/chat/completions", temperature
         self.timeout, self.retries = timeout, retries
         self.calls = 0
+        self._lock = threading.Lock()  # ask_many counts calls from several threads
 
     def ask(self, system: str, user: str) -> str:
         body = json.dumps({"model": self.model, "temperature": self.temperature,
@@ -30,13 +33,19 @@ class LLM:
             try:
                 with urllib.request.urlopen(request, timeout=self.timeout) as response:
                     answer = json.loads(response.read())["choices"][0]["message"]["content"]
-                self.calls += 1
+                with self._lock:
+                    self.calls += 1
                 return answer
             except (urllib.error.URLError, TimeoutError, ConnectionError):
                 if attempt == self.retries - 1:
                     raise
                 time.sleep(5 * (attempt + 1))  # the model server may still be loading
         raise RuntimeError("unreachable")
+
+    def ask_many(self, system: str, users: list[str]) -> list[str]:
+        """Answers to several prompts, sent at the same time so the server answers them together."""
+        with ThreadPoolExecutor(len(users)) as pool:
+            return list(pool.map(lambda user: self.ask(system, user), users))
 
 
 def read_rule(answer: str) -> tuple[str | None, str]:

@@ -5,7 +5,12 @@ yards). Each scoring call costs the number of yards it simulates; an exact dupli
 nothing. Each yard is simulated at most once per rule: the quick test reuses the crash test's 4
 yards and the full evaluation the quick test's 84 (a yard's result does not depend on the other
 yards scored with it), so a full evaluation costs exactly 840. The seed's evaluation is counted. The run ends when the next step would not fit in the budget; the result is the best
-fully evaluated rule.
+fully evaluated rule. Answers the LLM wrote for a batch but the run no longer uses are dropped
+(they count as LLM calls, not as budget).
+
+The LLM writes `batch_size` rules at the same time, all from the archive as it is when the batch
+starts; they are then checked and scored one after another, so each rule still sees the newest
+population at the quick test. With batch_size 1 every rule is written from the newest archive.
 
 Every proposed rule gets one line in the JSONL log: operator, parents, idea, code, the gate where
 it stopped (status), its cost, repairs, and its quick and full results; the raw answer when it
@@ -135,6 +140,8 @@ def run(settings: Settings, llm: LLM, log_path: Path) -> tuple[Rule, dict]:
         cheapest = len(scorer.crash_ids if settings.crash_check else
                        scorer.quick_ids if settings.quick_test else all_ids)
         step = free_in_a_row = 0
+        batch: list[tuple[str, list[Rule], str]] = []  # proposals whose answers are not used yet
+        answers: list[str] = []
         while True:
             log.write(json.dumps({**entry, "used": state["used"], "llm_calls": llm.calls}) + "\n")
             log.flush()
@@ -144,9 +151,11 @@ def run(settings: Settings, llm: LLM, log_path: Path) -> tuple[Rule, dict]:
                 entry = new_entry(step + 1, "none", [], None, "")  # a last line that says why it ended
                 entry["status"] = "budget_end" if free_in_a_row < settings.max_free_in_a_row else "stalled"
                 raise BudgetEnd
+            if not batch:  # the next rules, all written from the archive as it is now
+                batch = [propose() for _ in range(settings.batch_size)]
+                answers = llm.ask_many(system, [prompt for _, _, prompt in batch])
+            (operator, parents, _), answer = batch.pop(0), answers.pop(0)
             step += 1
-            operator, parents, prompt = propose()
-            answer = llm.ask(system, prompt)
             code, idea = read_rule(answer)
             entry = new_entry(step, operator, parents, code, idea)
             if code is None:

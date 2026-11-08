@@ -139,3 +139,19 @@ def test_all_switches_off_is_a_plain_loop(tmp_path):
 def test_run_stops_when_the_llm_only_repeats(tmp_path):
     _, summary, log, _ = run_with([SEED_AGAIN], tmp_path, budget=420_000, max_free_in_a_row=5)
     assert log[-1]["status"] == "stalled" and summary["budget_used"] == 840
+
+
+def test_batched_run_counts_every_yard_simulation_the_same_way(tmp_path):
+    best, summary, log, llm = run_with(ANSWERS, tmp_path, budget=8_000, batch_size=8)
+    assert [e["step"] for e in log[:-1]] == list(range(len(log) - 1))
+    assert sum(e["cost"] for e in log) == summary["budget_used"] == log[-1]["used"] <= 8_000
+    for e in log:
+        if e["status"] in ("duplicate_code", "no_code"):
+            assert e["cost"] == 0
+        if e["status"] == "evaluated":
+            assert e["cost"] == 840 + 4 * e["repairs"]
+        if e["status"] in ("screened_out", "duplicate_behaviour"):
+            assert e["cost"] == 84 + 4 * e["repairs"]
+    proposals = sum(1 + e["repairs"] for e in log[1:] if e["operator"] != "none")
+    assert proposals <= llm.calls <= proposals + 7  # at most 7 answers of the last batch unused
+    assert best.total == min(e["total"] for e in log if e["status"] == "evaluated")

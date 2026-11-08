@@ -86,6 +86,7 @@ pytest                      # 121 tests, about 40 seconds (the ReEvo/EoH and CAL
 | Our framework's rows into `results/llm_full.csv` | `python experiments/run_framework.py collect` | instant |
 | Ollama + Qwen3-14B (thinking off) + `.venv` on ALICE, once, on the login node | `CRP_DATA=/your/folder bash frameworks/setup_ollama.sh` | ~30 min (11 GB download) |
 | One run of our framework on ALICE (one A100) | `CRP_DATA=/your/folder sbatch --partition=gpu-short --time=04:00:00 experiments/framework_job.sh 0.5 1` | not measured yet |
+| Speed and rule quality with 1, 2, 4, 8 LLM requests at once (ALICE, one GPU) | `CRP_DATA=/your/folder sbatch --partition=gpu-mig-40g --gres=gpu:1 --time=01:00:00 experiments/bench_parallel_job.sh` | ~30 min |
 
 Full runs go to `results/gp_full.csv`, quick ones to `results/gp_quick.csv`. LLM runs go to
 `results/llm_full.csv` (quick: `llm_quick.csv`), every scored rule of a run to
@@ -310,6 +311,14 @@ The design and the reason for each part are in `docs/framework_design.md`.
     best rule; all came from refine and merge), and the prompt says the function cannot see the
     yard size (the LLM invented yard-size constants). A stricter quick test was replayed on the
     pilot logs and rejected: it saved budget but blocked some of the later best rules.
+43. The LLM can write several rules at the same time (`batch_size`): Ollama answers up to 8
+    requests together on one GPU (`OLLAMA_NUM_PARALLEL=8`, with 16,384 tokens of context each,
+    about 3 times our longest prompt plus answer; Ollama's default of 32,768 times 8 does not fit
+    on a 40 GB GPU). Measured with `experiments/bench_parallel.py` on a MIG A100, 48 answers per
+    level: 8 at a time is 3.4 times faster, with the same share of valid rules (47 of 48) and no
+    difference in their totals on the 84 quick-test yards (exact Mann-Whitney p = 0.55, A12 =
+    0.53). The rules of a batch are all written from the archive as it is when the batch starts,
+    and are then checked and scored one after another.
 
 ## License
 
