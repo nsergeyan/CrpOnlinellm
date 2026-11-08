@@ -40,6 +40,7 @@ def test_settings_label():
     assert Settings(alpha=0.5).label() == "ours"
     assert Settings(alpha=0.5, seed_rule="lowest").label() == "ours-lowest"
     assert Settings(alpha=0.5, pareto=False, feedback=False).label() == "ours-no_pareto-no_feedback"
+    assert Settings(alpha=0.5, batch_size=1).label() == "ours-batch1"
 
 
 def test_read_rule():
@@ -101,7 +102,7 @@ def test_pareto_keeps_specialists_and_drops_dominated_rules():
 
 
 def test_full_run_counts_every_yard_simulation(tmp_path):
-    best, summary, log, llm = run_with(ANSWERS, tmp_path, budget=8_000)
+    best, summary, log, llm = run_with(ANSWERS, tmp_path, budget=8_000, batch_size=1)  # exact call count
     statuses = {e["status"] for e in log}
     assert {"evaluated", "duplicate_code", "duplicate_behaviour", "no_code"} <= statuses
     assert log[-1]["status"] == "stalled"  # the fake LLM's answers all repeat after one round

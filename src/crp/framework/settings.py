@@ -32,7 +32,7 @@ class Settings:
     temperature: float = 1.0       # as EoH and ReEvo
     operator_weights: tuple[float, float, float] = (0.6, 0.3, 0.1)  # refine, merge, explore (pilot: explore never improved)
     max_free_in_a_row: int = 100   # stop if this many proposals in a row cost nothing (only repeats)
-    batch_size: int = 1            # rules the LLM writes at the same time (the server answers them together)
+    batch_size: int = 8            # rules the LLM writes at the same time (the server answers them together)
 
     def label(self) -> str:
         """Method name in the results: 'ours', plus what differs from the full framework."""
@@ -40,6 +40,8 @@ class Settings:
         if self.seed_rule != "minmax":
             parts.append(self.seed_rule)
         parts += [f"no_{name}" for name in SWITCHES if not getattr(self, name)]
+        if self.batch_size != 8:
+            parts.append(f"batch{self.batch_size}")
         return "-".join(parts)
 
     def as_dict(self) -> dict:

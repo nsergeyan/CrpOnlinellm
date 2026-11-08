@@ -318,7 +318,9 @@ The design and the reason for each part are in `docs/framework_design.md`.
     level: 8 at a time is 3.4 times faster, with the same share of valid rules (47 of 48) and no
     difference in their totals on the 84 quick-test yards (exact Mann-Whitney p = 0.55, A12 =
     0.53). The rules of a batch are all written from the archive as it is when the batch starts,
-    and are then checked and scored one after another.
+    and are then checked and scored one after another. Agreed with Wei: batches of 8 (the
+    default) for all main and ablation runs, after 3 full runs with 8 and 3 with 1 (method name
+    `ours-batch1`) at alpha 0.5 show that the final scores are comparable.
 
 ## License
 

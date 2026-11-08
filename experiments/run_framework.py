@@ -9,7 +9,7 @@
         results/llm_runs_full/, next to the EoH, ReEvo and CALM runs
 
 <name> is <method>_a<alpha>_s<seed>; method is "ours", plus what differs from the full framework
-(e.g. "ours-lowest", "ours-no_pareto"). The evaluations column holds the budget in full
+(e.g. "ours-lowest", "ours-no_pareto", "ours-batch1"). The evaluations column holds the budget in full
 evaluations (420,000 yard simulations = 500), as for the baselines.
 """
 import argparse
@@ -79,6 +79,7 @@ def main() -> None:
     one.add_argument("--model", default="qwen3:14b-nothink")
     one.add_argument("--base-url", default="http://localhost:11434/v1")
     one.add_argument("--budget", type=int, default=420_000, help="yard simulations")
+    one.add_argument("--batch", type=int, default=Settings.batch_size, help="rules the LLM writes at the same time")
     merge = commands.add_parser("collect", help="add all new rows to the results CSV")
     merge.add_argument("--out", type=Path, default=RESULTS / "llm_full.csv")
     args = parser.parse_args()
@@ -89,6 +90,7 @@ def main() -> None:
     if unknown := set(off) - set(SWITCHES):
         parser.error(f"unknown components: {', '.join(sorted(unknown))}")
     settings = Settings(alpha=args.alpha, run_seed=args.seed, seed_rule=args.seed_rule, budget=args.budget,
+                        batch_size=args.batch,
                         **{name: False for name in off})
     row = run_one(settings, args.model, args.base_url)
     print(f"{settings.label()} alpha {args.alpha} seed {args.seed}: train {row['train_fitness']:,}, "
