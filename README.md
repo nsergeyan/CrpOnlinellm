@@ -305,6 +305,11 @@ The design and the reason for each part are in `docs/framework_design.md`.
 41. On ALICE the framework uses the same Ollama version as the laptop (0.34.4) and the same
     Qwen3-14B with the thinking-off template (`frameworks/setup_ollama.sh`). Each Slurm job starts
     its own model server on its own port, so two jobs on one node never share one.
+42. Changed after two pilot runs at alpha 0.5 (training data only; the pilot runs are not
+    results): explore gets 10% of the steps instead of 25% (about 700 explore calls, no new
+    best rule; all came from refine and merge), and the prompt says the function cannot see the
+    yard size (the LLM invented yard-size constants). A stricter quick test was replayed on the
+    pilot logs and rejected: it saved budget but blocked some of the later best rules.
 
 ## License
 

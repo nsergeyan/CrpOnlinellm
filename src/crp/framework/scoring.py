@@ -34,8 +34,10 @@ def short_error(error: BaseException, code: str) -> str:
 
 
 def _worker(connection, alpha: float) -> None:
+    import warnings
     from crp.llm.evaluate import compile_rule, total_or_raise
 
+    warnings.simplefilter("ignore")  # numpy's warnings for log(0) etc.; the guard still rejects inf and nan
     yards = load_dataset(TRAINING_SET)
     while (task := connection.recv()) is not None:
         code, ids = task

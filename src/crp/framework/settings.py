@@ -30,7 +30,7 @@ class Settings:
     max_repairs: int = 2           # repair attempts per crashed rule
     timeout: float = 60.0          # seconds per scoring call, as EoH and ReEvo
     temperature: float = 1.0       # as EoH and ReEvo
-    operator_weights: tuple[float, float, float] = (0.5, 0.25, 0.25)  # refine, merge, explore
+    operator_weights: tuple[float, float, float] = (0.6, 0.3, 0.1)  # refine, merge, explore (pilot: explore never improved)
     max_free_in_a_row: int = 100   # stop if this many proposals in a row cost nothing (only repeats)
 
     def label(self) -> str:

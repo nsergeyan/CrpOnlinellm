@@ -11,6 +11,8 @@ from crp.framework.scoring import YardType
 from crp.llm.prompts import FUNCTION_DESCRIPTION, PROBLEM_DESCRIPTION
 
 ANSWER_FORMAT = (
+    "The function only gets the six inputs of one candidate stack; it cannot see the yard's size, "
+    "the other stacks or anything else. "
     "Answer with one line that starts with 'Idea:' and describes the rule's idea in one sentence, "
     "then the complete function in one ```python code block. The function must be named priority, "
     "take exactly the six inputs SH, EMP, AVG, CUR, RI, DIFF, and return a finite number; math and "
