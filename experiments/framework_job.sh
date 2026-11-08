@@ -6,6 +6,9 @@
 #   CRP_DATA=/your/folder sbatch --partition=gpu-short --time=04:00:00 experiments/framework_job.sh 0.5 1
 #       one run: alpha, seed (a run number), then any options of `run_framework.py run`,
 #       e.g. --seed-rule lowest or --off pareto
+#   CRP_DATA=/your/folder sbatch --array=0-119%6 --partition=gpu-a100-80g,gpu-mig-40g --gres=gpu:1 --time=24:00:00 experiments/framework_job.sh
+#       the whole experiment, at most 6 runs at a time: task i is run i of
+#       `run_framework.py plan`; runs that are done already are skipped
 # Output: runs/ours/<name>.{jsonl,summary.json,row.json}; then experiments/run_framework.py collect
 #SBATCH --job-name=ours-crp
 #SBATCH --gres=gpu:a100:1
@@ -14,8 +17,11 @@
 #SBATCH --output=runs/ours/%x_%j.out
 set -euo pipefail
 
-ALPHA=$1 SEED=$2
-shift 2
+if [ -n "${SLURM_ARRAY_TASK_ID:-}" ]; then
+    RUN=(task "$SLURM_ARRAY_TASK_ID")
+else
+    RUN=(run --alpha "$1" --seed "$2" "${@:3}")
+fi
 DATA=${CRP_DATA:?set CRP_DATA to the folder filled by frameworks/setup_ollama.sh}
 export OLLAMA_MODELS=$DATA/ollama/models
 # Ollama's program files on the node's local disk: from the network disk, starting CUDA takes
@@ -38,5 +44,4 @@ nvidia-smi -L
 ollama serve > "runs/ours/ollama_$SLURM_JOB_ID.log" 2>&1 &
 until ollama list > /dev/null 2>&1; do sleep 1; done
 
-.venv/bin/python experiments/run_framework.py run --alpha "$ALPHA" --seed "$SEED" \
-    --base-url "http://$OLLAMA_HOST/v1" "$@"
+.venv/bin/python experiments/run_framework.py "${RUN[@]}" --base-url "http://$OLLAMA_HOST/v1"

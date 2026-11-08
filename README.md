@@ -86,6 +86,8 @@ pytest                      # 121 tests, about 40 seconds (the ReEvo/EoH and CAL
 | Our framework's rows into `results/llm_full.csv` | `python experiments/run_framework.py collect` | instant |
 | Ollama + Qwen3-14B (thinking off) + `.venv` on ALICE, once, on the login node | `CRP_DATA=/your/folder bash frameworks/setup_ollama.sh` | ~30 min (11 GB download) |
 | One run of our framework on ALICE (one A100) | `CRP_DATA=/your/folder sbatch --partition=gpu-short --time=04:00:00 experiments/framework_job.sh 0.5 1` | not measured yet |
+| All 120 runs of our framework (main + ablations), at most 6 at a time; done runs are skipped | `CRP_DATA=/your/folder sbatch --array=0-119%6 --partition=gpu-a100-80g,gpu-mig-40g --gres=gpu:1 --time=24:00:00 experiments/framework_job.sh` | days, depends on the queue |
+| The list of those 120 runs, and which are done | `python experiments/run_framework.py plan` | instant |
 | Speed and rule quality with 1, 2, 4, 8 LLM requests at once (ALICE, one GPU) | `CRP_DATA=/your/folder sbatch --partition=gpu-mig-40g --gres=gpu:1 --time=01:00:00 experiments/bench_parallel_job.sh` | ~30 min |
 
 Full runs go to `results/gp_full.csv`, quick ones to `results/gp_quick.csv`. LLM runs go to
@@ -321,6 +323,13 @@ The design and the reason for each part are in `docs/framework_design.md`.
     and are then checked and scored one after another. Agreed with Wei: batches of 8 (the
     default) for all main and ablation runs, after 3 full runs with 8 and 3 with 1 (method name
     `ours-batch1`) at alpha 0.5 show that the final scores are comparable.
+44. The experiment agreed with Wei is listed once, in `EXPERIMENT` in `experiments/run_framework.py`:
+    the main runs from the Min-Max and the lowest-stack seed at alphas 0.5, 0.3 and 0.1, then one
+    ablation per module at alphas 0.5 and 0.1 (no knowledge text, from the Min-Max seed; no
+    crash test, duplicate filter and quick test; no Pareto selection and rich feedback), 10 runs
+    each, 120 runs. A job-array task runs one of them and skips it if its result exists, so the
+    3 batch-8 check runs count as main runs 1 to 3 at alpha 0.5 (agreed with Wei) and a restarted
+    array never runs anything twice. `collect` only takes full-budget runs.
 
 ## License
 
