@@ -321,8 +321,15 @@ The design and the reason for each part are in `docs/framework_design.md`.
     difference in their totals on the 84 quick-test yards (exact Mann-Whitney p = 0.55, A12 =
     0.53). The rules of a batch are all written from the archive as it is when the batch starts,
     and are then checked and scored one after another. Agreed with Wei: batches of 8 (the
-    default) for all main and ablation runs, after 3 full runs with 8 and 3 with 1 (method name
-    `ours-batch1`) at alpha 0.5 show that the final scores are comparable.
+    default) for all main and ablation runs, after a check with 3 full runs with 8 and 3 with 1
+    (method name `ours-batch1`) at alpha 0.5 from the Min-Max seed, all with the full budget.
+    Training totals: 23,785 / 23,696 / 23,680 with 8 (median 23,696), 23,795 / 23,635 / 23,572
+    with 1 (median 23,635); test medians 24,087 and 24,190. The training medians differ by 0.26%,
+    less than the spread between runs of one setting, and the test medians the other way round,
+    so there is no consistent difference; with 3 runs per setting a small one cannot be ruled
+    out. Batches of 8 were 4.5 times faster (3.1 to 5.7 h vs 15.3 to 20.2 h on MIG A100s) and
+    made fewer LLM calls (1,036 to 1,708 vs 2,046 to 2,368): more of their rules passed the quick
+    test, so more of the budget went to full evaluations (376 to 446 vs 306 to 346).
 44. The experiment agreed with Wei is listed once, in `EXPERIMENT` in `experiments/run_framework.py`:
     the main runs from the Min-Max and the lowest-stack seed at alphas 0.5, 0.3 and 0.1, then one
     ablation per module at alphas 0.5 and 0.1 (no knowledge text, from the Min-Max seed; no
