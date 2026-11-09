@@ -313,6 +313,13 @@ The design and the reason for each part are in `docs/framework_design.md`.
     best rule; all came from refine and merge), and the prompt says the function cannot see the
     yard size (the LLM invented yard-size constants). A stricter quick test was replayed on the
     pilot logs and rejected: it saved budget but blocked some of the later best rules.
+    Correction to the prompt sentence: it overstates what the rule cannot see. SH + EMP is the
+    stack's maximum height, so a rule can work out the number of tiers (not the number of
+    stacks), and the constants the LLM wrote (e.g. `max_height = 10`, `if SH > 8`) act as
+    thresholds that only apply in tall yards. The sentence also had no measurable effect: 38 to
+    42% of the rules in two of the first three main runs at alpha 0.5 still use such constants
+    (5% in the third), about as in the pilot (38 to 39%). It was kept for all 120 runs, so they
+    all get the same prompt.
 43. The LLM can write several rules at the same time (`batch_size`): Ollama answers up to 8
     requests together on one GPU (`OLLAMA_NUM_PARALLEL=8`, with 16,384 tokens of context each,
     about 3 times our longest prompt plus answer; Ollama's default of 32,768 times 8 does not fit
