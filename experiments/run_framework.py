@@ -34,13 +34,15 @@ from crp.paths import RESULTS, ROOT, TEST_SET
 RUNS = ROOT / "runs" / "ours"
 YARDS = 840
 # The experiment agreed with Wei: (what differs from the full framework, alphas), 10 runs each.
-# Main runs first; the ablations switch off one module, all from the Min-Max seed.
+# Main runs first; the ablations switch off one module, all from the Min-Max seed; the last
+# group has no CRP knowledge at all (the direct comparison with EoH).
 EXPERIMENT = [
     ({}, (0.5, 0.3, 0.1)),
     ({"seed_rule": "lowest"}, (0.5, 0.3, 0.1)),
     ({"knowledge": False}, (0.5, 0.1)),
     ({"crash_check": False, "dedup": False, "quick_test": False}, (0.5, 0.1)),
     ({"pareto": False, "feedback": False}, (0.5, 0.1)),
+    ({"seed_rule": "lowest", "knowledge": False}, (0.5, 0.1)),
 ]
 RUNS_PER_SETTING = 10
 
