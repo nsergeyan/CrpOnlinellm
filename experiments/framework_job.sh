@@ -6,7 +6,7 @@
 #   CRP_DATA=/your/folder sbatch --partition=gpu-short --time=04:00:00 experiments/framework_job.sh 0.5 1
 #       one run: alpha, seed (a run number), then any options of `run_framework.py run`,
 #       e.g. --seed-rule lowest or --off pareto
-#   CRP_DATA=/your/folder sbatch --array=0-119%6 --partition=gpu-a100-80g,gpu-mig-40g --gres=gpu:1 --time=24:00:00 experiments/framework_job.sh
+#   CRP_DATA=/your/folder sbatch --array=0-139%6 --partition=gpu-a100-80g,gpu-mig-40g --gres=gpu:1 --time=24:00:00 experiments/framework_job.sh
 #       the whole experiment, at most 6 runs at a time: task i is run i of
 #       `run_framework.py plan`; runs that are done already are skipped
 # Output: runs/ours/<name>.{jsonl,summary.json,row.json}; then experiments/run_framework.py collect

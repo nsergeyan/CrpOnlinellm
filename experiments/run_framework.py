@@ -10,14 +10,15 @@
     python experiments/run_framework.py task 7
         run number 7 of the plan (what a job-array task does); skipped if it is done already
     python experiments/run_framework.py collect
-        appends every new row to results/llm_full.csv and copies the run's log and summary to
-        results/llm_runs_full/, next to the EoH, ReEvo and CALM runs
+        appends every new row to results/llm_full.csv and copies the run's log (compressed,
+        .jsonl.gz) and summary to results/llm_runs_full/, next to the EoH, ReEvo and CALM runs
 
 <name> is <method>_a<alpha>_s<seed>; method is "ours", plus what differs from the full framework
 (e.g. "ours-lowest", "ours-no_pareto", "ours-batch1"). The evaluations column holds the budget in full
 evaluations (420,000 yard simulations = 500), as for the baselines.
 """
 import argparse
+import gzip
 import json
 import shutil
 from datetime import datetime
@@ -93,8 +94,10 @@ def collect(out: Path) -> None:
             continue
         append_row(out, result)
         name = path.name.removesuffix(".row.json")
-        for suffix in (".jsonl", ".summary.json"):
-            shutil.copy(RUNS / f"{name}{suffix}", RESULTS / "llm_runs_full" / f"{name}{suffix}")
+        with (RUNS / f"{name}.jsonl").open("rb") as log, \
+                gzip.open(RESULTS / "llm_runs_full" / f"{name}.jsonl.gz", "wb") as packed:
+            shutil.copyfileobj(log, packed)  # compressed: a log has every proposed rule of the run
+        shutil.copy(RUNS / f"{name}.summary.json", RESULTS / "llm_runs_full" / f"{name}.summary.json")
         print(f"added {name}: test {result['test_total']}")
 
 

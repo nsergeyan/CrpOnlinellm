@@ -11,6 +11,10 @@ The same code also scores relocation rules written by LLMs, with three published
 [CALM](https://github.com/whxru/CALM), which also fine-tunes the LLM during the search), so GP
 and the LLM methods are compared on exactly the same data, scheme and scorer.
 
+On top of that it has our own LLM framework for this problem (`src/crp/framework/`, design in
+`docs/framework_design.md`): the LLM gets CRP knowledge, cheap checks stop weak rules before
+they cost a full evaluation, and parents are picked per yard type.
+
 ## The problem in short
 
 A yard has stacks of containers. Each container's ID is its retrieval order, and only the top of a
@@ -48,6 +52,41 @@ Total relocations over the 840 Caserta test instances (lower is better).
 The paper's median lies inside our middle 50% for every alpha, and every one of the 90 GP rules
 beats the best hand-made rule. Full table: [`results/summary.md`](results/summary.md).
 
+**Our LLM framework** (median test total; 10 runs per alpha for the LLM methods, 30 for GP;
+500 evaluations per run unless the row says otherwise):
+
+| Method | alpha 0.5 | alpha 0.3 | alpha 0.1 |
+|---|---|---|---|
+| Ours, Min-Max start | 24,116 | 24,798 | 29,048 |
+| Ours, lowest-stack start | 24,568 | 25,141 | 28,992 |
+| Ours, lowest-stack start, no knowledge text | 25,008 | | 29,538 |
+| GP | 25,119 | 26,064 | 29,228 |
+| GP, 800 evaluations (about 500 different formulas) | 24,764 | 25,744 | 29,152 |
+| EoH | 24,972 | 25,925 | 29,765 |
+| ReEvo | 26,235 | 26,709 | 29,856 |
+| CALM | 25,811 | 26,764 | 29,650 |
+| Min-Max priority function, no search | 24,664 | 25,259 | 29,286 |
+| GP, 51,000 evaluations | 24,074 | 24,768 | 28,985 |
+
+- With CRP knowledge, from either start rule, our framework beats GP, EoH, ReEvo and CALM at
+  the same budget for every alpha (exact Mann-Whitney test, p < 0.05 after Holm correction).
+  This also holds against GP with 800 evaluations, the check for GP counting repeated
+  formulas as evaluations (design note 50). From the Min-Max start it ends within 0.2% of GP
+  with 102 times the budget: GP-51,000 has the better median for every alpha, significantly so
+  only at alpha 0.1 (10 runs against 30, so a small difference can go unnoticed).
+- The gain comes from the CRP knowledge. With neither the Min-Max start rule nor the knowledge
+  text, the results do not differ significantly from GP or EoH (and are worse than GP with
+  800 evaluations at alpha 0.1) and no run beats Min-Max. One
+  of the two sources is enough: the text adds nothing significant on top of the Min-Max start.
+- Switching off one module (knowledge text, screening and repair, or Pareto selection and
+  feedback) changes no test result significantly. Screening and repair give better training
+  totals at alpha 0.5; Pareto selection and feedback give no gain.
+- Equal evaluations are not equal computing time: a run of ours takes 4 to 5 hours on a GPU, a
+  GP run with 51,000 evaluations about 1.7 hours on one processor core.
+
+All tables and tests: [`results/framework_comparison.md`](results/framework_comparison.md);
+the LLM baselines: [`results/llm_comparison.md`](results/llm_comparison.md).
+
 ## Setup
 
 Python 3.10 or newer, no third-party packages (pytest for the tests only).
@@ -59,7 +98,7 @@ pip install -e ".[dev]"
 pip install -e ".[dev,llm]"   # only for the LLM experiments
 bash frameworks/setup_reevo.sh  # only for the LLM experiments: ReEvo + original EoH (Python 3.11, see frameworks/README.md)
 bash frameworks/setup_calm.sh   # only for CALM: GPU libraries on Linux, API mode for the tests on macOS (see frameworks/README.md)
-pytest                      # 121 tests, about 40 seconds (the ReEvo/EoH and CALM end-to-end tests are skipped until setup)
+pytest                      # 131 tests, about 90 seconds (the ReEvo/EoH and CALM end-to-end tests are skipped until setup)
 ```
 
 ## How to run
@@ -81,18 +120,20 @@ pytest                      # 121 tests, about 40 seconds (the ReEvo/EoH and CAL
 | CALM rows into `results/llm_full.csv` (after copying `runs/calm/` from ALICE) | `python experiments/calm_result.py collect` | instant |
 | CALM's population per round (after copying CALM's logs to `runs/calm/calm_logs/`) | `python experiments/calm_result.py pools` | instant |
 | CALM convergence plot (needs `pip install -e ".[plot]"`) | `python experiments/plot_calm_convergence.py` | instant |
+| GP with 800 evaluations, the check with about 500 different formulas (90 runs) | `python experiments/run_gp_many.py --population 50 --generations 15 --out results/gp_800.csv` | ~10 min |
 | LLM methods vs GP: tables and tests (`results/llm_comparison.md`) | `python experiments/compare_methods.py` | instant |
 | One run of our framework (needs Ollama with `qwen3:14b-nothink`) | `python experiments/run_framework.py run --alpha 0.5 --seed 1` (add `--seed-rule lowest` or `--off pareto,feedback` for the other versions) | not measured yet |
 | Our framework's rows into `results/llm_full.csv` | `python experiments/run_framework.py collect` | instant |
+| Our framework vs GP, the LLM methods and Min-Max: tables and tests (`results/framework_comparison.md`) | `python experiments/compare_framework.py` | ~30 s |
 | Ollama + Qwen3-14B (thinking off) + `.venv` on ALICE, once, on the login node | `CRP_DATA=/your/folder bash frameworks/setup_ollama.sh` | ~30 min (11 GB download) |
-| One run of our framework on ALICE (one A100) | `CRP_DATA=/your/folder sbatch --partition=gpu-short --time=04:00:00 experiments/framework_job.sh 0.5 1` | not measured yet |
+| One run of our framework on ALICE (one A100) | `CRP_DATA=/your/folder sbatch --partition=gpu-short --time=04:00:00 experiments/framework_job.sh 0.5 1` | 4 to 6 h (12 to 14 h with `--off pareto,feedback`; use a partition with a longer limit) |
 | All 140 runs of our framework (main + ablations), at most 6 at a time; done runs are skipped | `CRP_DATA=/your/folder sbatch --array=0-139%6 --partition=gpu-a100-80g,gpu-mig-40g --gres=gpu:1 --time=24:00:00 experiments/framework_job.sh` | days, depends on the queue |
 | The list of those 140 runs, and which are done | `python experiments/run_framework.py plan` | instant |
 | Speed and rule quality with 1, 2, 4, 8 LLM requests at once (ALICE, one GPU) | `CRP_DATA=/your/folder sbatch --partition=gpu-mig-40g --gres=gpu:1 --time=01:00:00 experiments/bench_parallel_job.sh` | ~30 min |
 
 Full runs go to `results/gp_full.csv`, quick ones to `results/gp_quick.csv`. LLM runs go to
 `results/llm_full.csv` (quick: `llm_quick.csv`), every scored rule of a run to
-`results/llm_runs_full/<method>_a<alpha>_s<seed>.jsonl`, and the frameworks' own output
+`results/llm_runs_full/<method>_a<alpha>_s<seed>.jsonl` (our framework: `.jsonl.gz`), and the frameworks' own output
 (prompts and answers) to `runs/`. LLM runs need Ollama with `qwen3:14b-nothink` and the ReEvo setup. The batch script skips
 runs that are already in the CSV, so an interrupted batch continues where it stopped.
 
@@ -352,6 +393,50 @@ The design and the reason for each part are in `docs/framework_design.md`.
     EoH, ReEvo and CALM, and shows what the other parts (screening and repair, Pareto selection
     and feedback) do on their own. Its 20 runs were submitted as single jobs next to the running
     array, with the same code.
+46. The logs of our framework's runs are stored compressed (`.jsonl.gz`). A run logs about
+    1,400 proposed rules, each with its code and its totals per yard type, which is 481 MB for
+    the 143 runs and 48 MB compressed. Python reads the files directly with `gzip.open`. The
+    logs of EoH, ReEvo and CALM are much smaller and stay as they are.
+47. All 140 runs finished with the full budget. One run (lowest-stack start, no knowledge
+    text, alpha 0.1, run 5) stopped with an error before it had a result: the LLM server did
+    not answer within 10 minutes, three times in a row, because the model kept writing one
+    endless answer. It was run again with the same code and settings. A run that fails for a
+    technical reason has no result, so repeating it does not select among results. Such
+    endless answers are rare: calls that hit the 10 minute limit occurred in 5 of the
+    experiment's jobs, at most 4 times in one (the run that stopped).
+48. The comparison (`experiments/compare_framework.py`) corrects the p-values per table (Holm):
+    over the seven baselines for one version and alpha, over the three modules times two alphas
+    for the ablations. The three `ours-batch1` check runs are not part of it. The script
+    scores every best rule again and stops if a total differs from the stored one. Scored on
+    the laptop, all test totals equal the ones from ALICE; one training total differs by one
+    relocation (24,351 vs 24,352, a rule with `math.log1p`, which can differ in the last digit
+    between the two systems). The stored totals are the ones the runs computed on ALICE.
+49. What the results do not show. (a) The budget is counted in evaluations, as for EoH, ReEvo
+    and CALM. In computing time our framework is far more expensive than GP (about 875 GPU
+    hours and 220,000 LLM calls for the 143 runs), and GP with 51,000 evaluations is as good or
+    better in less time. (b) GP started from random formulas and our best version from
+    Min-Max; GP seeded with Min-Max was not run. (c) One LLM (Qwen3-14B), one benchmark, 10
+    runs per setting. (d) Without Pareto selection and feedback the runs take three times as
+    long (12 to 14 hours, more repeats and rules more than twice as long) for the same test
+    totals, so that module saves time but does not improve the result. (e) The explore
+    operator found at most one new best rule per version and alpha from the Min-Max start, and
+    in 5 of 10 runs at alpha 0.1 the last third of the budget brought no gain. (f) "Min-Max" is
+    our priority function for the Min-Max idea inside the unrestricted scheme, with ties broken
+    by the lowest stack (chosen on the training set); it is not a number from the literature.
+    (g) GP-500 is GP with the paper's settings and a smaller population, not tuned for 500
+    evaluations. (h) The running times come from different machines (GP on a laptop, the LLM
+    runs on ALICE GPUs), so they compare only roughly. (i) The ablations were run at alpha 0.5
+    and 0.1 only.
+50. The budgets are not counted in exactly the same way. GP (as ECF does) counts every
+    evaluation, also when the formula repeats an earlier one and is not simulated again: 20 to
+    36% of the 500 evaluations of a GP-500 run, so it simulates about 320 to 400 different
+    formulas. EoH, ReEvo and CALM also pay for repeats (2%, 13% and 23% of their rules). Our
+    framework rejects exact repeats for free and spends its whole budget on simulations. As a
+    check, GP was run with 800 evaluations (population 50, 15 generations, 30 runs per alpha,
+    `results/gp_800.csv`), which is 486 to 552 different formulas in the median. Our framework
+    still beats it for every alpha from both start rules (`results/framework_comparison.md`,
+    sections 2 and 8). Without CRP knowledge it does not: no significant difference at alpha
+    0.5, and GP-800 is better at alpha 0.1.
 
 ## License
 
