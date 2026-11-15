@@ -125,6 +125,7 @@ pytest                      # 131 tests, about 90 seconds (the ReEvo/EoH and CAL
 | One run of our framework (needs Ollama with `qwen3:14b-nothink`) | `python experiments/run_framework.py run --alpha 0.5 --seed 1` (add `--seed-rule lowest` or `--off pareto,feedback` for the other versions) | not measured yet |
 | Our framework's rows into `results/llm_full.csv` | `python experiments/run_framework.py collect` | instant |
 | Our framework vs GP, the LLM methods and Min-Max: tables and tests (`results/framework_comparison.md`) | `python experiments/compare_framework.py` | ~30 s |
+| Our framework's convergence plots, vs the LLM methods and for the ablations (needs `pip install -e ".[plot]"`) | `python experiments/plot_framework_convergence.py` | ~20 s |
 | Ollama + Qwen3-14B (thinking off) + `.venv` on ALICE, once, on the login node | `CRP_DATA=/your/folder bash frameworks/setup_ollama.sh` | ~30 min (11 GB download) |
 | One run of our framework on ALICE (one A100) | `CRP_DATA=/your/folder sbatch --partition=gpu-short --time=04:00:00 experiments/framework_job.sh 0.5 1` | 4 to 6 h (12 to 14 h with `--off pareto,feedback`; use a partition with a longer limit) |
 | All 140 runs of our framework (main + ablations), at most 6 at a time; done runs are skipped | `CRP_DATA=/your/folder sbatch --array=0-139%6 --partition=gpu-a100-80g,gpu-mig-40g --gres=gpu:1 --time=24:00:00 experiments/framework_job.sh` | days, depends on the queue |
