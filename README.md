@@ -62,16 +62,23 @@ beats the best hand-made rule. Full table: [`results/summary.md`](results/summar
 | Ours, lowest-stack start, no knowledge text | 25,008 | | 29,538 |
 | GP | 25,119 | 26,064 | 29,228 |
 | GP, 800 evaluations (about 500 different formulas) | 24,764 | 25,744 | 29,152 |
+| GP started from Min-Max | 24,664 | 25,259 | 29,286 |
+| GP started from Min-Max, 800 evaluations | 24,664 | 25,259 | 29,286 |
 | EoH | 24,972 | 25,925 | 29,765 |
 | ReEvo | 26,235 | 26,709 | 29,856 |
 | CALM | 25,811 | 26,764 | 29,650 |
 | Min-Max priority function, no search | 24,664 | 25,259 | 29,286 |
 | GP, 51,000 evaluations | 24,074 | 24,768 | 28,985 |
 
-- With CRP knowledge, from either start rule, our framework beats GP, EoH, ReEvo and CALM at
-  the same budget for every alpha (exact Mann-Whitney test, p < 0.05 after Holm correction).
-  This also holds against GP with 800 evaluations, the check for GP counting repeated
-  formulas as evaluations (design note 50). From the Min-Max start it ends within 0.2% of GP
+- With CRP knowledge, from either start rule, our framework beats GP (random start), EoH,
+  ReEvo and CALM at the same budget for every alpha (exact Mann-Whitney test, p < 0.05 after
+  Holm correction). From the Min-Max start this also holds against GP with 800 evaluations,
+  the check for GP counting repeated formulas as evaluations (design note 50), and against GP
+  started from Min-Max, at 500 and 800 evaluations: GP ends with the plain Min-Max formula in
+  18 to 21 of 30 runs, our framework improves Min-Max in every run (design note 51). From the
+  lowest-stack start it is level with GP started from Min-Max at alpha 0.5, and the
+  difference from GP with 800 evaluations at alpha 0.5 is not significant after the
+  correction. From the Min-Max start it ends within 0.2% of GP
   with 102 times the budget: GP-51,000 has the better median for every alpha, significantly so
   only at alpha 0.1 (10 runs against 30, so a small difference can go unnoticed).
 - The gain comes from the CRP knowledge. With neither the Min-Max start rule nor the knowledge
@@ -98,7 +105,7 @@ pip install -e ".[dev]"
 pip install -e ".[dev,llm]"   # only for the LLM experiments
 bash frameworks/setup_reevo.sh  # only for the LLM experiments: ReEvo + original EoH (Python 3.11, see frameworks/README.md)
 bash frameworks/setup_calm.sh   # only for CALM: GPU libraries on Linux, API mode for the tests on macOS (see frameworks/README.md)
-pytest                      # 131 tests, about 90 seconds (the ReEvo/EoH and CALM end-to-end tests are skipped until setup)
+pytest                      # 133 tests, about 90 seconds (the ReEvo/EoH and CALM end-to-end tests are skipped until setup)
 ```
 
 ## How to run
@@ -121,6 +128,8 @@ pytest                      # 131 tests, about 90 seconds (the ReEvo/EoH and CAL
 | CALM's population per round (after copying CALM's logs to `runs/calm/calm_logs/`) | `python experiments/calm_result.py pools` | instant |
 | CALM convergence plot (needs `pip install -e ".[plot]"`) | `python experiments/plot_calm_convergence.py` | instant |
 | GP with 800 evaluations, the check with about 500 different formulas (90 runs) | `python experiments/run_gp_many.py --population 50 --generations 15 --out results/gp_800.csv` | ~10 min |
+| GP started from Min-Max, 500 evaluations (90 runs) | `python experiments/run_gp_many.py --population 50 --generations 9 --start minmax --out results/gp_500_minmax.csv` | ~5 min |
+| GP started from Min-Max, 800 evaluations (90 runs) | `python experiments/run_gp_many.py --population 50 --generations 15 --start minmax --out results/gp_800_minmax.csv` | ~5 min |
 | LLM methods vs GP: tables and tests (`results/llm_comparison.md`) | `python experiments/compare_methods.py` | instant |
 | One run of our framework (needs Ollama with `qwen3:14b-nothink`) | `python experiments/run_framework.py run --alpha 0.5 --seed 1` (add `--seed-rule lowest` or `--off pareto,feedback` for the other versions) | not measured yet |
 | Our framework's rows into `results/llm_full.csv` | `python experiments/run_framework.py collect` | instant |
@@ -416,7 +425,7 @@ The design and the reason for each part are in `docs/framework_design.md`.
     and CALM. In computing time our framework is far more expensive than GP (about 875 GPU
     hours and 220,000 LLM calls for the 143 runs), and GP with 51,000 evaluations is as good or
     better in less time. (b) GP started from random formulas and our best version from
-    Min-Max; GP seeded with Min-Max was not run. (c) One LLM (Qwen3-14B), one benchmark, 10
+    Min-Max; note 51 has GP started from Min-Max. (c) One LLM (Qwen3-14B), one benchmark, 10
     runs per setting. (d) Without Pareto selection and feedback the runs take three times as
     long (12 to 14 hours, more repeats and rules more than twice as long) for the same test
     totals, so that module saves time but does not improve the result. (e) The explore
@@ -434,10 +443,32 @@ The design and the reason for each part are in `docs/framework_design.md`.
     formulas. EoH, ReEvo and CALM also pay for repeats (2%, 13% and 23% of their rules). Our
     framework rejects exact repeats for free and spends its whole budget on simulations. As a
     check, GP was run with 800 evaluations (population 50, 15 generations, 30 runs per alpha,
-    `results/gp_800.csv`), which is 486 to 552 different formulas in the median. Our framework
-    still beats it for every alpha from both start rules (`results/framework_comparison.md`,
-    sections 2 and 8). Without CRP knowledge it does not: no significant difference at alpha
+    `results/gp_800.csv`), which is 486 to 552 different formulas in the median. From the
+    Min-Max start our framework still beats it for every alpha, from the lowest-stack start at
+    alpha 0.3 and 0.1 (`results/framework_comparison.md`, sections 2 and 8); at alpha 0.5 that
+    difference (p = 0.033) is not significant after the Holm correction over the nine
+    baselines (0.10). Without CRP knowledge it does not: no significant difference at alpha
     0.5, and GP-800 is better at alpha 0.1.
+51. GP started from Min-Max (suggested by Wei, as the fairer baseline for our Min-Max start).
+    GP's function set (+, -, *, protected /) has no condition and no constants, so it cannot
+    write Min-Max. The Min-Max score is therefore one extra terminal `MM`, computed exactly as
+    our start rule (a test checks that both give the same totals), and one individual of the
+    initial population is the formula `MM`; the other 49 are random. Random trees and
+    mutations still use the paper's six terminals only, so `MM` spreads by crossover alone and
+    the rest of GP stays the paper's GP (`--start minmax`; runs without it are unchanged).
+    Results (`results/gp_500_minmax.csv`, `results/gp_800_minmax.csv`, 30 runs per alpha): the
+    start helps GP at alpha 0.5 and 0.3 (median 24,664 and 25,259, against 25,119 and 26,064
+    from random formulas), but 18 to 21 of 30 runs end with the plain `MM` formula, so the
+    median equals Min-Max without search, also with 800 evaluations. At alpha 0.1 it does not
+    help (29,286, against 29,228 and 29,152 from random formulas with 500 and 800
+    evaluations). Our framework from the same start is better for every alpha at both
+    budgets. From the lowest-stack start it is level with this GP at alpha 0.5, better at
+    alpha 0.1, and at alpha 0.3 better than the 500-evaluation runs only (p = 0.048 after
+    correction). What limits this GP: the one-node formula `MM` takes over the population, so
+    a run simulates only 163 to 236 different formulas in the median (of 500 or of 800
+    evaluations, against 320 to 372 of 500 from random formulas); the 800-evaluation runs are
+    therefore not a check with about 500 different formulas here
+    (`results/framework_comparison.md`, section 8).
 
 ## License
 

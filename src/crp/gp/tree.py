@@ -8,7 +8,7 @@ from __future__ import annotations
 import random
 from typing import Sequence
 
-from crp.gp.expression import OPERATORS, TERMINALS
+from crp.gp.expression import MINMAX, OPERATORS, TERMINALS
 
 MAX_DEPTH = 5
 PRIMITIVES = OPERATORS + TERMINALS  # ECF primitives_: functions and terminals
@@ -61,7 +61,7 @@ def _depths_and_sizes(nodes: tuple[str, ...]) -> tuple[tuple[int, ...], tuple[in
             raise ValueError(f"formula ends too early: {' '.join(nodes)!r}")
         token = nodes[i]
         depths[i] = depth
-        if token in TERMINALS:
+        if token in TERMINALS or token == MINMAX:
             return i + 1
         if token not in OPERATORS:
             raise ValueError(f"unknown token {token!r}")

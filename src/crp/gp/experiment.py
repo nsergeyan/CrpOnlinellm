@@ -33,11 +33,12 @@ def run_experiment(
     generations: int,
     training_set: str,
     log: Optional[Callable[[int, int, float], None]] = None,
+    start: tuple[str, ...] = (),
 ) -> dict:
-    """score must use the same alpha on the training set."""
-    start = time.perf_counter()
+    """score must use the same alpha on the training set; start: formulas in the initial population."""
+    began = time.perf_counter()
     fitness = CachedFitness(score)  # a new cache per run: one training set and scenario
-    result = run_gp(fitness, random.Random(seed), population, generations, log=log)
+    result = run_gp(fitness, random.Random(seed), population, generations, start=start, log=log)
     test_total = total_relocations(result.best.text(), test_instances, alpha)
     return {
         "date": datetime.now().isoformat(timespec="seconds"),
@@ -53,7 +54,7 @@ def run_experiment(
         "formula": result.best.text(),
         "training_set": training_set,
         "cache_hits": fitness.hits,
-        "seconds": round(time.perf_counter() - start, 1),
+        "seconds": round(time.perf_counter() - began, 1),
     }
 
 
@@ -81,11 +82,11 @@ def _init_worker(training_dir: str, test_dir: str) -> None:
 
 
 def _run_job(job: tuple) -> dict:
-    alpha, seed, population, generations, training_set = job
+    alpha, seed, population, generations, training_set, start = job
     return run_experiment(
         score=lambda text: total_relocations(text, _training, alpha),
         test_instances=_test, alpha=alpha, seed=seed,
-        population=population, generations=generations, training_set=training_set,
+        population=population, generations=generations, training_set=training_set, start=start,
     )
 
 
@@ -114,11 +115,12 @@ def run_many(
     out: str | Path,
     workers: int,
     progress: Callable[[str], None] = print,
+    start: tuple[str, ...] = (),
 ) -> list[dict]:
     """Run every (alpha, seed) not yet in the CSV, one run per worker; rows are written as runs finish."""
     training_set = Path(training_dir).name
     done = finished_runs(out)
-    jobs = [(a, s, population, generations, training_set) for a in alphas for s in seeds
+    jobs = [(a, s, population, generations, training_set, start) for a in alphas for s in seeds
             if _key(a, s, population, generations, training_set) not in done]
     progress(f"{len(jobs)} runs to do, {len(alphas) * len(seeds) - len(jobs)} already in {out}")
     rows: list[dict] = []

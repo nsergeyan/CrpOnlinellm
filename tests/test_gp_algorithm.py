@@ -1,7 +1,13 @@
 import random
 
+from crp.framework.knowledge import SEEDS
 from crp.gp.algorithm import _best_index, _select_worst, run_gp
+from crp.gp.expression import make_priority
 from crp.gp.fitness import CachedFitness, total_relocations
+from crp.gp.tree import GPTree
+from crp.llm.evaluate import compile_rule, total_or_raise
+from crp.schemes import solve_unrestricted
+from crp.yard import Yard
 
 
 def size_fitness(text):
@@ -53,3 +59,18 @@ def test_short_run_on_real_fitness(training_set):
     result = run_gp(fitness, random.Random(4), population_size=10, generations=2)
     assert result.evaluations == 30
     assert result.best_fitness == total_relocations(result.best.text(), instances, 0.5)
+
+
+def test_start_formula_is_in_the_first_population():
+    result = run_gp(size_fitness, random.Random(5), population_size=20, generations=0, start=("MM",))
+    assert result.evaluations == 20
+    assert result.best == GPTree(("MM",))  # one node: shorter than any random tree
+
+
+def test_minmax_formula_is_the_framework_start_rule(training_set):
+    instances = training_set[::40]
+    start_rule = compile_rule(SEEDS["minmax"][1], "priority")
+    for alpha in (0.5, 0.1):
+        fast = total_relocations("MM", instances, alpha)
+        assert fast == total_or_raise(start_rule, instances, alpha)
+        assert fast == sum(solve_unrestricted(Yard(inst, alpha), make_priority("MM")) for inst in instances)

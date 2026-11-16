@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass, field
-from typing import Callable, Optional
+from typing import Callable, Optional, Sequence
 
 from crp.gp import crossover, mutation
 from crp.gp.tree import GPTree, initial_population
@@ -33,9 +33,11 @@ def run_gp(
     generations: int = 50,
     tournament_size: int = 3,
     mutation_prob: float = mutation.MUTATION_PROB,
+    start: Sequence[str] = (),
     log: Optional[Callable[[int, int, float], None]] = None,
 ) -> GPResult:
-    population = initial_population(population_size, rng)
+    """start: formulas that replace random individuals of the initial population."""
+    population = [GPTree.from_text(text) for text in start] + initial_population(population_size - len(start), rng)
     scores = [fitness(tree.text()) for tree in population]
     evaluations = population_size
     best: Optional[GPTree] = None

@@ -12,6 +12,13 @@ from crp.schemes import PriorityFunction
 
 TERMINALS = ("SH", "EMP", "AVG", "CUR", "RI", "DIFF")
 OPERATORS = ("+", "-", "*", "/")
+# Min-Max's score of a stack, as MINMAX_SEED in crp/framework/knowledge.py computes it. Only the start
+# formula of a Min-Max-started run holds it: random trees and mutations use TERMINALS only.
+MINMAX = "MM"
+
+
+def minmax(SH: float, DIFF: float) -> float:
+    return (DIFF if DIFF > 0 else 1e10 - DIFF) * 100 + SH
 
 Tree = Union[str, tuple[str, "Tree", "Tree"]]  # terminal name, or (operator, left, right)
 
@@ -30,7 +37,7 @@ def _parse_at(tokens: list[str], i: int) -> tuple[Tree, int]:
     if i >= len(tokens):
         raise ValueError("formula ends too early")
     token = tokens[i]
-    if token in TERMINALS:
+    if token in TERMINALS or token == MINMAX:
         return token, i + 1
     if token in OPERATORS:
         left, i = _parse_at(tokens, i + 1)
@@ -41,6 +48,8 @@ def _parse_at(tokens: list[str], i: int) -> tuple[Tree, int]:
 
 def evaluate(tree: Tree, t: dict[str, int]) -> float:
     """Compute the formula for one set of terminal values."""
+    if tree == MINMAX:
+        return minmax(float(t["SH"]), float(t["DIFF"]))
     if isinstance(tree, str):
         return float(t[tree])  # the C++ stores terminal values as double
     op, left, right = tree
@@ -69,6 +78,8 @@ def compile_formula(text: str) -> Callable[..., float]:
     names = count()
 
     def code(tree: Tree) -> str:
+        if tree == MINMAX:
+            return "_minmax(SH, DIFF)"
         if isinstance(tree, str):
             return tree
         op, left, right = tree
@@ -77,7 +88,7 @@ def compile_formula(text: str) -> Callable[..., float]:
             return f"(1.0 if abs({d} := {code(right)}) < 1e-9 else {code(left)} / {d})"
         return f"({code(left)} {op} {code(right)})"
 
-    namespace: dict = {}
+    namespace: dict = {"_minmax": minmax}
     exec(f"def f({', '.join(TERMINALS)}):\n    return {code(parse(text))}", namespace)
     return namespace["f"]
 
