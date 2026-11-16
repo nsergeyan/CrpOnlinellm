@@ -36,6 +36,8 @@ export PATH=$LOCAL/bin:$PATH
 export OLLAMA_LOAD_TIMEOUT=30m  # the first load of the 9 GB model from the network disk can take minutes
 # LLaMEA sends its 5 offspring prompts at the same time; 16,384 tokens each, as for our framework
 export OLLAMA_NUM_PARALLEL=5 OLLAMA_CONTEXT_LENGTH=16384
+# keep the model loaded: Ollama drops it after 5 idle minutes, and LLaMEA's own start can take longer
+export OLLAMA_KEEP_ALIVE=-1
 # its own port, so two jobs on the same node never share a model server
 export OLLAMA_HOST=127.0.0.1:$((20000 + SLURM_JOB_ID % 10000))
 export PYTHONUNBUFFERED=1  # write the output to the .out file at once, not in chunks
@@ -45,6 +47,9 @@ nvidia-smi -L
 # Slurm ends the server with the job
 ollama serve > "runs/llamea/ollama_$SLURM_JOB_ID.log" 2>&1 &
 until ollama list > /dev/null 2>&1; do sleep 1; done
+# load the model before LLaMEA starts: from the network disk this can take longer than LLaMEA's
+# client waits for its first answers (3 tries of 10 minutes), which would cost it its first rules
+ollama run qwen3:14b-nothink "Say OK." > /dev/null
 
 frameworks/llamea/.venv/bin/python experiments/run_llamea.py run --alpha "$ALPHA" --seed "$SEED" \
     --budget "$BUDGET" --base-url "http://$OLLAMA_HOST/v1"
