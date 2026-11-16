@@ -4,7 +4,8 @@ from crp.framework.knowledge import SEEDS
 from crp.gp.algorithm import _best_index, _select_worst, run_gp
 from crp.gp.expression import make_priority
 from crp.gp.fitness import CachedFitness, total_relocations
-from crp.gp.tree import GPTree
+from crp.gp.mutation import mutate
+from crp.gp.tree import GPTree, random_tree
 from crp.llm.evaluate import compile_rule, total_or_raise
 from crp.schemes import solve_unrestricted
 from crp.yard import Yard
@@ -74,3 +75,14 @@ def test_minmax_formula_is_the_framework_start_rule(training_set):
         fast = total_relocations("MM", instances, alpha)
         assert fast == total_or_raise(start_rule, instances, alpha)
         assert fast == sum(solve_unrestricted(Yard(inst, alpha), make_priority("MM")) for inst in instances)
+
+
+def test_extra_terminal_reaches_random_trees_and_mutations():
+    terminals = ("SH", "MM")
+    result = run_gp(size_fitness, random.Random(6), population_size=30, generations=3, terminals=terminals)
+    assert set(result.best.nodes) <= {"SH", "MM", "+", "-", "*", "/"}
+    trees = [random_tree(random.Random(seed), terminals) for seed in range(20)]
+    assert any("MM" in tree.nodes for tree in trees)
+    assert all(set(tree.nodes) <= {"SH", "MM", "+", "-", "*", "/"} for tree in trees)
+    mutated = [mutate(GPTree.from_text("+ SH SH"), random.Random(seed), 1.0, terminals) for seed in range(200)]
+    assert any("MM" in tree.nodes for tree in mutated)

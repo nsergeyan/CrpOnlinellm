@@ -12,8 +12,9 @@ from crp.schemes import PriorityFunction
 
 TERMINALS = ("SH", "EMP", "AVG", "CUR", "RI", "DIFF")
 OPERATORS = ("+", "-", "*", "/")
-# Min-Max's score of a stack, as MINMAX_SEED in crp/framework/knowledge.py computes it. Only the start
-# formula of a Min-Max-started run holds it: random trees and mutations use TERMINALS only.
+# Min-Max's score of a stack, as MINMAX_SEED in crp/framework/knowledge.py computes it. Not one of the
+# paper's terminals: only the two Min-Max checks use it (README decisions 51 and 52), as the start
+# formula, or as a seventh terminal that random trees and mutations can also pick.
 MINMAX = "MM"
 
 

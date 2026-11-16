@@ -11,7 +11,6 @@ from typing import Sequence
 from crp.gp.expression import MINMAX, OPERATORS, TERMINALS
 
 MAX_DEPTH = 5
-PRIMITIVES = OPERATORS + TERMINALS  # ECF primitives_: functions and terminals
 
 
 class GPTree:
@@ -76,7 +75,7 @@ def _depths_and_sizes(nodes: tuple[str, ...]) -> tuple[tuple[int, ...], tuple[in
 
 # --- initialisation: ECF Tree::initialize, fullBuild, growBuild ---
 
-def full_tree(rng: random.Random, max_depth: int = MAX_DEPTH) -> GPTree:
+def full_tree(rng: random.Random, max_depth: int = MAX_DEPTH, terminals: Sequence[str] = TERMINALS) -> GPTree:
     """Functions on every level above max_depth, terminals at max_depth."""
     nodes: list[str] = []
 
@@ -86,23 +85,25 @@ def full_tree(rng: random.Random, max_depth: int = MAX_DEPTH) -> GPTree:
             build(depth + 1)
             build(depth + 1)
         else:
-            nodes.append(rng.choice(TERMINALS))
+            nodes.append(rng.choice(terminals))
 
     build(0)
     return GPTree(nodes)
 
 
-def grow_tree(rng: random.Random, max_depth: int = MAX_DEPTH, min_depth: int = 1) -> GPTree:
+def grow_tree(rng: random.Random, max_depth: int = MAX_DEPTH, min_depth: int = 1,
+              terminals: Sequence[str] = TERMINALS) -> GPTree:
     """Root is a function (min_depth 1); below it any primitive until max_depth."""
     nodes: list[str] = []
+    primitives = OPERATORS + tuple(terminals)
 
     def build(depth: int) -> None:
         if depth < min_depth:
             token = rng.choice(OPERATORS)
         elif depth < max_depth:
-            token = rng.choice(PRIMITIVES)
+            token = rng.choice(primitives)
         else:
-            token = rng.choice(TERMINALS)
+            token = rng.choice(terminals)
         nodes.append(token)
         if token in OPERATORS:
             build(depth + 1)
@@ -112,10 +113,12 @@ def grow_tree(rng: random.Random, max_depth: int = MAX_DEPTH, min_depth: int = 1
     return GPTree(nodes)
 
 
-def random_tree(rng: random.Random) -> GPTree:
+def random_tree(rng: random.Random, terminals: Sequence[str] = TERMINALS) -> GPTree:
     """50% full, 50% grow, always at max depth: not ramped (ECF: "TODO: ramped")."""
-    return full_tree(rng) if rng.randint(0, 1) == 0 else grow_tree(rng)
+    if rng.randint(0, 1) == 0:
+        return full_tree(rng, terminals=terminals)
+    return grow_tree(rng, terminals=terminals)
 
 
-def initial_population(size: int, rng: random.Random) -> list[GPTree]:
-    return [random_tree(rng) for _ in range(size)]
+def initial_population(size: int, rng: random.Random, terminals: Sequence[str] = TERMINALS) -> list[GPTree]:
+    return [random_tree(rng, terminals) for _ in range(size)]

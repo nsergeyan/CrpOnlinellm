@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Optional, Sequence
 
 from crp.gp import crossover, mutation
+from crp.gp.expression import TERMINALS
 from crp.gp.tree import GPTree, initial_population
 
 Fitness = Callable[[str], float]  # formula text -> total relocations, lower is better
@@ -34,10 +35,13 @@ def run_gp(
     tournament_size: int = 3,
     mutation_prob: float = mutation.MUTATION_PROB,
     start: Sequence[str] = (),
+    terminals: Sequence[str] = TERMINALS,
     log: Optional[Callable[[int, int, float], None]] = None,
 ) -> GPResult:
-    """start: formulas that replace random individuals of the initial population."""
-    population = [GPTree.from_text(text) for text in start] + initial_population(population_size - len(start), rng)
+    """start: formulas that replace random individuals of the initial population.
+    terminals: what random trees and mutations pick from."""
+    population = [GPTree.from_text(text) for text in start]
+    population += initial_population(population_size - len(start), rng, terminals)
     scores = [fitness(tree.text()) for tree in population]
     evaluations = population_size
     best: Optional[GPTree] = None
@@ -63,7 +67,7 @@ def run_gp(
             child = crossover.mate(population[tournament[0]], population[tournament[1]], rng)
             if child is None:  # crossover gave up: the worst stays as it was
                 child = population[worst]
-            child = mutation.mutate(child, rng, mutation_prob)
+            child = mutation.mutate(child, rng, mutation_prob, terminals)
             population[worst] = child
             scores[worst] = fitness(child.text())  # ECF re-evaluates even an unchanged child
             evaluations += 1

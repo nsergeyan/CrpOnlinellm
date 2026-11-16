@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from crp.gp.algorithm import run_gp
+from crp.gp.expression import TERMINALS
 from crp.gp.fitness import CachedFitness, total_relocations
 from crp.instance import Instance, load_dataset
 
@@ -34,11 +35,12 @@ def run_experiment(
     training_set: str,
     log: Optional[Callable[[int, int, float], None]] = None,
     start: tuple[str, ...] = (),
+    terminals: tuple[str, ...] = TERMINALS,
 ) -> dict:
-    """score must use the same alpha on the training set; start: formulas in the initial population."""
+    """score must use the same alpha on the training set; start and terminals as in run_gp."""
     began = time.perf_counter()
     fitness = CachedFitness(score)  # a new cache per run: one training set and scenario
-    result = run_gp(fitness, random.Random(seed), population, generations, start=start, log=log)
+    result = run_gp(fitness, random.Random(seed), population, generations, start=start, terminals=terminals, log=log)
     test_total = total_relocations(result.best.text(), test_instances, alpha)
     return {
         "date": datetime.now().isoformat(timespec="seconds"),
@@ -82,11 +84,12 @@ def _init_worker(training_dir: str, test_dir: str) -> None:
 
 
 def _run_job(job: tuple) -> dict:
-    alpha, seed, population, generations, training_set, start = job
+    alpha, seed, population, generations, training_set, start, terminals = job
     return run_experiment(
         score=lambda text: total_relocations(text, _training, alpha),
         test_instances=_test, alpha=alpha, seed=seed,
         population=population, generations=generations, training_set=training_set, start=start,
+        terminals=terminals,
     )
 
 
@@ -116,11 +119,12 @@ def run_many(
     workers: int,
     progress: Callable[[str], None] = print,
     start: tuple[str, ...] = (),
+    terminals: tuple[str, ...] = TERMINALS,
 ) -> list[dict]:
     """Run every (alpha, seed) not yet in the CSV, one run per worker; rows are written as runs finish."""
     training_set = Path(training_dir).name
     done = finished_runs(out)
-    jobs = [(a, s, population, generations, training_set, start) for a in alphas for s in seeds
+    jobs = [(a, s, population, generations, training_set, start, terminals) for a in alphas for s in seeds
             if _key(a, s, population, generations, training_set) not in done]
     progress(f"{len(jobs)} runs to do, {len(alphas) * len(seeds) - len(jobs)} already in {out}")
     rows: list[dict] = []
