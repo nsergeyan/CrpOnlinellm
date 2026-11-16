@@ -110,7 +110,8 @@ pip install -e ".[dev]"
 pip install -e ".[dev,llm]"   # only for the LLM experiments
 bash frameworks/setup_reevo.sh  # only for the LLM experiments: ReEvo + original EoH (Python 3.11, see frameworks/README.md)
 bash frameworks/setup_calm.sh   # only for CALM: GPU libraries on Linux, API mode for the tests on macOS (see frameworks/README.md)
-pytest                      # 134 tests, about 90 seconds (the ReEvo/EoH and CALM end-to-end tests are skipped until setup)
+bash frameworks/setup_llamea.sh # only for LLaMEA: its own environment with the pinned package
+pytest                      # 135 tests, about 2 minutes (the ReEvo/EoH, CALM and LLaMEA end-to-end tests are skipped until setup)
 ```
 
 ## How to run
@@ -132,6 +133,9 @@ pytest                      # 134 tests, about 90 seconds (the ReEvo/EoH and CAL
 | CALM rows into `results/llm_full.csv` (after copying `runs/calm/` from ALICE) | `python experiments/calm_result.py collect` | instant |
 | CALM's population per round (after copying CALM's logs to `runs/calm/calm_logs/`) | `python experiments/calm_result.py pools` | instant |
 | CALM convergence plot (needs `pip install -e ".[plot]"`) | `python experiments/plot_calm_convergence.py` | instant |
+| One LLaMEA run on ALICE (one A100) | `CRP_DATA=/your/folder sbatch --partition=gpu-short --time=04:00:00 experiments/llamea_job.sh 0.5 1` | not measured yet |
+| All 30 LLaMEA runs (10 seeds x 3 alphas), at most 6 at a time | `CRP_DATA=/your/folder sbatch --array=0-29%6 --partition=gpu-a100-80g,gpu-mig-40g --gres=gpu:1 --time=06:00:00 experiments/llamea_job.sh` | not measured yet |
+| LLaMEA rows into `results/llm_full.csv` (after copying `runs/llamea/` from ALICE) | `python experiments/run_llamea.py collect` | instant |
 | GP with 800 evaluations, the check with about 500 different formulas (90 runs) | `python experiments/run_gp_many.py --population 50 --generations 15 --out results/gp_800.csv` | ~10 min |
 | GP started from Min-Max, 500 evaluations (90 runs) | `python experiments/run_gp_many.py --population 50 --generations 9 --start minmax --out results/gp_500_minmax.csv` | ~5 min |
 | GP started from Min-Max, 800 evaluations (90 runs) | `python experiments/run_gp_many.py --population 50 --generations 15 --start minmax --out results/gp_800_minmax.csv` | ~5 min |
@@ -180,9 +184,9 @@ data/caserta_840 (840 test yards) ──► results/gp_full.csv
 | `src/crp/schemes.py` | unrestricted scheme: readable reference + a fast version that GP uses |
 | `src/crp/pu.py` | PU1 and PU2, the paper's hand-made baselines |
 | `src/crp/gp/` | GP: `tree`, `crossover` (5), `mutation` (7), `algorithm` (the loop), `expression` (parse and compile formulas), `fitness` (with a cache), `experiment` (runs and CSV) |
-| `src/crp/llm/` | LLM part: `evaluate` (scores LLM-written code, same scheme as GP), `prompts` (texts shared by EoH and ReEvo), `experiment` (one run, the result row shared by EoH, ReEvo and CALM, CSV) |
+| `src/crp/llm/` | LLM part: `evaluate` (scores LLM-written code, same scheme as GP), `prompts` (texts shared by EoH and ReEvo), `experiment` (one run, the result row shared by EoH, ReEvo, CALM and LLaMEA, CSV), `llamea_baseline` (LLaMEA's settings, prompts and evaluation function) |
 | `src/crp/framework/` | our LLM framework (design: `docs/framework_design.md`): `settings` (switches), `knowledge` (CRP text, seeds), `scoring` (yards with a time limit), `population` (Pareto selection), `prompts`, `llm` (Ollama client), `loop` |
-| `frameworks/` | ReEvo + original EoH setup (`setup_reevo.sh`), CALM setup (`setup_calm.sh`), and our plug-in files; see `frameworks/README.md` |
+| `frameworks/` | ReEvo + original EoH setup (`setup_reevo.sh`), CALM setup (`setup_calm.sh`), LLaMEA setup (`setup_llamea.sh`), and our plug-in files; see `frameworks/README.md` |
 | `src/crp/paper.py` | every paper number we reproduce |
 | `src/crp/paths.py` | data and results folders |
 | `experiments/` | scripts listed under "How to run" |
@@ -491,6 +495,23 @@ The design and the reason for each part are in `docs/framework_design.md`.
     eleven baselines), by 1.0, 1.3 and 0.6% at 500 evaluations and 0.8, 1.1 and 0.3% at 800.
     From the lowest-stack start it is not: GP with 800 evaluations is better at alpha 0.5, no
     significant difference at alpha 0.3, and our framework is better at alpha 0.1.
+53. LLaMEA (van Stein & Bäck, IEEE TEVC 2025; suggested by Wei) is a fourth LLM baseline. The
+    pip package `llamea` 1.4.2, unchanged, with its default settings (agreed with Wei): 5
+    parents and 5 offspring with elitism, random parent selection, the one mutation prompt
+    "Refine the strategy of the selected solution to improve it.", its default role sentence
+    and answer format, no hyper-parameter optimisation. The paper's first experiments used one
+    parent and one offspring; the package default is the newer choice. As for the other
+    methods: the same problem and function description (`src/crp/llm/prompts.py`), the
+    lowest-stack rule as LLaMEA's example program, Qwen3-14B with thinking off at temperature
+    1.0 (LLaMEA's own OpenAI client, sent to our Ollama server), the same scorer, and the
+    best of the first 500 scored rules: LLaMEA's budget counts every LLM answer, also one
+    without code, so it gets 550 (decision 10). The feedback LLaMEA puts into its next prompt
+    is one sentence with the training total, or its own error text for a failed rule. Two
+    things are ours (`src/crp/llm/llamea_baseline.py`): a rule must define a function named
+    `priority`, as the task text asks, and a rule gets 60 seconds for the training set (as
+    ReEvo's timeout for EoH and ReEvo), kept by an alarm signal inside the evaluation
+    function, because LLaMEA's own `eval_timeout` would end the whole run. `seed` is only a
+    run number, as in decision 12.
 
 ## License
 

@@ -48,6 +48,15 @@ PATH="$PWD/.venv/bin:$PATH" python main.py problem=crp_online problem.problem_si
 
 `tests/test_llm_reevo.py` runs the real ReEvo against a fake LLM server (skipped until the setup has run).
 
+## LLaMEA
+
+LLaMEA (van Stein & Bäck, IEEE TEVC 2025) is a pip package, used unchanged at version 1.4.2.
+`frameworks/setup_llamea.sh` creates `frameworks/llamea/.venv` (Python >= 3.11) and installs
+the package and our `crp` code into it. Nothing is copied into LLaMEA: our launcher
+`experiments/run_llamea.py` passes it the settings, prompt texts and evaluation function from
+`src/crp/llm/llamea_baseline.py` (README decision 53).
+`tests/test_llm_llamea.py` runs the real LLaMEA against a fake LLM server (skipped until the setup has run).
+
 ## CALM
 
 CALM (ICLR 2026) is set up separately, at the paper's commit `ecb3cad`, used unchanged.

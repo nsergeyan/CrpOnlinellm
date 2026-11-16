@@ -22,6 +22,9 @@ frameworks/reevo/
 # CALM clone made by frameworks/setup_calm.sh (paper commit, see frameworks/README.md)
 frameworks/calm/
 
+# LLaMEA's Python environment made by frameworks/setup_llamea.sh (pinned version)
+frameworks/llamea/
+
 # Quick test runs (pipeline checks, never thesis results)
 results/gp_quick.csv
 results/llm_quick.csv
