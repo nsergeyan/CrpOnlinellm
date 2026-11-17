@@ -1,10 +1,10 @@
-"""Plot how the best rule of our framework improved over the budget, next to EoH, ReEvo and CALM.
+"""Plot how the best rule of our framework improved over the budget, next to EoH, ReEvo, CALM and LLaMEA.
 
 Run from PyCharm (green button), or: python experiments/plot_framework_convergence.py
 Needs matplotlib: pip install -e ".[plot]"
 
 Writes results/framework_convergence.png (ours from both start rules and without knowledge, vs
-EoH, ReEvo and CALM) and results/framework_ablation_convergence.png (the full framework vs one
+EoH, ReEvo, CALM and LLaMEA) and results/framework_ablation_convergence.png (the full framework vs one
 module switched off). The curve of a run is the best training total among the rules fully
 evaluated so far; for our framework, k evaluations are the first k x 840 yard simulations of its
 budget, for the others the first k logged rules (as in compare_methods.py). Line = median over the
@@ -20,10 +20,10 @@ from compare_methods import ALPHAS, read_csv, rule_logs
 from crp.paths import RESULTS
 
 STEPS = range(1, 501)
-BASELINES = {"eoh": "EoH", "reevo": "ReEvo", "calm": "CALM"}
+BASELINES = {"eoh": "EoH", "reevo": "ReEvo", "calm": "CALM", "llamea": "LLaMEA"}
 COLORS = {FULL: "tab:blue", LOWEST: "tab:cyan", NO_KNOWLEDGE: "tab:purple", NO_TEXT: "tab:orange",
           NO_SCREENING: "tab:red", NO_PARETO: "tab:olive", "eoh": "tab:green", "reevo": "tab:brown",
-          "calm": "tab:pink"}
+          "calm": "tab:pink", "llamea": "tab:gray"}
 
 
 def ours(method: str, alpha: str) -> list[list[float]]:
@@ -78,10 +78,10 @@ def figure(groups: dict[str, list[str]], path, title: str) -> None:
 
 
 def main() -> None:
-    main_methods = [FULL, LOWEST, NO_KNOWLEDGE, "eoh", "reevo", "calm"]
+    main_methods = [FULL, LOWEST, NO_KNOWLEDGE, "eoh", "reevo", "calm", "llamea"]
     figure({a: [m for m in main_methods if m != NO_KNOWLEDGE or a != "0.3"] for a in ALPHAS},
            RESULTS / "framework_convergence.png",
-           "Our framework vs EoH, ReEvo and CALM: median over 10 runs, band = middle 50%")
+           "Our framework vs EoH, ReEvo, CALM and LLaMEA: median over 10 runs, band = middle 50%")
     figure({a: [FULL, NO_TEXT, NO_SCREENING, NO_PARETO] for a in ("0.5", "0.1")},
            RESULTS / "framework_ablation_convergence.png",
            "Ablations (Min-Max start): median over 10 runs, band = middle 50%")

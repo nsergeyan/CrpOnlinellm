@@ -1,4 +1,4 @@
-"""Compare our framework with GP, EoH, ReEvo, CALM and Min-Max, and write results/framework_comparison.md.
+"""Compare our framework with GP, EoH, ReEvo, CALM, LLaMEA and Min-Max, and write results/framework_comparison.md.
 
 Run from PyCharm (green button), or: python experiments/compare_framework.py   (about 2 minutes)
 
@@ -37,7 +37,7 @@ OURS = {FULL: "Ours (Min-Max start)", LOWEST: "Ours (lowest-stack start)", NO_TE
 BASELINES = {"gp500": "GP-500 (pop 50)", "gp500_100": "GP-500 (pop 100)", "gp800": "GP-800 (pop 50)",
              "gp500_mm": "GP-500 from Min-Max", "gp800_mm": "GP-800 from Min-Max",
              "gp500_mmt": "GP-500, Min-Max also a terminal", "gp800_mmt": "GP-800, Min-Max also a terminal",
-             "eoh": "EoH", "reevo": "ReEvo", "calm": "CALM", "gp51k": "GP-51,000"}
+             "eoh": "EoH", "reevo": "ReEvo", "calm": "CALM", "llamea": "LLaMEA", "gp51k": "GP-51,000"}
 GP_FILES = {"gp800": "gp_800.csv", "gp500_mm": "gp_500_minmax.csv", "gp800_mm": "gp_800_minmax.csv",
             "gp500_mmt": "gp_500_minmax_terminal.csv", "gp800_mmt": "gp_800_minmax_terminal.csv"}
 NAMES = OURS | BASELINES
@@ -103,7 +103,7 @@ def main() -> None:
         "# Our framework vs GP, the LLM methods and Min-Max",
         "",
         "Total relocations (lower is better). Test totals over the 840 Caserta yards, training totals",
-        "over the 840 training yards. Ours, EoH, ReEvo and CALM: 10 runs per alpha, Qwen3-14B with thinking",
+        "over the 840 training yards. Ours, EoH, ReEvo, CALM and LLaMEA: 10 runs per alpha, Qwen3-14B with thinking",
         "off; GP: 30 runs per alpha. Every method except the two GP-800 settings and GP-51,000 has 500",
         "evaluations. GP-800 gives GP about 500 different formulas, since GP also counts repeats (section 8).",
         "GP from Min-Max has the Min-Max formula as one individual of its initial population; with",
@@ -130,7 +130,7 @@ def main() -> None:
              "test minus training"], rows)
 
     lines += ["", "## 2. Our framework against each baseline", "",
-              "Test totals; Holm-corrected over the eleven baselines of one table."]
+              "Test totals; Holm-corrected over the twelve baselines of one table."]
     for m in (FULL, LOWEST, NO_KNOWLEDGE):
         for alpha in ALPHAS:
             if (m, alpha) in runs:
@@ -176,7 +176,7 @@ def main() -> None:
     for alpha in ALPHAS:
         rows = [[OURS[m]] + [fmt(median(best_after(log, k * 840) for log in logs[m, alpha])) for k in CHECKPOINTS]
                 for m in OURS if (m, alpha) in logs]
-        for m in ("eoh", "reevo", "calm"):
+        for m in ("eoh", "reevo", "calm", "llamea"):
             rows.append([NAMES[m]] + [fmt(median(min(r["total"] for r in log[:k] if r["total"] is not None)
                                                  for log in rule_logs(m, alpha))) for k in CHECKPOINTS])
         lines += ["", f"**alpha {alpha}**"] + table(["method"] + [str(k) for k in CHECKPOINTS], rows)

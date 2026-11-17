@@ -69,11 +69,12 @@ beats the best hand-made rule. Full table: [`results/summary.md`](results/summar
 | EoH | 24,972 | 25,925 | 29,765 |
 | ReEvo | 26,235 | 26,709 | 29,856 |
 | CALM | 25,811 | 26,764 | 29,650 |
+| LLaMEA | 25,502 | 26,069 | 29,612 |
 | Min-Max priority function, no search | 24,664 | 25,259 | 29,286 |
 | GP, 51,000 evaluations | 24,074 | 24,768 | 28,985 |
 
 - With CRP knowledge, from either start rule, our framework beats GP (random start), EoH,
-  ReEvo and CALM at the same budget for every alpha (exact Mann-Whitney test, p < 0.05 after
+  ReEvo, CALM and LLaMEA at the same budget for every alpha (exact Mann-Whitney test, p < 0.05 after
   Holm correction). From the Min-Max start this also holds against GP with 800 evaluations,
   the check for GP counting repeated formulas as evaluations (design note 50), and against GP
   started from Min-Max, at 500 and 800 evaluations: GP ends with the plain Min-Max formula in
@@ -133,8 +134,8 @@ pytest                      # 135 tests, about 2 minutes (the ReEvo/EoH, CALM an
 | CALM rows into `results/llm_full.csv` (after copying `runs/calm/` from ALICE) | `python experiments/calm_result.py collect` | instant |
 | CALM's population per round (after copying CALM's logs to `runs/calm/calm_logs/`) | `python experiments/calm_result.py pools` | instant |
 | CALM convergence plot (needs `pip install -e ".[plot]"`) | `python experiments/plot_calm_convergence.py` | instant |
-| One LLaMEA run on ALICE (one A100) | `CRP_DATA=/your/folder sbatch --partition=gpu-short --time=04:00:00 experiments/llamea_job.sh 0.5 1` | not measured yet |
-| All 30 LLaMEA runs (10 seeds x 3 alphas), at most 6 at a time | `CRP_DATA=/your/folder sbatch --array=0-29%6 --partition=gpu-a100-80g,gpu-mig-40g --gres=gpu:1 --time=06:00:00 experiments/llamea_job.sh` | not measured yet |
+| One LLaMEA run on ALICE (one A100) | `CRP_DATA=/your/folder sbatch --partition=gpu-short --time=04:00:00 experiments/llamea_job.sh 0.5 1` | 1.5 to 3 h, of which up to an hour can be the start on a busy disk |
+| All 30 LLaMEA runs (10 seeds x 3 alphas), at most 6 at a time | `CRP_DATA=/your/folder sbatch --array=0-29%6 --partition=gpu-a100-80g,gpu-mig-40g --gres=gpu:1 --time=06:00:00 experiments/llamea_job.sh` | about 10 h when the queue is free |
 | LLaMEA rows into `results/llm_full.csv` (after copying `runs/llamea/` from ALICE) | `python experiments/run_llamea.py collect` | instant |
 | GP with 800 evaluations, the check with about 500 different formulas (90 runs) | `python experiments/run_gp_many.py --population 50 --generations 15 --out results/gp_800.csv` | ~10 min |
 | GP started from Min-Max, 500 evaluations (90 runs) | `python experiments/run_gp_many.py --population 50 --generations 9 --start minmax --out results/gp_500_minmax.csv` | ~5 min |
@@ -456,7 +457,7 @@ The design and the reason for each part are in `docs/framework_design.md`.
     `results/gp_800.csv`), which is 486 to 552 different formulas in the median. From the
     Min-Max start our framework still beats it for every alpha, from the lowest-stack start at
     alpha 0.3 and 0.1 (`results/framework_comparison.md`, sections 2 and 8); at alpha 0.5 that
-    difference (p = 0.033) is not significant after the Holm correction over the eleven
+    difference (p = 0.033) is not significant after the Holm correction over the twelve
     baselines (0.11). Without CRP knowledge it does not: no significant difference at alpha
     0.5, and GP-800 is better at alpha 0.1.
 51. GP started from Min-Max (suggested by Wei, as the fairer baseline for our Min-Max start).
@@ -492,7 +493,7 @@ The design and the reason for each part are in `docs/framework_design.md`.
     and 29,218 with 500 evaluations; 24,308, 25,063 and 29,137 with 800). So the Min-Max
     knowledge helps GP as it helps our framework. From the Min-Max start our framework is
     still better for every alpha at both budgets (p < 0.05 after Holm correction over the
-    eleven baselines), by 1.0, 1.3 and 0.6% at 500 evaluations and 0.8, 1.1 and 0.3% at 800.
+    twelve baselines), by 1.0, 1.3 and 0.6% at 500 evaluations and 0.8, 1.1 and 0.3% at 800.
     From the lowest-stack start it is not: GP with 800 evaluations is better at alpha 0.5, no
     significant difference at alpha 0.3, and our framework is better at alpha 0.1.
 53. LLaMEA (van Stein & Bäck, IEEE TEVC 2025; suggested by Wei) is a fourth LLM baseline. The
@@ -511,7 +512,18 @@ The design and the reason for each part are in `docs/framework_design.md`.
     `priority`, as the task text asks, and a rule gets 60 seconds for the training set (as
     ReEvo's timeout for EoH and ReEvo), kept by an alarm signal inside the evaluation
     function, because LLaMEA's own `eval_timeout` would end the whole run. `seed` is only a
-    run number, as in decision 12.
+    run number, as in decision 12. Two of the 30 jobs (run 2 at alpha 0.3 and 0.1, started
+    together on one node) stopped before LLaMEA began, because the model server did not start
+    in time; they were run again unchanged. The job script loads the model before LLaMEA
+    starts, so a slow start can never cost LLaMEA its first rules. In all 30 runs every one of
+    the 550 answers had code; the result is the best of the first 500.
+    Results (`results/llm_full.csv`, `results/framework_comparison.md`; median test totals
+    25,502, 26,069 and 29,612): LLaMEA is level with EoH, CALM and GP-500 at alpha 0.5 and
+    0.3, better than ReEvo at alpha 0.3 and worse than GP-500 at alpha 0.1 (exact
+    Mann-Whitney, Holm-corrected over these four). Its runs at alpha 0.5 spread widely
+    (24,154 to 27,129). Our framework beats it for every alpha from both start rules (p < 0.05
+    after Holm correction over the twelve baselines). Without CRP knowledge our framework is
+    level with it.
 
 ## License
 

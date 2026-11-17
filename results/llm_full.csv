@@ -9049,3 +9049,1089 @@ def priority(SH, EMP, AVG, CUR, RI, DIFF):
     priority = (min_max * 100) + (AVG * avg_weight) + emp_reward + ri_penalty + sh_penalty + avg_penalty + future_block_penalty + height_full_penalty + occupancy_penalty - avg_reward - yard_adjustment
     return priority
 "
+2026-11-16T21:12:46,llamea,qwen3:14b-nothink,0.1,1,500,28949,29541,0.894,550,5662.1,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Handle empty stacks
+    if AVG == 0 and EMP == SH:
+        AVG = 0.0
+
+    # Dynamic urgency with curvature-based sensitivity to DIFF and CUR
+    if DIFF < float('inf'):
+        diff_cur = abs(DIFF - CUR)
+        urgency = 1 / (1 + (diff_cur ** 1.5) * (1 + CUR / 1200) * (1 + RI / (SH + 1)))
+    else:
+        urgency = 1e-6
+
+    # Hierarchical RI weight with adaptive scaling, blockage sensitivity, and stack height-awareness
+    weight_ri = 14 * (1 + (RI / (SH + 1))) * (1 + 1 / (1 + (EMP + 1) ** 1.3)) * (1 + urgency * 1.7)
+
+    # Refined exponential AVG weight with enhanced proximity sensitivity and curvature adjustment
+    avg_weight = 1 + (EMP / (SH + 1)) * (1 / (1 + (abs(AVG - CUR) ** 0.55)))
+
+    # Refined exponential EMP weight with logarithmic space utilization and curvature-based stacking efficiency
+    emp_weight = 5 * (1 / (1 + (EMP + 1) ** 0.65)) * (1 + (RI / (SH + 1)))
+
+    # Final priority score with curvature-adjusted urgency and hierarchical integration
+    priority = (RI * weight_ri) + (AVG - CUR) * avg_weight + emp_weight - (urgency * 90) + (SH / 100) * (EMP / 10)
+    return priority"
+2026-11-17T04:55:40,llamea,qwen3:14b-nothink,0.1,10,500,29125,29569,0.962,550,5261.9,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Urgency: lower IDs are more urgent to retrieve
+    urgency = 1 / (CUR + 1)
+    
+    # Future blocking risk: stacks with more small IDs may block future retrievals
+    future_block = (RI + 1) * (1 - urgency) * 0.12
+    
+    # Unblocking potential: stacks with higher DIFF (future smallest ID) can help unblock
+    unblocking_potential = (DIFF + 1) * 0.0004 * (1 + (1 - urgency) * 0.3) * (1 + (EMP / (SH + 1)) * 0.15)
+    
+    # Spatial efficiency: more free space and lower average ID increase efficiency
+    spatial_efficiency = ((EMP + 1) / (SH + 1)) * (1 - (AVG / max(CUR + 5, 1))) * (1 + urgency * 0.4) * (RI / (RI + 10))
+    
+    # Stability: stacks with lower average ID are more stable for future retrievals
+    stability = (1 - (AVG / max(CUR + 5, 1))) * 0.2
+    
+    # Height penalty: taller stacks are more unstable and penalized with nonlinear function
+    height_penalty = (SH ** 0.6) * 0.0008 * (1 + (RI / (RI + 10)))  # Enhanced height penalty with dynamic adjustment
+    
+    # Dynamic weights that emphasize urgency, unblocking, and stability
+    urgency_weight = 0.4 + (urgency * 0.35)
+    blockage_weight = (future_block / (RI + 2)) * 0.18
+    efficiency_weight = (1 - (RI / (RI + 10))) * 0.28
+    
+    # Final priority score combining all factors using weighted contributions
+    priority = (future_block * urgency_weight) - (spatial_efficiency * efficiency_weight) - (unblocking_potential * 0.14) + (height_penalty * 0.006) - (stability * 0.2)
+    return priority"
+2026-11-17T15:33:54,llamea,qwen3:14b-nothink,0.1,2,500,28910,29478,0.904,550,5745.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Nonlinear urgency with curvature-based proximity sensitivity
+    urgency_curvature = (abs(AVG - CUR) ** 1.4) * (0.2 if EMP > 20 else 0.1) if AVG > CUR else 0
+    
+    # Height-adaptive free space curvature with uncertainty-adaptive scaling
+    ideal_height = (50 - EMP / 2) * (1 + (1 / (1 + DIFF / 1000)))
+    height_imbalance = abs(SH - ideal_height)
+    balance_penalty = (height_imbalance ** 1.6) / (1 + height_imbalance ** 0.8) * (0.8 if EMP < 30 else 1.2) * (1 + urgency_curvature * 0.05)
+    
+    # Adaptive blocking penalty with curvature-smoothed and uncertainty-aware sensitivity
+    blocking_penalty = RI * (10 / (1 + RI ** 0.7)) * (1 + (DIFF > 2.1e9) * 0.15) * (1 + (RI / 100) ** 0.5) * (1 + (abs(AVG - CUR) / 100) ** 0.5)
+    
+    # Uncertainty-adaptive free space curvature with exponential sensitivity and urgency-based scaling
+    free_space_curvature = ((EMP - 35) ** 2) * (0.0002 if EMP < 40 else 0.00005) * (1 + (abs(AVG - CUR) / 100) ** 0.8) * (1 + (DIFF > 2.1e9) * 0.2)
+    
+    # Introduce uncertainty-aware space allocation with curvature-based urgency discounting
+    future_space_penalty = (EMP / 100) * (1 + (abs(AVG - CUR) / 50) ** 0.5) * (1 - (DIFF > 2.1e9) * 0.15) * (1 + (urgency_curvature / 100))
+    
+    # Combine all factors with uncertainty-driven weights, and add a balancing curvature term
+    uncertainty_weight = 1.4 if DIFF > 2.1e9 else 1.0
+    curvature_balance = (abs(AVG - CUR) / 100) ** 0.3 * (1 + (EMP / 100))
+    priority = (urgency_curvature + free_space_curvature + balance_penalty + blocking_penalty + future_space_penalty + curvature_balance) * uncertainty_weight
+    return priority"
+2026-11-16T23:33:14,llamea,qwen3:14b-nothink,0.1,3,500,28924,29526,0.73,550,8050.6,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Curvature-aware phase-sensitive DIFF decay with logarithmic underfill amplification
+    if DIFF <= 1e4:
+        weight_diff = 0.01 * (DIFF / 1e4) * (1 + (SH / 1000)) ** 0.6 * (1 + (EMP / 10)) ** 0.4 * (1 + (SH / 1000)) ** 0.15
+    elif DIFF <= 1e5:
+        weight_diff = 0.02 + 0.01 * (DIFF / 1e5) * (1 + (SH / 1000)) ** 0.6 * (1 + (EMP / 10)) ** 0.4 * (1 + (SH / 1000)) ** 0.15
+    else:
+        weight_diff = 0.05 * (DIFF / 1e9) ** 0.7 * (1 + (SH / 1000)) ** 0.6 * (1 + (EMP / 10)) ** 0.4 * (1 + (SH / 1000)) ** 0.15
+
+    # Exponential RI normalization with height-adaptive curvature
+    if RI > 30:
+        weight_ri = 1.3 / (1 + (RI / 30)) ** 1.5 * (1 + (SH / 1000)) ** 0.6 * (1 + (SH / 1000)) ** 0.3
+    elif RI > 20:
+        weight_ri = 1.7 / (1 + (RI / 25)) ** 1.5 * (1 + (SH / 1000)) ** 0.6 * (1 + (SH / 1000)) ** 0.3
+    else:
+        weight_ri = 2.2 / (1 + (RI / 15)) ** 1.5 * (1 + (SH / 1000)) ** 0.6 * (1 + (SH / 1000)) ** 0.3
+
+    # Age-biased AVG alignment with utilization-aware curvature modulation
+    avg_diff = AVG - CUR
+    if avg_diff > 30:
+        weight_avg = 0.25 / (1 + (avg_diff ** 0.75)) * (1 + (SH / 1000)) ** 0.45 * (1 + (EMP / 10)) ** 0.6 * (1 / (1 + SH * 0.03))
+    elif avg_diff > 15:
+        weight_avg = 0.2 + 0.05 * (avg_diff / 30) * (1 + (SH / 1000)) ** 0.45 * (1 + (EMP / 10)) ** 0.6 * (1 / (1 + SH * 0.03))
+    elif avg_diff > 5:
+        weight_avg = 0.15 + 0.05 * (avg_diff / 20) * (1 + (SH / 1000)) ** 0.45 * (1 + (EMP / 10)) ** 0.6 * (1 / (1 + SH * 0.03))
+    else:
+        weight_avg = 0.1 * (1 + (SH / 1000)) ** 0.45 * (1 + (EMP / 10)) ** 0.6 * (1 / (1 + SH * 0.03))
+
+    # Utilization-aware prioritization with curvature-adaptive underfill mitigation and exponential stack age bias
+    utilization = EMP / SH if SH > 0 else 1.0
+    curvature_factor = (1 + (SH / 1000)) ** 0.3
+    age_factor = 1.0 / (1 + SH * 0.03)
+    if utilization < 0.2:
+        weight_emp = 0.07 * (1 + (SH / 1000)) ** 0.5 * (1 / (1 + (EMP / 10))) * age_factor * curvature_factor
+    elif utilization < 0.4:
+        weight_emp = 0.035 * (1 + (SH / 1000)) ** 0.5 * (1 / (1 + (EMP / 10))) * age_factor * curvature_factor
+    else:
+        weight_emp = 0.015 * (1 + (SH / 1000)) ** 0.5 * (1 / (1 + (EMP / 10))) * age_factor * curvature_factor
+
+    # Curvature-adaptive balancing of components to reduce overfitting in phase boundaries
+    curvature_balance = (1 + (SH / 1000)) ** 0.2 * (1 + (EMP / 10)) ** 0.1 * (1 + (RI / 10)) ** 0.1
+
+    # Final priority calculation
+    priority = (RI * weight_ri + avg_diff * weight_avg - utilization * weight_emp + (DIFF / 1e9) * weight_diff) * curvature_balance
+    return priority"
+2026-11-16T23:21:18,llamea,qwen3:14b-nothink,0.1,4,500,29278,29961,0.926,550,5765.5,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Compute urgency with smooth exponential decay
+    urgency = 1 / (1 + (CUR / 1000.0) ** 1.3)
+    
+    # Contribution from average ID: prefer lower AVG, with curvature-adjusted urgency scaling
+    avg_contribution = AVG * (0.35 - (urgency ** 1.2) * 0.12)
+    
+    # Contribution from blocking containers ahead: penalize RI with curvature-adjusted smooth function
+    ri_contribution = RI * (1.0 + (RI / 10) ** 0.85) * (1.0 + (urgency ** 1.1) * 0.08)
+    
+    # Contribution from free space: prefer higher EMP, scaled by urgency with curvature
+    emp_contribution = -EMP * (0.28 + (urgency ** 1.1) * 0.05)
+    
+    # Contribution from DIFF: penalize smaller DIFF (i.e., prefer stacks with higher smallest ID), scaled by urgency
+    diff_contribution = -DIFF * (0.15 + (urgency ** 1.05) * 0.07)
+    
+    # Density factor: penalize low space efficiency using curvature-adjusted entropy-aware scaling
+    density_factor = (SH / (SH + EMP + 1e-6)) * (0.12 + (urgency ** 1.1) * 0.04)
+    
+    # Future-blocking mitigation: introduce entropy-aware curvature modulation with adaptive urgency sensitivity
+    entropy = 1 / (1 + (RI / 100) ** 1.5)
+    future_block_penalty = (RI + 1) * (1 - (AVG - CUR) / (CUR + 1000)) * max(0, 1 - (urgency ** 1.1) * 0.25) * entropy
+    
+    # Adaptive curvature term based on urgency for better alignment with future needs
+    curvature_adjustment = (urgency ** 0.9) * (RI / (RI + 10)) * (1 - (DIFF / (DIFF + 1000)))
+    
+    # Priority score: combine contributions with curvature-modulated smoothing
+    priority = avg_contribution + ri_contribution + emp_contribution + diff_contribution + density_factor + future_block_penalty + curvature_adjustment
+    return priority"
+2026-11-17T00:31:28,llamea,qwen3:14b-nothink,0.1,5,500,29122,29552,0.918,550,4053.6,"import numpy as np
+
+def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Curvature-adjusted deep sigmoidal EMP balance
+    emp_penalty = (1 / (1 + np.exp(-abs(EMP - 30) / 5))) * 0.4 + (1 / (1 + np.exp(-abs(EMP - 70) / 15))) * 0.2
+    # Exponential DIFF prevention with CUR-based urgency scaling
+    diff_bonus = min(DIFF, 1e9 - CUR) if DIFF < 1e9 else 0
+    diff_contribution = (1e9 - diff_bonus) * np.exp(-CUR / 1000)
+    # Adaptive AVG/RI contributions with sigmoidal urgency weighting
+    urgency_weight = 1 / (1 + np.exp(-CUR / 1000))
+    avg_contribution = AVG * (0.6 * urgency_weight)
+    ri_contribution = RI * (10 * urgency_weight) * (1 / (1 + np.exp(-abs(EMP - 50) / 10)))
+    # Final combined priority with refined weightings
+    priority = avg_contribution + ri_contribution + emp_penalty * 0.3 + (SH / 10) * 0.1 + diff_contribution * 0.05
+    return priority"
+2026-11-17T01:42:49,llamea,qwen3:14b-nothink,0.1,6,500,29036,29683,0.878,550,6707.2,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+
+    # Urgency factor based on container ID and impact on future retrievals
+    urgency = (CUR ** 0.8) / (1 + (EMP * 0.5 + 1e-6)) * (1 + (RI / (SH + 1e-6))) * (1 + (DIFF / 2_500_000))
+
+    # Curvature impact with entropy-aware adjustment and refined alignment
+    curvature = ((AVG - CUR) ** 2) / (1 + SH + (EMP * 0.4) + 1e-6) * (1 / (1 + (RI / (SH + 1e-6)))) * (1 + (DIFF / 1_200_000))
+
+    # Entropy impact with precise future blocking suppression
+    entropy_impact = (RI / (1 + SH + 1e-6)) * (1 + (DIFF / 400_000)) / (1 + ((AVG - CUR) ** 2) / 250)
+
+    # Adaptive free-space prioritization based on curvature and urgency
+    free_space_balance = (EMP * 0.95) / (1 + (curvature * 0.35) + (urgency * 0.25)) * (1 + EMP / 25) * (1 + (RI / (SH + 1e-6)))
+
+    # Future blocking suppression with curvature-entropy alignment and precision scaling
+    future_block_penalty = (RI + 1) / (1 + SH + 1e-6) * (1 + (CUR - AVG) / 280) / (1 + curvature) * (1 + (DIFF / 1_300_000))
+
+    # Entropy-curvature fusion for free-space alignment with urgency weighting
+    entropy_curvature_balance = (free_space_balance * (1 + EMP / (SH + 1e-6))) / (1 + (curvature * 0.3)) * (1 + (RI / (SH + 1e-6)))
+
+    # Final priority combining curvature, entropy, urgency, free-space alignment, and future blocking suppression
+    priority = (AVG * 0.10) - (EMP * 0.45) + (RI * 0.12) - (DIFF * (urgency * 0.13)) + (curvature * entropy_curvature_balance * 0.22) - (entropy_impact * 0.16) - (future_block_penalty * 0.10) + (free_space_balance * 0.12) + (EMP / (SH + 1e-6)) * (RI / (1 + SH + 1e-6)) + (DIFF * entropy_impact * 0.013) - (RI * (DIFF / 1_000_000)) + (urgency * entropy_impact * 0.015)
+    return priority"
+2026-11-17T02:33:28,llamea,qwen3:14b-nothink,0.1,7,500,29285,29879,0.946,550,7049.1,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    
+    # Preference for moderate stack heights
+    height_utility = max(0.05, 0.7 - (SH / 25))
+    
+    # Free space penalty: encourages stacks with enough space
+    free_space_penalty = (10 - EMP) * 0.15 * height_utility
+    
+    # Average ID factor: stacks with lower average IDs are preferred
+    avg_factor = AVG * 0.1 * (0.8 if DIFF > 1e9 else 1.0)
+    
+    # Predictive block penalty: discourage stacks with more blocking containers
+    predictive_block_penalty = (RI + 1) * 0.2 * (0.9 if DIFF > 1e9 else 1.0) / (1 + SH / 20)
+    
+    # Future block penalty: discourage stacks containing containers that may block future moves
+    future_block_penalty = max(0, (CUR - DIFF) - 5) * 0.1 * (0.9 if DIFF > 1e9 else 1.0)
+    
+    # Block factor: penalize stacks with more smaller containers blocking the current container
+    block_factor = RI * 0.18 * (1.0 if DIFF > 1e9 else 0.9) / (1 + SH / 20)
+    
+    # Proximity bonus: reward stacks where the current container is close to the top
+    proximity_bonus = max(0, min(10, CUR - DIFF)) ** 1.3 * 0.05 * height_utility
+    
+    # Stability bonus: reward moderately filled stacks
+    stability_bonus = (1 / (1 + (SH - 5)**2)) * 0.04 if SH > 0 else 0
+    
+    # Space utilization: reward stacks with moderate space
+    space_utilization = (EMP / 10) * 0.02 if EMP < 5 else (1 - (EMP / 10)) * 0.02
+    space_utilization = max(-0.03, min(0.03, space_utilization))
+    
+    # Height synergy: penalize stacks with extreme heights
+    height_synergy = (SH - 5) ** 2 * 0.005
+    
+    # Uncertainty correction: minor adjustment based on container uncertainty
+    uncertainty_correction = 0.005 if DIFF > 1e9 else 0
+    
+    # Stack balance bonus: encourage moderate height and space
+    stack_balance_bonus = (EMP / 10) * (1 - SH / 25) * 0.03
+    
+    # Enhanced future unblocking: prioritize stacks with low potential for future blocking
+    future_unblocking = (AVG - CUR) / (1 + SH / 20) if AVG > CUR else 0
+    future_unblocking = min(0.2, future_unblocking)
+    
+    # Final score with refined future unblocking and optimized space efficiency
+    priority = free_space_penalty + avg_factor + predictive_block_penalty + future_block_penalty + block_factor - proximity_bonus - stability_bonus - space_utilization + height_synergy - uncertainty_correction + stack_balance_bonus - future_unblocking
+    return priority"
+2026-11-17T03:08:47,llamea,qwen3:14b-nothink,0.1,8,500,29178,29654,0.812,550,5738.6,"import math
+
+def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    
+    # Urgency: higher for lower ID containers (more urgent), with lookahead-aware scaling
+    urgency = 1 / (CUR + 1 + (DIFF / 1e9) * 10)  # Adjust urgency based on future unknowns
+
+    # Free space normalization: urgency-weighted inverse normalization of available space with lookahead-aware adjustment
+    free_space_weight = 0.25 * (1 / (EMP + 1)) * (1 + urgency * 1.2) * (1 - (DIFF / 1e9) * 0.5)
+
+    # Adaptive average ID scaling: urgency-aware non-linear scaling with lookahead-based curvature adaptation
+    if AVG < CUR:
+        avg_id_weight = 0.2 * (AVG / (CUR + 1)) * (1 + urgency * 0.8) * (1 - (DIFF / 1e9) * 0.3)
+    else:
+        avg_id_weight = 0.2 * (AVG / (CUR + 10)) * (1 - urgency * 0.8) * (1 + (DIFF / 1e9) * 0.3)
+
+    # Future blocking: urgency-adjusted exponential smoothing based on RI, stack height, and lookahead
+    if SH - EMP > 0:
+        future_blocking_weight = 0.15 * (RI / (SH - EMP + 1)) * math.exp(-RI * urgency / 30) * (1 + urgency) * (1 - (DIFF / 1e9) * 0.2)
+    else:
+        future_blocking_weight = 0.15 * (RI / 2) * math.exp(-RI * urgency / 30) * (1 - urgency) * (1 + (DIFF / 1e9) * 0.2)
+
+    # Difference weight: prioritize stacks that don't contain smaller IDs, urgency-adjusted inverse scaling with lookahead
+    diff_weight = 0.1 * ((1e9 - DIFF) / (1e9 + 1)) * (1 - urgency * 0.25) * (1 + (DIFF / 1e9) * 0.1) if DIFF < 1e9 else 0.1 * (1 - urgency * 0.25)
+
+    # Stack height penalty: urgency-aware dynamic penalty with curvature adaptation and lookahead
+    stack_height_weight = 0.1 * (SH / 80) * (1 + urgency) * math.exp(-SH / (40 + 5 * (1 - urgency))) * (1 - (DIFF / 1e9) * 0.1)
+
+    # Future blocking interference: non-linear urgency-aware interference density with lookahead adjustment
+    interference_density = (RI + 1) * (1 + (AVG - CUR) / 12) * (1 - urgency) * (1 + (DIFF / 1e9) * 0.15)
+    interference_penalty = 0.1 * interference_density * math.exp(-SH / (35 + 5 * (1 - urgency))) * (1 - (DIFF / 1e9) * 0.1)
+
+    # Entropy-aware suppression: curvature-adaptive suppression based on ID dispersion with lookahead-aware adjustment
+    if SH - EMP > 0:
+        # Estimate dispersion using urgency-weighted squared distance with curvature adaptation
+        id_dispersion = 1 + (AVG - CUR) ** 2 * math.exp(-RI * (1 - urgency) / 20) * (1 + (DIFF / 1e9) * 0.2)
+        curvature_factor = 1 + math.log(1 + id_dispersion) * (1 - urgency) * (1 - (DIFF / 1e9) * 0.1)
+        entropy_penalty = 0.1 * (1 / (1 + id_dispersion)) * curvature_factor
+    else:
+        entropy_penalty = 0.1 * 0.5 * (1 + urgency * 0.15) * (1 + (DIFF / 1e9) * 0.1)
+
+    # Final priority score: sum of all components
+    priority = free_space_weight + avg_id_weight + future_blocking_weight + diff_weight + stack_height_weight + interference_penalty + entropy_penalty
+    return priority"
+2026-11-17T04:30:53,llamea,qwen3:14b-nothink,0.1,9,500,29263,29904,0.924,550,6518.7,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    epsilon = 1e-6
+    
+    # 1. Average ID impact: lower is better, with curvature based on retrieval urgency and free space sensitivity
+    avg_impact = (AVG / (AVG + 1 + (abs(CUR - AVG) ** 0.7) * (1 / (EMP + 1 + epsilon)))) if AVG > 0 else 0
+    
+    # 2. Blocking containers (RI): fewer is better, with curvature and CUR-aware normalization
+    ri_impact = (RI / (RI + 1 + (RI ** 0.6) * (1 / (CUR + 1 + epsilon)))) if RI > 0 else 0
+    
+    # 3. Free space (EMP): more is better, with curvature adjusted for density, alignment, and retrieval urgency
+    free_space_impact = (100 - EMP) / (100 + 1 + (EMP ** 0.8) * (1 / (CUR + 4 + (1 / (CUR + 1 + epsilon))))) if EMP > 0 else 0
+    
+    # 4. Future alignment: better when AVG is closer to CUR, with curvature optimized for density, height, and urgency
+    alignment_impact = (abs(CUR - AVG) / (CUR + 1 + (AVG ** 0.5) * (1 / (EMP + 1 + (CUR / 100 + epsilon))))) if CUR > 0 else 0
+    
+    # 5. Stack height: smaller stacks are preferred, with curvature based on container density, future retrieval, and urgency
+    stack_height_impact = SH / (SH + 1 + (SH ** 0.4) * (1 / (CUR + 3 + (RI / 100 + epsilon)))) if SH > 0 else 0
+    
+    # 6. DIFF impact: smaller is better, with curvature scaled by CUR, EMP, and urgency, with dynamic normalization
+    diff_impact = (DIFF + 1) / (DIFF + 1000 + (DIFF ** 0.5) * (1 / (CUR + 3 + (RI / 100 + epsilon)))) if DIFF > 0 else 0
+    
+    # 7. Height-urgency compensation: penalize stacks that are too high or have low urgency alignment
+    height_urgency_compensation = (SH ** 0.3) * (1 / (CUR + 1 + (RI / 100 + epsilon)))
+    
+    # Combine with curvature-enhanced weights adjusted based on empirical optimization and height-urgency sensitivity
+    priority = (0.25 * avg_impact) + (0.13 * ri_impact) + (0.27 * free_space_impact) + (0.06 * alignment_impact) + (0.12 * stack_height_impact) + (0.17 * diff_impact) - (0.05 * height_urgency_compensation)
+    return priority"
+2026-11-16T20:56:17,llamea,qwen3:14b-nothink,0.3,1,500,25456,25957,0.85,550,6520.7,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    eps = 1e-9
+
+    utilization = SH / (SH + EMP + eps)
+    emp_factor = EMP + eps
+
+    # Curvature-aware space sensitivity
+    space_weight = (1.0 / (emp_factor ** 1.2)) * (1 - utilization ** 1.5)
+
+    # Alignment adjustment with curvature-aware weighting
+    avg_weight = max(0.0, (AVG - CUR) / (AVG + eps))  # Only penalize if AVG > CUR
+
+    # Future block penalty with RI-EMP synergy and curvature adaptation
+    ri_weight = (RI / (RI + eps)) * (1 + utilization ** 1.3) * (0.5 + 0.5 * (EMP / (SH + EMP + eps)))
+
+    # DIFF-based penalty with utilization-aware scaling
+    diff_weight = (DIFF / (DIFF + eps)) * (1 - utilization ** 1.6)
+
+    # Dynamic curvature factor based on utilization and RI
+    curvature_factor = 1 + (ri_weight ** 0.5) * (1 - utilization ** 1.4)
+
+    # Adjust weights with curvature factor
+    space_weight *= curvature_factor
+    avg_weight *= (1 - utilization ** 1.4) * (1 - ri_weight ** 0.5)
+    ri_weight *= (1 + utilization ** 1.5)
+    diff_weight *= (1 - utilization ** 1.4)
+
+    # Future block penalty with RI-EMP-scaled utilization-based scaling
+    future_block_penalty = (ri_weight ** 1.05) * (0.015 + 0.005 * (1 - utilization) * (EMP / (SH + EMP + eps)))
+
+    # Enhanced alignment bonus with curvature-EMP-aware synergy
+    if AVG > CUR:
+        alignment_bonus = (1 / (1 + (AVG - CUR) ** 0.7)) * (0.08 + 0.04 * utilization * (EMP / (SH + EMP + eps)))
+    else:
+        alignment_bonus = 0.0
+
+    # Final priority with optimized and balanced combination
+    priority = 0.16 * space_weight + 0.17 * avg_weight + 0.30 * ri_weight + 0.10 * diff_weight + future_block_penalty - alignment_bonus
+    return priority"
+2026-11-17T04:47:00,llamea,qwen3:14b-nothink,0.3,10,500,25636,26324,0.836,550,5524.6,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+
+    # Free-space allocation with curvature-entropy modulation
+    free_space_modulation = (EMP / (SH + 1)) ** 2.7 * (1 + SH ** 0.95) ** -3.2 * (1 + CUR ** 0.99) ** -2.2 * (1 + RI ** 0.82)
+
+    # Urgency-based blockage suppression with future-blockage-aware curvature balancing
+    blockage_suppression = (DIFF if DIFF < 1e9 else 0) * (1 / (1 + SH ** 0.98)) * (1 / (1 + (AVG ** 0.78 + CUR ** 0.78))) * (1 + RI ** 0.87)
+
+    # Future-blockage-aware curvature-entropic alignment
+    future_alignment = max(0, (AVG - CUR) / (1 + (AVG - CUR) ** 2 + (SH ** 1.2))) if (AVG - CUR) > 0 else 0
+
+    # Entropy suppression with curvature-aware dynamic balancing
+    entropy_control = (1 / (1 + (SH ** 0.94) * (1 + AVG ** 0.78))) * (1 + (CUR ** 0.98) ** -2.6) * (1 + (RI ** 0.75) ** 0.96)
+
+    # Urgency-modulated unblocking with localized curvature-entropic optimization
+    unblocking_urgency = (RI ** 0.92) * (1 + SH ** 0.99) / (1 + (AVG ** 0.84 + CUR ** 0.84)) * (1 + EMP ** 0.98) / 13.2
+
+    # Final hybrid priority with curvature-entropy balancing, future-blockage alignment, and urgency-driven free-space modulation
+    priority = -free_space_modulation * (4.10 + (SH ** 0.40)) - (AVG / (1 + AVG)) * entropy_control + unblocking_urgency * 0.42 + blockage_suppression * 0.035 + SH * 0.015 - future_alignment * 0.56 + (RI * AVG) ** 0.37 + (EMP / (SH + 1)) ** 0.87 * (DIFF if DIFF < 1e9 else 0) * 0.022 - blockage_suppression * (SH / 150) * 0.035 + (RI / (SH + 1)) * 0.29
+    return priority"
+2026-11-17T13:05:06,llamea,qwen3:14b-nothink,0.3,2,500,25738,26212,0.906,550,4267.2,"import math
+
+def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Curvature normalization based on stack height
+    curvature = 1 + (SH / (SH + 10)) ** 0.75
+
+    # Entropy-aware future blocking mitigation
+    entropy_factor = 1 + (RI / (SH + 1)) ** 0.5 if SH > 0 else 1.0
+
+    # Future blocking suppression with curvature and entropy-aware weighting
+    w_ri = 1.05 * (1 + RI ** 0.5) * entropy_factor * (1 / (1 + math.log(1 + RI))) * curvature
+
+    # Free space prioritization with entropy-aware exponential scaling and curvature normalization
+    w_emp = 0.07 * math.exp(EMP / 25) * (1 + (SH / (SH + 10))) / (1 + math.log(1 + SH))
+
+    # ID alignment with curvature-aware dynamic scaling and entropy-based adjustment
+    avg_diff = CUR - AVG
+    if avg_diff > 0:
+        w_avg = 0.09 * (1 + (avg_diff ** 0.5)) * (1 + (1 / (1 + RI ** 0.5))) * curvature / (1 + math.log(1 + SH))
+    else:
+        w_avg = 0.05 * (1 + ((-avg_diff) ** 0.5)) * (1 + (RI ** 0.5)) * (1 + (1 / (1 + SH ** 0.5))) * curvature / (1 + math.log(1 + SH))
+
+    # Future blocking mitigation with curvature-modulated diff-aware penalty
+    if DIFF > 0:
+        w_diff = 0.12 / (1 + math.log(1 + DIFF)) * curvature / (1 + math.log(1 + SH))
+    else:
+        w_diff = 0.012 * curvature
+
+    # Free space inversion with curvature-aware diff penalization
+    free_space_inversion = 0.03 * (1 / (1 + DIFF)) if DIFF > 0 else 0
+
+    # Introduce curvature-entropy enhanced nonlinear alignment based on entropy and diff interaction
+    nonlinear_alignment = 0.025 * (DIFF ** 0.5) * (1 + entropy_factor) if DIFF > 0 else 0
+
+    # Final priority score with curvature-based normalization and refined entropy scaling
+    priority = (RI * w_ri) - (EMP * w_emp) + (max(0, AVG - CUR) * w_avg) - (DIFF * w_diff) + (SH * 0.01) - (EMP * 0.003) + free_space_inversion + nonlinear_alignment
+    return priority"
+2026-11-16T21:37:09,llamea,qwen3:14b-nothink,0.3,3,500,25595,26097,0.882,550,7060.3,"import math
+
+def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+
+    # Curvature-entropy fusion with hyperbolic EMP-Diff synergy
+    curvature_scaling = (SH / (SH + EMP + 1)) ** 1.3
+    EMP_diff_sensitivity = (EMP / (SH + 1)) * (DIFF / (SH + 1)) if DIFF < 2.1e9 else 0.0
+    entropy_factor = (EMP / (SH + 1)) * (1 + curvature_scaling * 0.32) * (1 + EMP_diff_sensitivity * 0.19)
+
+    # Hyperbolic alignment with entropy-smoothed EMP-Diff synergy
+    entropy_refinement = math.log(EMP + 2) / math.log(SH + 3) * 0.95 if EMP > 0 else 1.0
+    alignment_weight = 1 / (1 + (abs(AVG - CUR) ** 1.7)) if AVG != CUR and AVG != 0 else 1.0
+    hyperbolic_alignment = entropy_refinement * alignment_weight * (1 + curvature_scaling * 0.25)
+
+    # Adaptive urgency suppression with curvature-aware sensitivity
+    block_urgency = RI * (0.95 ** (RI / 35)) * (1 + curvature_scaling * 0.17) if RI > 0 else 0.0
+
+    # Curvature-refined diff penalty with entropy-aware adaptation
+    diff_penalty = (DIFF * 0.000023) * (0.97 ** (DIFF / 650)) * (1 + curvature_scaling * 0.13) if DIFF < 2.1e9 else 0.0
+
+    # Entropy-smoothed RI-Diff synergy with curvature-normalized scaling
+    if RI > 0 and DIFF < 2.1e9:
+        curvature_diff = (abs(DIFF - RI) / (RI + 1)) ** 1.2
+        synergy_penalty = (RI * (0.9 ** (DIFF / 1200))) * (1 + curvature_scaling * 0.23) * (1 + curvature_diff * 0.2)
+    else:
+        synergy_penalty = 0.0
+
+    # Final priority with curvature-enhanced entropy fusion and localized suppression
+    priority = (SH * 0.037) - (hyperbolic_alignment * 1.07) - (alignment_weight * 0.6) + block_urgency + diff_penalty + synergy_penalty + (entropy_factor * 0.12) + (math.tanh(RI / 120) * 0.16) + (entropy_refinement * 0.07)
+    return priority"
+2026-11-17T00:15:37,llamea,qwen3:14b-nothink,0.3,4,500,24732,25192,0.914,550,8491.2,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Normalize parameters with curvature-aware scaling
+    norm_EMP = EMP / (12.0 + SH * 0.15)
+    norm_SH = SH / (20.0 + CUR * 0.08)
+    norm_AVG = AVG / (1000.0 + CUR * 0.15) if AVG > 0 else 0.0
+    norm_RI = RI / (100.0 + CUR * 0.05)
+    norm_DIFF = (DIFF + 1) / (1_000_000.0 + CUR * 0.20) if DIFF > 0 else 0.0
+
+    # Dynamic urgency based on container ID and blocking potential
+    urgency_factor = (1 / (1 + CUR)) * (1 + norm_RI * 2.0) * (1 + norm_SH * 0.4)
+
+    # Enhanced free-space prioritization using curvature-smoothed urgency scaling
+    free_space_weight = (1 / (1 + (1 / (1 + norm_EMP * 0.3 + norm_DIFF * 0.15)))) ** 1.7
+    free_space_component = -free_space_weight * 0.5 * urgency_factor
+
+    # Improved AVG-DIFF alignment with dynamic lookahead normalization
+    diff_avg_offset = (CUR / 1000.0 + norm_DIFF * 0.1) * (1 + norm_SH / 10.0)
+    alignment_weight = (1 / (1 + abs(norm_AVG - diff_avg_offset))) ** 1.5 if AVG > 0 else 1.0
+    alignment_component = (1 - alignment_weight) * 0.23 * urgency_factor
+
+    # Diff-urgency alignment optimized for lookahead sensitivity
+    diff_weight = (1 / (1 + (1 / (1 + (norm_DIFF * 0.8 + norm_RI * 0.25))))) if norm_DIFF > 0 else 1.0
+    diff_component = diff_weight * 0.18 * urgency_factor
+
+    # Stack stability and height optimization
+    stack_stability = (1 / (1 + norm_SH)) ** 1.8
+    stack_component = stack_stability * 0.06 * urgency_factor
+
+    # Lookahead-smoothed entropy-based blocking suppression with curvature adaptation
+    entropy_factor = (1 + norm_RI * 0.3 + norm_SH * 0.2 + norm_EMP * 0.3) ** 0.5
+    lookahead_component = (1 - (norm_RI ** 2.0) * (1 + (norm_SH - norm_EMP / 10.0)) ** 1.5 / (1 + norm_DIFF * 0.3)) * 0.01 * urgency_factor * entropy_factor
+
+    # Combine core components into base priority
+    priority = free_space_component + alignment_component + diff_component + stack_component + lookahead_component
+
+    # Refine with curvature normalization using entropy-guided curvature factors
+    curvature_factor = (1 + norm_DIFF * 0.08 + norm_RI * 0.14 + norm_EMP * 0.12 + norm_SH * 0.16) ** 0.53
+    priority /= curvature_factor
+
+    # Apply curvature-guided adjustment for proactive blocking prevention
+    priority *= (1 + (norm_SH - norm_EMP) * 0.1 + (1 - norm_DIFF) * 0.04) / (1 + norm_DIFF * 0.2)
+
+    # Add entropy-guided lookahead-smoothed blocking penalty scaled by urgency and curvature
+    blocking_penalty = (norm_RI + 0.01 * norm_SH) / (1 + norm_DIFF * 0.5) if norm_RI > 0 else 0.0
+    priority += blocking_penalty * urgency_factor * 0.15 * (1 + norm_SH * 0.02)
+
+    return priority"
+2026-11-16T23:52:23,llamea,qwen3:14b-nothink,0.3,5,500,25706,26176,0.962,550,6947.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    
+    # Normalize DIFF for large values
+    diff_norm = min(DIFF / 1e9, 1.0)
+    
+    # Blockage cost: weighted by future blockage and curvature
+    blockage_cost = (RI + 1) * (1 + 0.08 * diff_norm) * (1 + ((AVG - CUR) ** 2) / 30000)
+    
+    # Free space benefit: curvature-aware free-space prioritization with sublinear scaling
+    free_space_benefit = (EMP ** 0.9) * 0.65 if EMP > 0 else 0
+    
+    # Curvature penalty: penalize stacks with high curvature deviation from future retrieval
+    curvature_penalty = ((AVG - CUR) ** 2) / (8000 + SH * 12) if AVG > CUR else ((CUR - AVG) ** 2) / (14000 + SH * 12)
+    
+    # Height cost: discourage overly tall stacks with curvature-aware sensitivity
+    height_cost = SH / (270 + SH) * 0.7
+    
+    # Future blockage density: reward stacks with fewer smaller IDs to reduce future blocking
+    future_blockage_density = (1 / (RI + 2.0)) * 0.19 if RI > 0 else 0
+    
+    # Space-height synergy: balance height and free space using curvature alignment
+    space_height_synergy = (EMP / (SH + 1.6)) * (1 / (1 + (SH / 80) ** 2)) * 0.3 if EMP > 0 else 0
+    
+    # Dynamic lookahead correction: adjust for lookahead bias with curvature-weighted sensitivity
+    lookahead_correction = diff_norm * 0.15 * (1 / (1 + (SH / 70) ** 2))
+    
+    # Alignment benefit: prefer stacks slightly ahead in order using curvature-modulated weight
+    alignment_benefit = max(0, (AVG - CUR) / 1300) if AVG > CUR else 0
+    
+    # Free-space curvature alignment: reward stacks that align retrieval order with available space
+    free_space_curvature = (AVG - CUR) * EMP / (SH + 1) * 0.05 if AVG > CUR and EMP > 0 else 0
+    
+    # Future foresight blockage penalty: penalize stacks that may block future containers
+    future_foresight_blockage = (RI + 1) * (1 + ((AVG - CUR) ** 2) / 13000) * 0.04 if AVG < CUR else 0
+    
+    # Curvature suppression: penalize stacks with high curvature deviation more if they are full
+    curvature_suppression = ((AVG - CUR) ** 2) / (11500 + SH * 14) * (SH / (SH + 10)) if AVG > CUR else 0
+    
+    # Final priority score with enhanced future blocking prediction and curvature-space balance
+    priority = (
+        blockage_cost * 0.58 +
+        curvature_penalty * 0.04 +
+        height_cost * 0.045 +
+        (1 - free_space_benefit) * 0.015 +  # Invert to penalize less free space
+        future_blockage_density * 0.04 +
+        space_height_synergy * 0.05 +
+        lookahead_correction * 0.035 +
+        alignment_benefit * 0.028 +
+        free_space_curvature * 0.025 +
+        future_foresight_blockage * 0.036 +
+        curvature_suppression * 0.03
+    )
+    
+    return priority"
+2026-11-17T01:29:17,llamea,qwen3:14b-nothink,0.3,6,500,25416,26044,0.974,550,5935.5,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+
+    max_height = 50
+    max_id = 10000
+    urgency_decay = 0.5
+
+    # Normalize free space (higher is better)
+    free_space_norm = EMP / max_height
+
+    # Urgency normalization: lower CUR means higher urgency
+    urgency_norm = 1 / (1 + CUR / max_id)
+
+    # Normalize average ID (lower is better)
+    avg_id_diff = AVG - CUR
+    avg_id_norm = avg_id_diff / max_id
+
+    # Future blockage (lower RI is better, penalized by urgency)
+    future_blockage = RI * urgency_norm
+
+    # Penalize stacks where future blockage is more critical (DIFF is smallest ID - CUR)
+    future_blockage_penalty = (-DIFF / max_id) * urgency_norm * 0.2
+
+    # Additional impact based on stack height
+    future_blockage_impact = (RI + 1) * urgency_norm * 0.02
+
+    # Bonus for aligning with the average ID of the stack
+    alignment_bonus = max(0, avg_id_diff) * 0.02 * (1 - (abs(avg_id_diff) / max_id))**2.5
+
+    # Uncertainty penalty (empty or unknown stacks)
+    uncertainty_penalty = 0
+    if DIFF > max_id or DIFF < 0:
+        uncertainty_penalty = 100
+
+    # Adaptive free space tradeoff based on urgency and curvature
+    free_space_tradeoff = free_space_norm * (1 + (free_space_norm ** 2.5))
+    free_space_tradeoff *= (1 - urgency_norm)  # Prioritize free space when less urgent
+
+    # Uncertainty-aware curvature compensation
+    uncertainty_curvature_comp = 1 / (1 + uncertainty_penalty / 800)
+    free_space_tradeoff *= uncertainty_curvature_comp
+
+    # Reinforcement factor: penalize uncertain stacks with high future blockage
+    reinforcement_factor = (future_blockage + future_blockage_penalty + future_blockage_impact) * (1 + uncertainty_penalty / 1200)
+
+    # Dynamic curvature adjustment
+    curvature_factor = 1 + (SH / max_height) * 0.5
+    curvature_factor *= (1 + (avg_id_diff / max_id) ** 2)
+
+    # Uncertainty-aware alignment bonus
+    uncertainty_aware_alignment = alignment_bonus * (1 - uncertainty_penalty / 400) * (1 / (1 + (SH / max_height)**2.5))
+
+    # Final priority score with enhanced tradeoff and curvature
+    priority = -free_space_tradeoff * urgency_norm + avg_id_norm + future_blockage + reinforcement_factor + uncertainty_aware_alignment - alignment_bonus * 0.9 + (SH / max_id) * 0.1 * (1 - free_space_norm) * curvature_factor
+
+    return priority"
+2026-11-17T02:10:18,llamea,qwen3:14b-nothink,0.3,7,500,25385,25979,0.916,550,6510.3,"import math
+
+def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    
+    # Curvature-aware entropy for free-space alignment
+    free_space_factor = (EMP / 120) * (1 + math.log1p(EMP / 10))
+    id_diff = AVG - CUR
+    free_space_bonus = free_space_factor * (1 + (1 + math.log1p(EMP / 10)) * 0.14)
+    
+    if CUR < AVG:
+        free_space_bonus *= (1 - abs(id_diff) / (100 + CUR)) ** 2.0
+    else:
+        free_space_bonus *= (1 + abs(id_diff) / (100 + CUR)) ** 0.6
+    free_space_bonus = max(0, free_space_bonus) * 0.25
+
+    # Future blocking suppression with hybrid lookahead normalization
+    future_block_penalty = RI * (1 + (RI / 100) ** 1.7) * 0.28
+    lookahead_norm = 1 + (RI + DIFF) / 1000
+    future_block_penalty /= lookahead_norm
+
+    # Curvature-aware entropy compensation based on ID proximity
+    entropy_compensation = (RI + 1) / (1 + math.exp((AVG - CUR) / 50)) * 0.014
+    future_block_penalty -= entropy_compensation
+
+    # Curvature-aware ID penalty with dynamic lookahead and free-space normalization
+    if DIFF > 1e9:  # indicates empty stack
+        id_penalty = (id_diff) * 0.015 if id_diff > 0 else 0.0
+    else:
+        id_penalty = (id_diff) * 0.015 if id_diff > 0 else (DIFF / 1e6) * 0.015
+    id_penalty /= (1 + (SH - EMP) / 30) * lookahead_norm
+
+    # Stability penalty with curvature-aware normalization
+    stability_penalty = max(0, (SH - EMP) / 30) * (RI / 100) * 0.016
+    future_block_compensation = (RI + 1) / (1 + math.exp((AVG - CUR) / 25)) * 0.003
+    stability_penalty += future_block_compensation
+    stability_penalty /= lookahead_norm
+
+    # Adaptive lookahead suppression with ID proximity
+    lookahead_suppression = math.log1p((RI + DIFF) / 100) * 0.016 * (1 + (abs(id_diff) / 850))
+
+    # Final priority calculation with entropy-smoothed ID proximity and normalization
+    entropy_smooth = 1 / (1 + math.exp((CUR - AVG) / 80))
+    priority = (future_block_penalty + id_penalty + stability_penalty - free_space_bonus + lookahead_suppression) / (1 + entropy_smooth * (abs(id_diff) / 850))
+    return priority"
+2026-11-17T03:12:40,llamea,qwen3:14b-nothink,0.3,8,500,25593,26094,0.97,550,6098.6,"import numpy as np
+
+def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    
+    # Normalize container ID for stability
+    normalized_CUR = CUR / (CUR + 1000)
+    
+    # Dynamic adaptive weights based on container urgency and stack state
+    avg_weight = 1.0 + (CUR / 1000)
+    ri_weight = 20.0 * (1 + np.log1p(RI + 1))
+    diff_weight = 0.000001 * (1 / (1 + DIFF / 1000000))
+    emp_weight = 0.1 * (1 + EMP / 100)
+
+    # Curvature estimation with dynamic normalization
+    curvature = (CUR - AVG) / 100
+    curvature_factor = 1 + np.sinh(curvature) * 0.1
+    curvature_factor = curvature_factor / (1 + np.abs(curvature))  # Curvature normalization
+    
+    utilization = SH / (SH + EMP)
+    entropy = 0.5 * (1 - (EMP / (SH + EMP))) ** 2
+
+    # Predictive blocking estimation with curvature and entropy weighting, incorporating lookahead impact
+    predicted_blocks = RI * (1.5 + np.sqrt(1 + RI)) * (1 + entropy) * (1 + np.sin(RI / 100)) * curvature_factor
+    
+    # Enhanced stability factor based on AVG and CUR mismatch and entropy for balanced future impact (empty stack is stable)
+    stability_factor = 1 / (1 + abs(AVG - CUR) * (1 + entropy)) if AVG != 0 else 1.0
+
+    # EMP-focused prioritization with curvature-aware proactive block suppression and stability
+    emp_influence = (1 / (EMP + 1)) * (1 + entropy) * (1 + np.tanh(EMP / 50)) * (1 + np.cos(np.abs(curvature))) * stability_factor
+
+    # Enhanced interference suppression with curvature-entropy interaction for lookahead balance
+    interference_suppression = 1 / (1 + predicted_blocks * entropy * 0.005 * (1 + np.abs(curvature)) + np.sinh((CUR - AVG) / 100))
+
+    # Urgency compensation refined with curvature-driven lookahead awareness and stability
+    urgency_compensation = (EMP + 1) * (1 / (1 + predicted_blocks)) * (1 + np.sin(EMP / 50)) * (1 + normalized_CUR) * (1 + np.abs(curvature)) * stability_factor
+
+    # Final priority score with improved curvature-entropy-EMP synergy, reduced interference, and stability amplification
+    priority = (AVG * avg_weight) + (predicted_blocks * ri_weight) + ((DIFF / 1000000) * diff_weight) + (emp_influence * emp_weight) * interference_suppression * urgency_compensation
+    return priority"
+2026-11-17T04:20:36,llamea,qwen3:14b-nothink,0.3,9,500,25361,25952,0.954,550,7304.8,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    epsilon = 1e-6
+
+    # Entropy-smoothed utilization urgency with lookahead sensitivity
+    utilization = SH / (SH + EMP + epsilon)
+    urgency_factor = (1 - utilization) * (1 - utilization) * (1 + 0.03 * utilization) * (1 + 0.01 * (DIFF / (DIFF + 1e-6)))
+
+    # Enhanced lookahead-aware blockage suppression with curvature adaptation
+    block_factor = (RI + 1) / (SH + 1 + epsilon) * (RI + 1) * (1 + 0.01 * (1 / (SH + 1 + epsilon))) * (1 + 0.02 * (DIFF / (DIFF + 1e-6)))
+
+    # Entropy-aware curvature normalization with adaptive utilization sensitivity
+    if CUR <= 0:
+        curvature_factor = AVG / (1 + epsilon) * (1 + 0.015 * (1 / (1 + epsilon))) * (1 + 0.005 * (1 / (1 + utilization)))
+    else:
+        curvature_factor = (AVG - CUR) / (CUR + 1 + epsilon) * (1 + 0.015 * (1 / (CUR + 1 + epsilon))) * (1 + 0.005 * (1 / (1 + utilization)))
+
+    # Adaptive space allocation sensitivity with curvature-aware entropy weighting
+    space_factor = 1 / (1 + 0.1 * (EMP + 1)**0.65 * (1 + 0.005 * (DIFF / (DIFF + 1e-6)))) * (1 + 0.002 * (1 - utilization)) * (1 + 0.008 * (1 / (1 + curvature_factor)))
+
+    # Dynamic nonlinear weight adjustment based on entropy, curvature, and lookahead
+    weight_urgency = 0.27 * (1 - utilization) * (1 + 0.05 * (1 - utilization)) * (1 + 0.008 * (DIFF / (DIFF + 1e-6)))
+    weight_block = 0.31 * (1 + 0.03 * utilization) * (1 + 0.004 * (DIFF / (DIFF + 1e-6)))
+    weight_curvature = 0.23 * (1 - utilization) * (1 + 0.004 * (DIFF / (DIFF + 1e-6)))
+    weight_space = 0.13 * (1 + 0.025 * (EMP + 1)**0.65) * (1 + 0.006 * (1 - (AVG - CUR) / (CUR + 1 + epsilon)))
+    weight_diff = 0.06 * (1 + utilization) * (1 + 0.004 * (DIFF / (DIFF + 1e-6)))
+
+    # Final priority score with refined curvature suppression and space sensitivity
+    priority = (weight_urgency * urgency_factor) + (weight_block * block_factor) + \
+               (weight_curvature * curvature_factor) + (weight_space * space_factor) + \
+               (weight_diff * max(0, -DIFF) * (1 + utilization)) - (0.018 * (1 - utilization) * (1 + utilization))
+
+    return priority"
+2026-11-16T20:58:49,llamea,qwen3:14b-nothink,0.5,1,500,25955,26637,0.884,550,6673.1,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Urgency weight based on container's retrieval priority
+    urgency_weight = 1 / (CUR + 1)
+    
+    # Blockage penalty with inverse-square future-block suppression and urgency-adaptive scaling
+    blockage_penalty = RI * (1 + (urgency_weight ** 2)) * (1 + (DIFF / 1000000)) * (1 + (1.2 * (1 - urgency_weight)))
+    
+    # Free-space score with sigmoid sensitivity and urgency-based amplification
+    free_space_sensitivity = max(0, EMP)
+    free_space_score = (1 / (1 + (free_space_sensitivity ** 3))) * (0.25 * (urgency_weight ** 1.5)) * (1 + (0.8 * (1 - urgency_weight)))
+    
+    # Stack height balance with urgency-aware non-linear sensitivity
+    height_balance = (SH / 10) * (0.1 * (1 - urgency_weight)) * (1 + (urgency_weight * 0.6))
+    
+    # Average ID penalty: prioritize stacks with lower average ID (more urgent containers)
+    avg_id_penalty = AVG * (0.3 * (urgency_weight ** 0.8)) * (1 + (0.5 * (1 - urgency_weight)))
+    
+    # Future-blocking mitigation: inverse-square suppression based on urgency and average ID relative to current container
+    future_block_penalty = max(0, (AVG - CUR) / 1000) * (1 + (1.1 * (1 - urgency_weight))) * (1 + (0.3 * urgency_weight))
+    
+    # Enhance future-blocking suppression with urgency-weighted inverse-square suppression factor
+    future_block_suppression = (1 + (1 / (urgency_weight ** 2 + 1e-6))) * (1 + (DIFF / 1000000)) * 0.7
+    
+    # Combine all factors into the final priority score
+    priority = avg_id_penalty + blockage_penalty + free_space_score + height_balance + future_block_penalty - future_block_suppression
+    return priority"
+2026-11-17T04:53:15,llamea,qwen3:14b-nothink,0.5,10,500,24748,25352,0.914,550,6141.9,"import math
+
+def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+
+    # Adaptive curvature-aware free-space prioritization with entropy-smoothed bias correction
+    free_space_weight = 0.07 * (1 / (1 + math.exp((EMP - 8) / 3))) * (1 - (SH / (SH + 12))) ** 2.6 * (1 + (EMP / 10)) * (1 + 0.02 * (EMP / (SH + 1)))
+
+    # Entropy-smoothed future-blockage fusion with curvature-enhanced logarithmic normalization
+    if DIFF > 0:
+        entropy_adj = math.log1p(1 + (SH / (SH + 12)) * (RI + 1))
+        diff_factor = math.log(1 + (DIFF + 1) ** 1.7) * entropy_adj
+        diff_factor = diff_factor * (1 + 0.10 * (DIFF + 1)) * (1 + (RI / (RI + 5))) * (1 + (SH / (SH + 20)))
+    else:
+        diff_factor = 0.45 * (1 + (RI / (RI + 5))) * (1 + (SH / (SH + 20)))
+
+    # RI- and AVG-aware nonlinear blocking penalty with curvature correction and entropy-smoothed bias compensation
+    blocking_penalty = RI * (diff_factor ** 2.0) * (1 + (SH / (SH + 12))) ** 0.3 * (1 + (RI / (RI + 5))) ** 1.0
+    blocking_penalty = blocking_penalty * (1 + (SH / (SH + 20))) * (1 + 0.01 * (SH / (EMP + 1))) * (1 + math.log1p(1 + (SH / (SH + 12)) * (RI + 1))) ** 0.3
+
+    # Entropy-weighted stack density with curvature-enhanced dynamic prioritization
+    if SH > 0:
+        stack_entropy = (SH / (SH + 10)) * math.exp(1 / (RI + 1.1)) * (RI / (RI + 5)) ** 1.0 * (1 + (SH / 12))
+    else:
+        stack_entropy = 0
+
+    # Adaptive curvature-smoothed AVG normalization with logarithmic entropy-boosted DIFF-RI compensation and dynamic normalization
+    if AVG > 0:
+        avg_id_factor = (AVG - CUR) / (CUR + 1.4) if (AVG - CUR) > 0 else 0
+        avg_id_factor = avg_id_factor * (1 - (SH / (SH + 10))) * (1 + (RI / (RI + 4)))
+        avg_id_factor = avg_id_factor * (1 + 0.02 * (AVG - CUR)) * (1 + (SH / (SH + 10))) ** 0.6
+        avg_id_factor = avg_id_factor / (1 + math.sqrt(AVG / (CUR + 1.5))) * (1 + 0.02 * (SH / (SH + 10))) * (1 + (SH / (SH + 18)))
+        # Apply curvature-aware entropy-balanced logarithmic normalization
+        avg_id_factor = avg_id_factor * (1 + 0.04 * stack_entropy) * (1 + 0.04 * diff_factor)
+    else:
+        avg_id_factor = 0
+
+    # Final score with curvature-enhanced adaptive component fusion, logarithmic normalization, and entropy-smoothed balancing
+    priority = (free_space_weight * 0.65) + (blocking_penalty * 0.25) + (stack_entropy * 0.07) + (avg_id_factor * 0.03)
+    return priority"
+2026-11-16T21:41:21,llamea,qwen3:14b-nothink,0.5,2,500,23870,24154,0.79,550,7377.1,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+
+    # Curvature based on stack height and entropy
+    curvature = (1 + (SH / 100) ** 0.6) * (1 - (DIFF / 200000) ** 0.8 if DIFF > 0 else 1)
+
+    # Entropy estimation based on stack occupancy and average container ID
+    entropy = (SH / (SH + 1)) ** 1.3 if SH > 0 else 0.5
+    entropy = entropy * (0.8 + (AVG / CUR) ** 0.5 if AVG > 0 else 1)
+
+    # Urgency adjustment based on container ID and curvature-entropy interaction
+    urgency = 1 / (1 + (CUR ** 1.6) * (1 + (CUR / 1000) ** 1.5) * curvature * entropy)
+
+    # Diff-weight with lookahead-adjusted entropy and curvature
+    if DIFF > 0:
+        diff_weight = (1 / (1 + (DIFF ** 1.9) * (1 + (DIFF / 1000) ** 1.4))) * curvature * entropy
+    else:
+        diff_weight = curvature * entropy
+
+    # RI compensation with dynamic space adjustment and entropy-urgency weighting
+    ri_weight = (RI / (SH + 1)) * (1 + (RI / 500) ** 1.2) * (1 + (SH / 100) ** 0.6) * urgency * entropy * (1 + EMP / 100)
+
+    # Space utilization with lookahead-adjusted entropy, curvature, and urgency
+    space_weight = 0.25 * urgency * (1 + (EMP / 100) ** 0.8) * curvature * entropy * (1 + (SH / 100) ** 0.5)
+
+    # Height-aware blocking weight with lookahead-adjusted curvature-entropy fusion
+    height_weight = 0.13 * urgency * (1 + (SH / 100) ** 0.7) * curvature * entropy * (1 + (RI / 100) ** 0.8)
+
+    # Blockage mitigation with entropy-curvature fusion and lookahead-adjusted RI compensation
+    blocking_factor = ri_weight * (1 + (RI / 500) ** 1.1) * (1 + (SH / 1000) ** 0.75) * entropy * (1 - (RI / (SH + 1)) ** 1.0)
+
+    # Final score with lookahead-adjusted curvature-entropy fusion, urgency-normalized compensation, and entropy-aware space usage
+    priority = (RI * 0.13) - (DIFF * diff_weight) + (abs(SH - CUR) * height_weight) - (EMP * space_weight) + \
+               (AVG - CUR) * 0.025 * urgency + (blocking_factor * 0.11) + \
+               (SH / (EMP + 1)) * 0.007 * (1 + (SH / 100) ** 0.6) * entropy * (1 - (RI / 1000) ** 1.1) * curvature * (1 / (1 + entropy)) * urgency
+
+    return priority"
+2026-11-16T21:36:50,llamea,qwen3:14b-nothink,0.5,3,500,24506,25091,0.94,550,7041.2,"import math
+
+def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+
+    # 1. Free space entropy with curvature-adaptive normalization
+    free_space_entropy = -math.log(EMP + 1) / (1 + math.log(1 + SH + (EMP + 1) * 0.35)) if EMP > 0 else float('inf')
+    free_space_balance = (EMP + 1) / max(1, SH + 4 + (EMP + 1) * 0.35)
+
+    # 2. Future blocking: curvature-adjusted entropy-weighted RI with focal loss adaptation
+    ri_weight = (RI + 1) * math.exp(-RI / (1 + (SH + 1) * 0.55)) if RI > 0 else 0
+
+    # 3. AVG alignment: entropy-stabilized curvature-adjusted deviation from CUR with lookahead
+    avg_weight = max(0, (CUR - AVG) / (max(1, CUR + 1 + SH / 5))) if AVG < CUR else 0
+
+    # 4. DIFF risk: curvature-adjusted entropy-weighted focal loss-based risk mitigation
+    diff_weight = max(0, 1 - math.exp(-DIFF / (10**6 + SH / 5))) if DIFF < 10**6 else 0
+
+    # 5. Stack height balance: curvature-aware entropy-normalized prioritization with lookahead
+    sh_weight = SH / max(1, SH + 5 + (EMP + 1) * 0.35)
+
+    # 6. Free-space-to-RI equilibrium: curvature-adjusted entropy-weighted balance with lookahead
+    free_ri_balance = (EMP + 1) / max(1, RI + 4 + (EMP + 1) * 0.35)
+
+    # 7. Dynamic curvature adjustment using entropy and curvature-aware weighting
+    curvature = 1 / (1 + math.log(1 + SH + EMP + 1))
+    entropy_factor = 1 / (1 + math.exp(-free_space_entropy * 0.3 - avg_weight * 0.2))
+
+    # 8. Total weighted score: curvature-adjusted and entropy-normalized
+    total_weight = (
+        free_space_entropy * 0.21 * entropy_factor * curvature +
+        free_space_balance * 0.11 * entropy_factor * curvature +
+        ri_weight * 0.22 * entropy_factor * curvature +
+        avg_weight * 0.04 * entropy_factor * curvature +
+        diff_weight * 0.08 * entropy_factor * curvature +
+        sh_weight * 0.07 * entropy_factor * curvature +
+        free_ri_balance * 0.13 * entropy_factor * curvature
+    )
+
+    # 9. Entropy-aware focal loss correction with curvature
+    focal_correction = 0.0008 * (1 - math.exp(-abs(free_space_balance - free_ri_balance) / 22)) * entropy_factor
+    total_weight += focal_correction
+
+    return total_weight"
+2026-11-16T23:47:37,llamea,qwen3:14b-nothink,0.5,4,500,26559,27129,0.954,550,6811.8,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    
+    # Future blockage impact: stacks with higher RI contribute more to cascading relocations
+    future_blockage = (RI / (SH + 1)) * (10.0 if RI > 0 else 0.1)
+    
+    # Free space curvature: reward moderate free space with curvature-based scaling, prefer stacks slightly below full
+    space_curvature = (1 - (abs(EMP - 8) ** 1.5) / 30) * 0.7 + (EMP / 25.0) * 0.3
+    
+    # Future blockage risk: penalize stacks with distant IDs using curvature-based scaling, but reduce the impact
+    future_risk = (DIFF / 1e6) * (0.001 if DIFF < 1e6 else 0.0)
+    
+    # Stack density curvature: penalize overly full stacks using curvature-based density penalty, but smooth it
+    stack_density = ((SH / 25.0) ** 1.8) * 0.6
+    
+    # Urgency adjustment: balance container ID urgency and available space with curvature-based modifier, but smoother
+    urgency = CUR * (1.0 + (EMP / 12)) ** 0.6
+    
+    # Alignment bonus: reward stacks with AVG close to CUR using curvature-based alignment function
+    alignment_bonus = max(0, (1 - (abs(AVG - CUR) / (CUR + 1)) ** 1.5)) * 4.0 if CUR > 0 else 0.0
+    
+    # Cascading risk: penalize stacks where AVG is significantly larger than CUR, but with more moderate scaling
+    cascading_risk = max(0, (AVG - CUR - 5)) * (0.1 if (AVG - CUR) > 5 else 0.0) if AVG > CUR else 0.0
+    
+    # Alignment incentive: reward stacks with high future alignment potential using smoother exponential scaling
+    alignment_incentive = (1 / (1 + (abs(AVG - CUR) ** 1.8))) * 0.65 if CUR > 0 else 0.0
+    
+    # Cascading risk reduction: consider stacks close to current container with curvature-based scaling, more gentle
+    cascading_risk_reduction = (1 - (abs(AVG - CUR) / (CUR + 1)) ** 1.6) * 0.2 if CUR > 0 else 0.0
+    
+    # Integrated penalty: combine future_blockage, cascading_risk with curvature-aware scaling, but reduce the weight
+    integrated_penalty = (future_blockage + cascading_risk) * (0.3 if (future_blockage + cascading_risk) < 10 else 0.5)
+    
+    # Final score: optimized to reduce future blockage and cascading risks while maximizing space efficiency and alignment incentives
+    priority = (future_blockage * 1.1) - (space_curvature * 0.55) - (alignment_bonus * 0.75) - (future_risk * 0.35) - (stack_density * 0.2) - (urgency * 0.15) - integrated_penalty + alignment_incentive + cascading_risk_reduction
+    
+    return priority"
+2026-11-16T23:47:31,llamea,qwen3:14b-nothink,0.5,5,500,25737,26259,0.968,550,6963.5,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Curvature adjustment based on stack height and future-block impact
+    curvature = 3.0 if SH > 70 else (2.0 if SH > 30 else 1.0)
+    
+    # Entropy-aware normalization with future-block sensitivity
+    entropy = 1.0 / (1 + (SH / 100) * (RI + 1) ** 0.5 * (1 + curvature * 0.25))
+    
+    # Future-block penalty with optimized entropy alignment and curvature normalization
+    future_block_penalty = ((RI + 1) ** 2 + (RI + 1) ** 1.5) * 0.08
+    if DIFF > 1e9:
+        future_block_penalty *= (1 + (RI + 1) / 100000) * (1 + curvature * 0.015) * (1 + (RI + 1) ** 0.5 * 0.01)
+    else:
+        future_block_penalty *= (1 + (100000 - DIFF) / 100000) * (1 + curvature * 0.015) * (1 + (RI + 1) ** 0.5 * 0.01)
+    
+    # Space penalty with curvature-enhanced entanglement prevention
+    space_penalty = (1 / (EMP + 1)) * 0.05 * (1 + curvature * 0.01) * (1 - entropy) * (1 + (SH / 100) ** 0.5 * (1 + curvature * 0.1))
+    
+    # Density penalty with entropy-aligned curvature normalization and future-block sensitivity
+    density_penalty = (SH / 100) ** 1.5 * 0.06 * (1 + (AVG / 100000) * (SH / 100) * (RI + 1) ** 0.5) * (1 + (RI + 1) / 100000) * (1 + (1 - entropy) * curvature * 0.04) * (1 + (DIFF < 1e9) * (DIFF / 100000))
+    
+    # Alignment bonus with curvature-aware entropy and CUR-AVG correlation, enhanced with future-block immunity
+    alignment_gain = (CUR - AVG) * 0.03 if AVG != 0 else CUR * 0.03
+    alignment_bonus = alignment_gain / (1 + (SH / 50) ** curvature + (RI + 1) ** 0.5 / 10) * entropy * (1 + (entropy - 0.5) ** 2 * 0.15) * (1 + (DIFF < 1e9) * (DIFF / 100000))
+    
+    # Space occupation factor with curvature-enhanced entropy alignment and future-block resilience
+    space_occupation_factor = (1 + (1 - entropy) * 0.1 * (EMP / 50) * curvature) ** 0.5
+    stack_normalization = (1 / space_occupation_factor) * (1 + (SH / 100) ** 0.5) * (1 + (1 - (EMP / 50)) ** 2 * 0.1)
+    
+    # Final priority score with entropy-curvature fusion, future-block-aware density-space alignment, and precision optimization
+    priority = (space_penalty + density_penalty + future_block_penalty) * stack_normalization - alignment_bonus
+    return priority"
+2026-11-17T01:06:13,llamea,qwen3:14b-nothink,0.5,6,500,25242,25653,0.946,550,5434.1,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    epsilon = 1e-6
+    SH += epsilon
+    
+    # Curvature-enhanced AVG-CUR alignment with entropy-aware future-ri anticipation
+    avg_diff = abs(AVG - CUR)
+    curvature_avg = (1 + avg_diff / (CUR + 1 + epsilon)) ** 0.5
+    entropy_weight = 1 / (1 + avg_diff + epsilon)
+    avg_cur_score = (avg_diff / (CUR + 1 + epsilon)) * entropy_weight * curvature_avg
+
+    # Future-RI-DIFF normalization with curvature-adaptive entropy-aware exponential decay and future blocking mitigation
+    base_diff = 1e9 if DIFF <= 1 else DIFF
+    diff_factor = (base_diff / (10**9)) ** 0.7
+    ri_factor = 1 / (1 + RI + epsilon)
+    curvature_diff = (1 + diff_factor * 0.5) ** 0.5
+    entropy_diff = 1 / (1 + diff_factor * 2 + epsilon)
+    ri_diff_score = ri_factor * curvature_diff * entropy_diff * avg_cur_score
+
+    # Curvature-EMP synergy with entropy-aware normalized dynamic stacking and future block sensitivity
+    normalized_emp = EMP / SH
+    curvature_emp = (1 + normalized_emp * 0.6) ** 0.5
+    entropy_emp = 1 / (1 + normalized_emp * 40 + epsilon)
+    emp_factor = 1 / (1 + abs(EMP - SH) + epsilon)
+    weighted_emp = emp_factor * curvature_emp * entropy_emp
+
+    # Curvature-enhanced future-blocking anticipation with exponential decay and entropy alignment
+    future_factor = (1 + (CUR + 1 - AVG) / 120) ** 0.5
+    adaptive_weight = entropy_weight * curvature_avg * future_factor
+
+    # Final priority with enhanced future-ri anticipation, curvature-aware normalization, and optimized synergy
+    priority = (avg_cur_score * 0.25) + (ri_diff_score * 0.2) + (1 - weighted_emp) * 0.35 + (RI * 0.15) - (adaptive_weight * 0.1) - (ri_factor * 0.05)
+    return priority"
+2026-11-17T01:31:28,llamea,qwen3:14b-nothink,0.5,7,500,24690,25165,0.922,550,5221.3,"import math
+
+def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Curvature-aware entropy normalization for free-space
+    entropy_weight = 1 / (1 + math.log1p(EMP + 1) * 0.023)
+    curvature_norm = 1 / (1 + (DIFF / 1e6) * 0.089)
+    
+    # Free-space gain with curvature-adaptive urgency
+    free_space_gain = (EMP ** 1.33) * 0.015 * curvature_norm
+    avg_diff = max(0, AVG - CUR)
+    urgency_gain = (1 + (avg_diff / 100) ** 0.83) * 0.0085 * entropy_weight
+
+    # Lookahead-aware RI-based blocking compensation
+    if RI > 0:
+        ri_curvature = math.log1p(RI) * 0.055
+        lookahead_factor = 1 / (1 + (DIFF / 1e6) * 0.13)
+        adaptive_ri = RI * (1 + ri_curvature) * (1 + (RI / 100) * urgency_gain) * lookahead_factor
+    else:
+        adaptive_ri = 0
+
+    # Entropy-curvature fused utilization bias
+    utilization = SH / (SH + EMP + 1e-6)
+    entropy_curvature = 1 + math.log1p(EMP) * 0.016
+    free_space_weight = (EMP ** 1.27) * (0.014 * (1 - utilization)) * entropy_curvature * curvature_norm
+
+    # Curvature-smoothed urgency penalty with dynamic entropy fusion
+    curvature_decay = 1 / (1 + (DIFF / 1e6) * 0.135)
+    entropy_fusion = (1 + (avg_diff / 100) ** 0.37)
+    utilization_smooth = 1 / (1 + (SH / (SH + EMP + 1e-6)) ** 1.55)
+    urgency_penalty = avg_diff * (0.012 + 0.0014 * avg_diff) * curvature_decay * entropy_fusion * utilization_smooth
+
+    # Future-block compensation: curvature-aware and entropy-smoothed
+    curvature_comp = 1 / (1 + (RI * avg_diff) / (1e6 * (1 + SH / 100)))
+    compensation = (avg_diff / (1 + CUR / 108)) * curvature_comp * 0.0026 * entropy_weight
+
+    # Future-blocking prediction: curvature-normalized and RI-aware
+    future_block = max(0, (RI + avg_diff) / (1 + SH / 95)) * 0.028 * curvature_norm
+
+    # Final priority: fused dynamic urgency, lookahead, compensation, and entropy-adjusted free-space
+    priority = adaptive_ri - free_space_weight + urgency_penalty + compensation - future_block + (DIFF / 1e6) * 0.00024 * (1 - utilization) + (EMP / (SH + 1)) * 0.031 * curvature_norm + (1 / (1 + (RI / 1050) * (DIFF / 1e6))) * 0.0083
+    return priority"
+2026-11-17T03:19:48,llamea,qwen3:14b-nothink,0.5,8,500,24468,25048,0.808,550,6609.1,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Prevent division by zero, define fractal-aware container density
+    container_density = SH / (EMP + 1) if EMP > 0 else 1000
+
+    # Fractal density with curvature-aware scaling and entropy-aware correction
+    fractal_density = (container_density ** 0.3) / (1 + (RI ** 0.5) / 850)
+    entropy_correction = 1.0 / (1 + (RI ** 0.6) / 420)
+    fractal_density *= entropy_correction
+
+    # Future blocking estimation with optimized fractal-aware curvature scaling
+    future_blocking = (RI ** 1.05) * (1 + (RI ** 0.18) / 750) * (1 + (container_density ** 0.1) / 5.5) * fractal_density
+    future_blocking_recursive = future_blocking ** 0.7 * (1 + (RI + 1) ** 0.45 / 480) * (1 + (container_density ** 0.06) / 3.8) * (1 + (RI ** 0.12) / 120)
+
+    # Adaptive EMP-DIFF balance with curvature-aware refinement and entropy-smoothed alignment
+    if DIFF > 1:
+        emp_diff_balance = (1 / (1 + (DIFF ** 0.65))) * (1 + (EMP ** 0.55) ** 1.03)
+    else:
+        emp_diff_balance = (1 + EMP ** 0.55)
+    emp_diff_balance *= (1 + (RI ** 0.12) / 78) * (1 + (container_density ** 0.1) / 5.8)
+
+    # Entropy-smoothed AVG-CUR alignment with curvature-aware normalization
+    avg_cur_alignment = (abs(AVG - CUR) ** 0.52) / (1 + (container_density ** 0.1) / 5.7)
+    avg_cur_alignment *= (1 + (RI ** 0.28) / 320) * (1 + (RI ** 0.23) / 260)
+    avg_cur_alignment += (future_blocking_recursive ** 0.32) * 0.12  # Future blocking suppression term
+
+    # Final priority with curvature-aware weighting, entropy balance, and predictive alignment
+    priority = (future_blocking_recursive * 48) + (avg_cur_alignment * 0.22) - (emp_diff_balance * 0.48) - (container_density * (1.1 / (1 + container_density))) - (RI ** 0.27) * 0.007 - (future_blocking_recursive * 0.003) + (container_density ** 0.17) * 0.45
+    return priority"
+2026-11-17T03:48:29,llamea,qwen3:14b-nothink,0.5,9,500,25838,26341,0.932,550,6898.1,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Phase 1: Enhanced future blockage prediction with curvature-adaptive entropy decay
+    if DIFF <= 1e9 and DIFF > 0:
+        diff_norm = (DIFF / 1e9) ** 0.68
+        curvature_factor = 1.16 if AVG < CUR else 0.27
+        entropy_weight = 1 / (1 + (RI * 0.19))
+        decay_rate = 1 + (RI / 125) ** 0.34
+        diff_penalty = (1 / (1 + diff_norm)) * (1 + 0.039 * RI ** curvature_factor) * entropy_weight * decay_rate
+    else:
+        diff_penalty = 0  # No penalty for empty stacks
+
+    # Phase 2: Curvature-modulated EMP-space synergy with entropy-aware balance
+    if EMP == 0:
+        space_balance = float('inf')
+    else:
+        curvature = 1.35 if AVG < CUR else 0.33
+        entropy_weight = 1.06 if RI > 0 else 1.0
+        space_balance = (SH ** curvature) / (EMP ** (2.2 - curvature)) * entropy_weight * (1 + (RI / 135) ** 0.37)
+
+    # Phase 3: Improved dual-RI curvature alignment with entropy-aware blockage suppression
+    curvature_factor = 1.03 if AVG < CUR else 0.32
+    base_alignment = 1 / (1 + ((abs(AVG - CUR) + RI * 0.17) / 100) ** curvature_factor)
+    alignment = base_alignment * (1 + (RI / 125) ** 0.34) * (1 + (EMP / (SH + 1)) ** 0.27)
+
+    # Phase 4: Blockage suppression with curvature-adaptive entropy-space refinement
+    if RI > 0:
+        dynamic_curvature = 1.06 if (AVG < CUR) else 0.32
+        blockage_penalty = (RI ** dynamic_curvature) * 0.0027 * (1 / (1 + (RI ** 0.68))) * (1 + (RI / 140) ** 0.37)
+    else:
+        blockage_penalty = 0
+
+    # Phase 5: Global entropy-aware scaling with curvature-adaptive normalization
+    curvature_mod = 1.03 if AVG < CUR else 0.86
+    entropy_balance = 1.02 if RI > 0 else 1.0
+    scaling_factor = (1 + (CUR / 920) ** 0.27) * curvature_mod * entropy_balance
+    log_balance = 1 + (RI / 118) ** 0.37  # Logarithmic entropy-EMP refinement
+
+    # Adaptive normalization with curvature-aware entropy-space alignment
+    norm_factor = (SH + EMP) / (100 + 1e-9)  # Avoid division by zero
+    norm_factor = min(1.0, max(0.1, norm_factor))  # Clamp normalization factor
+
+    # Final priority score with curvature-adaptive entropy-EMP synergy and blockage suppression
+    priority = (alignment + space_balance + blockage_penalty - diff_penalty) * scaling_factor * log_balance * norm_factor
+    return priority"
