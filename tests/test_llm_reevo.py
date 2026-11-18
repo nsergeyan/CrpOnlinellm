@@ -118,3 +118,24 @@ def test_run_many_skips_finished_runs(tmp_path, test_set):
     assert len(first) == 1 and first[0]["train_fitness"] == 26_452
     assert again == [] and len(list(csv.DictReader((tmp_path / "llm.csv").open()))) == 1
     assert (tmp_path / "rules" / "reevo_a0.5_s1.jsonl").exists()
+
+
+def test_eoh_knowledge_starts_from_minmax_and_sees_the_knowledge_text(tmp_path, test_set):
+    """EoH with our framework's prior knowledge (README decision 54): the Min-Max seed is the
+    first scored rule, and every prompt EoH sends holds our CRP knowledge text."""
+    from crp.framework.knowledge import KNOWLEDGE, SEEDS
+    from crp.llm.experiment import run_experiment
+
+    rule_log, prompts = tmp_path / "rules.jsonl", []
+    with fake_llm(EOH_ANSWERS, prompts) as url:
+        row = run_experiment(method="eoh-knowledge", alpha=0.5, seed=1, budget=8, model="fake",
+                             base_url=url, test_instances=test_set[:20], rule_log=rule_log,
+                             work_dir=tmp_path / "run", pop_size=2, init_pop_size=6)
+
+    rules = [json.loads(line) for line in rule_log.read_text().splitlines()]
+    minmax = SEEDS["minmax"][1].replace("def priority(", "def priority_v2(")
+    assert rules[0]["code"].strip() == minmax.strip()      # EoH starts from Min-Max, not from scratch
+    assert rules[0]["total"] == 24_433                       # Min-Max on the training set at alpha 0.5
+    assert row["train_fitness"] == 24_433                    # every fake rule is worse than Min-Max
+    assert row["evaluations"] == 8
+    assert prompts and all(KNOWLEDGE in p for p in prompts)  # the knowledge text is in every prompt

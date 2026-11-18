@@ -137,6 +137,8 @@ pytest                      # 135 tests, about 2 minutes (the ReEvo/EoH, CALM an
 | One LLaMEA run on ALICE (one A100) | `CRP_DATA=/your/folder sbatch --partition=gpu-short --time=04:00:00 experiments/llamea_job.sh 0.5 1` | 1.5 to 3 h, of which up to an hour can be the start on a busy disk |
 | All 30 LLaMEA runs (10 seeds x 3 alphas), at most 6 at a time | `CRP_DATA=/your/folder sbatch --array=0-29%6 --partition=gpu-a100-80g,gpu-mig-40g --gres=gpu:1 --time=06:00:00 experiments/llamea_job.sh` | about 10 h when the queue is free |
 | LLaMEA rows into `results/llm_full.csv` (after copying `runs/llamea/` from ALICE) | `python experiments/run_llamea.py collect` | instant |
+| One test run of EoH with our prior knowledge on ALICE (30 evaluations) | `CRP_DATA=/your/folder sbatch --partition=gpu-short --time=01:00:00 experiments/eoh_job.sh 0.5 1 --quick` | not measured yet |
+| All 30 runs of EoH with our prior knowledge (10 seeds x 3 alphas), at most 6 at a time | `CRP_DATA=/your/folder sbatch --array=0-29%6 --partition=gpu-a100-80g,gpu-mig-40g --gres=gpu:1 --time=06:00:00 experiments/eoh_job.sh` | not measured yet |
 | GP with 800 evaluations, the check with about 500 different formulas (90 runs) | `python experiments/run_gp_many.py --population 50 --generations 15 --out results/gp_800.csv` | ~10 min |
 | GP started from Min-Max, 500 evaluations (90 runs) | `python experiments/run_gp_many.py --population 50 --generations 9 --start minmax --out results/gp_500_minmax.csv` | ~5 min |
 | GP started from Min-Max, 800 evaluations (90 runs) | `python experiments/run_gp_many.py --population 50 --generations 15 --start minmax --out results/gp_800_minmax.csv` | ~5 min |
@@ -524,6 +526,36 @@ The design and the reason for each part are in `docs/framework_design.md`.
     (24,154 to 27,129). Our framework beats it for every alpha from both start rules (p < 0.05
     after Holm correction over the twelve baselines). Without CRP knowledge our framework is
     level with it.
+54. EoH with our framework's prior knowledge (`eoh-knowledge`) answers whether our framework
+    still wins when EoH, its closest relative, knows the same: the CRP knowledge text
+    (`KNOWLEDGE` in `src/crp/framework/knowledge.py`, word for word, after the problem
+    description at the top of every EoH prompt) and the Min-Max start rule with the same idea
+    sentence. Only the knowledge is shared; EoH's own search (prompts, five operators,
+    population of 10, selection) is unchanged, so only the search differs from ours. ReEvo,
+    CALM and LLaMEA keep their original settings; GP from Min-Max is decision 51. The start
+    uses EoH's own seed option (`exp_use_seed`), which ReEvo's EoH launcher leaves off: our
+    start script `frameworks/reevo_crp/eoh_seeded.py` switches it on in memory before ReEvo's
+    `main.py` runs, so ReEvo's files stay untouched. The same script passes the iteration
+    number that ReEvo's EoH leaves out on its seed path (only used in log lines; without it the
+    call fails). EoH then starts from Min-Max alone, as our framework does, and spends 1 of its
+    500 evaluations on it, where normal EoH spends 20 on rules it writes itself; it scores 561
+    rules in all (normal EoH 580), of which the first 500 count. The knowledge version has its
+    own problem folder (`crp_online_knowledge`), so ReEvo and normal EoH keep the plain text.
+    On ALICE every job uses its own copy of the ReEvo folder (`experiments/eoh_job.sh`),
+    because each run writes the LLM's code to the same file. EoH with only one of the two
+    pieces (only the text, or only Min-Max) is not run: our own ablations split the two for
+    our framework.
+55. Pareto selection and rich feedback stay in the framework. Without them the test totals are the
+    same (decision 49d), but runs take about three times as long (median 13.7 against 4.2 hours at
+    alpha 0.5, 12.1 against 5.0 at alpha 0.1). The cause is the choice of parent: without Pareto
+    selection the parent comes from the 10 best rules by total and is the current best rule in a
+    third of the refine steps (2% with Pareto selection, which uses 247 different parents per run
+    against 133). The LLM keeps the old code and adds about 170 characters per refine step in both
+    versions, so always refining the newest best rule makes the code grow: median 3,600 against
+    1,700 characters in the last fifth of the run. Longer rules make every LLM call and simulation
+    slower (21 against 11 seconds per call), and similar parents give more repeats (2,310 against
+    1,382 LLM calls for the same budget). Pareto selection is therefore a time-saving part of the
+    search, not one that improves the result.
 
 ## License
 

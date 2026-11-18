@@ -20,7 +20,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("--methods", nargs="+", choices=["eoh", "reevo"], default=["eoh", "reevo"])
+    parser.add_argument("--methods", nargs="+", choices=["eoh", "eoh-knowledge", "reevo"], default=["eoh", "reevo"])
     parser.add_argument("--alphas", type=float, nargs="+", default=[0.5, 0.3, 0.1])
     parser.add_argument("--runs", type=int, default=10, help="seeds 1..runs")
     parser.add_argument("--budget", type=int, default=500, help="evaluations counted per run")

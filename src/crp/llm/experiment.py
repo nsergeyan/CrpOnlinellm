@@ -22,7 +22,8 @@ from crp.instance import Instance
 from crp.llm.evaluate import compile_rule, evaluate_rule
 from crp.paths import ROOT
 
-REEVO = ROOT / "frameworks" / "reevo"
+# REEVO_DIR, as in frameworks/setup_reevo.sh: an ALICE job's own copy (experiments/eoh_job.sh)
+REEVO = Path(os.environ.get("REEVO_DIR", ROOT / "frameworks" / "reevo")).resolve()
 FIELDS = [
     "date", "method", "model", "alpha", "seed", "evaluations", "train_fitness", "test_total",
     "valid_rate", "llm_calls", "seconds", "code",
@@ -37,15 +38,22 @@ def run_framework(method: str, alpha: float, budget: int, model: str, base_url: 
     # copy our current eval.py, settings and prompt files in, so a stale copy can never be used
     subprocess.run([str(venv_bin / "python"), str(ROOT / "frameworks" / "install_reevo_files.py"),
                     str(REEVO)], check=True, capture_output=True)
+    # eoh-knowledge: EoH with our framework's prior knowledge, the CRP knowledge text and the
+    # Min-Max start through EoH's own seed option (README decision 54)
+    knowledge = method == "eoh-knowledge"
+    problem = "crp_online_knowledge" if knowledge else "crp_online"
+    script = str(ROOT / "frameworks" / "reevo_crp" / "eoh_seeded.py") if knowledge else "main.py"
     command = [
-        str(venv_bin / "python"), "main.py", "problem=crp_online", f"problem.problem_size={alpha}",
-        f"algorithm={method}", "llm_client=openai", f"llm_client.model={model}",
+        str(venv_bin / "python"), script, f"problem={problem}", f"problem.problem_size={alpha}",
+        f"algorithm={'eoh' if knowledge else method}", "llm_client=openai", f"llm_client.model={model}",
         "llm_client.api_key=local", f"+llm_client.base_url={base_url}", f"max_fe={budget + budget // 10}",
         f"pop_size={pop_size}", f"init_pop_size={init_pop_size}", "timeout=60",
         f"hydra.run.dir={work_dir}",
     ]
     env = {**os.environ, "PATH": f"{venv_bin}:{os.environ['PATH']}",  # eval.py runs with ReEvo's python
            "CRP_RULE_LOG": str(rule_log)}
+    if knowledge:
+        env["CRP_EOH_SEEDS"] = str(REEVO / "problems" / problem / "seeds.json")
     work_dir.mkdir(parents=True, exist_ok=True)
     llm_calls = 0
     with subprocess.Popen(command, cwd=REEVO, env=env, text=True, stdout=subprocess.PIPE,

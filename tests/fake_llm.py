@@ -9,8 +9,9 @@ HINT = "Prefer stacks with low RI; never add DIFF."
 
 
 @contextmanager
-def fake_llm(answers: list[str]):
-    """A tiny OpenAI-style server that cycles through canned answers."""
+def fake_llm(answers: list[str], prompts: list[str] | None = None):
+    """A tiny OpenAI-style server that cycles through canned answers; every prompt it gets is
+    added to `prompts` when given."""
     replies = itertools.cycle(answers)
     lock = threading.Lock()  # the frameworks send several requests at the same time
 
@@ -19,6 +20,8 @@ def fake_llm(answers: list[str]):
             body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
             prompt = body["messages"][-1]["content"]
             with lock:
+                if prompts is not None:
+                    prompts.append(prompt)
                 content = HINT if "hints" in prompt else next(replies)  # ReEvo's reflections ask for hints
             reply = json.dumps({
                 "id": "fake", "object": "chat.completion", "created": 0, "model": body["model"],

@@ -41,7 +41,8 @@ seed rule  ──►  population (10 rules, each fully evaluated)
   stacks with DIFF > 0 are safe, and how unknown containers work in the online setting.
 - `seed`: `minmax`, Min-Max with ties broken by the lowest stack,
   `(DIFF if DIFF > 0 else 1e10 - DIFF) * 100 + SH`, chosen on the training set; or `lowest`,
-  `priority = SH`, the seed of EoH, ReEvo and CALM. Both are run (option c agreed with Wei).
+  `priority = SH`, the seed of ReEvo and CALM (EoH writes its first rules itself). Both are run
+  (option c agreed with Wei).
 
 **2. Screening and repair**
 - `crash_check`: 4 fixed yards (two small, two of the largest size); on a crash, the error
