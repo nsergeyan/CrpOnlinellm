@@ -447,9 +447,9 @@ The design and the reason for each part are in `docs/framework_design.md`.
     our priority function for the Min-Max idea inside the unrestricted scheme, with ties broken
     by the lowest stack (chosen on the training set); it is not a number from the literature.
     (g) GP-500 is GP with the paper's settings and a smaller population, not tuned for 500
-    evaluations. (h) The running times come from different machines (GP on a laptop, the LLM
-    runs on ALICE GPUs), so they compare only roughly. (i) The ablations were run at alpha 0.5
-    and 0.1 only.
+    evaluations. (h) The running times come from different machines (GP on a laptop, EoH and
+    ReEvo on another GPU server, CALM, LLaMEA and our framework on ALICE GPUs), so they compare
+    only roughly. (i) The ablations were run at alpha 0.5 and 0.1 only.
 50. The budgets are not counted in exactly the same way. GP (as ECF does) counts every
     evaluation, also when the formula repeats an earlier one and is not simulated again: 20 to
     36% of the 500 evaluations of a GP-500 run, so it simulates about 320 to 400 different
@@ -545,6 +545,15 @@ The design and the reason for each part are in `docs/framework_design.md`.
     because each run writes the LLM's code to the same file. EoH with only one of the two
     pieces (only the text, or only Min-Max) is not run: our own ablations split the two for
     our framework.
+    Results (10 runs per alpha, `results/framework_comparison.md`): the knowledge improves EoH's
+    median test total by 2.4%, 3.8% and 1.9% at alpha 0.5, 0.3 and 0.1 (24,364, 24,938 and
+    29,204, against 24,972, 25,925 and 29,765). Our framework from the same start is still
+    better: by 1.0% at alpha 0.5 and 0.6% at alpha 0.3 (Holm-corrected p 0.016 and 0.0004),
+    and by 0.5% at alpha 0.1, where the difference is not significant (p 0.12). Ours uses
+    more LLM calls per run (median 1,458 against 561). Ten of the 30 jobs were run a second
+    time: eight ran out of their 6 hours and two were stopped, all on node863 and node865,
+    where starting eval.py from the network disk took about 3.5 minutes per rule instead of
+    about 2 seconds.
 55. Pareto selection and rich feedback stay in the framework. Without them the test totals are the
     same (decision 49d), but runs take about three times as long (median 13.7 against 4.2 hours at
     alpha 0.5, 12.1 against 5.0 at alpha 0.1). The cause is the choice of parent: without Pareto

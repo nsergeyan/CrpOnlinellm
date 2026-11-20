@@ -1,4 +1,4 @@
-"""Plot how the best rule of our framework improved over the budget, next to EoH, ReEvo, CALM and LLaMEA.
+"""Plot how the best rule of our framework improved over the budget, next to EoH (also with our knowledge), ReEvo, CALM and LLaMEA.
 
 Run from PyCharm (green button), or: python experiments/plot_framework_convergence.py
 Needs matplotlib: pip install -e ".[plot]"
@@ -20,10 +20,10 @@ from compare_methods import ALPHAS, read_csv, rule_logs
 from crp.paths import RESULTS
 
 STEPS = range(1, 501)
-BASELINES = {"eoh": "EoH", "reevo": "ReEvo", "calm": "CALM", "llamea": "LLaMEA"}
+BASELINES = {"eoh": "EoH", "eoh-knowledge": "EoH with our knowledge", "reevo": "ReEvo", "calm": "CALM", "llamea": "LLaMEA"}
 COLORS = {FULL: "tab:blue", LOWEST: "tab:cyan", NO_KNOWLEDGE: "tab:purple", NO_TEXT: "tab:orange",
           NO_SCREENING: "tab:red", NO_PARETO: "tab:olive", "eoh": "tab:green", "reevo": "tab:brown",
-          "calm": "tab:pink", "llamea": "tab:gray"}
+          "calm": "tab:pink", "llamea": "tab:gray", "eoh-knowledge": "darkgreen"}
 
 
 def ours(method: str, alpha: str) -> list[list[float]]:
@@ -78,10 +78,10 @@ def figure(groups: dict[str, list[str]], path, title: str) -> None:
 
 
 def main() -> None:
-    main_methods = [FULL, LOWEST, NO_KNOWLEDGE, "eoh", "reevo", "calm", "llamea"]
+    main_methods = [FULL, LOWEST, NO_KNOWLEDGE, "eoh", "eoh-knowledge", "reevo", "calm", "llamea"]
     figure({a: [m for m in main_methods if m != NO_KNOWLEDGE or a != "0.3"] for a in ALPHAS},
            RESULTS / "framework_convergence.png",
-           "Our framework vs EoH, ReEvo, CALM and LLaMEA: median over 10 runs, band = middle 50%")
+           "Our framework vs the LLM methods: median over 10 runs, band = middle 50%")
     figure({a: [FULL, NO_TEXT, NO_SCREENING, NO_PARETO] for a in ("0.5", "0.1")},
            RESULTS / "framework_ablation_convergence.png",
            "Ablations (Min-Max start): median over 10 runs, band = middle 50%")

@@ -10135,3 +10135,439 @@ def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: flo
     # Final priority score with curvature-adaptive entropy-EMP synergy and blockage suppression
     priority = (alignment + space_balance + blockage_penalty - diff_penalty) * scaling_factor * log_balance * norm_factor
     return priority"
+2026-11-18T22:33:50,eoh-knowledge,qwen3:14b-nothink,0.5,1,500,24077,24318,0.908,560,9278.3,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Adaptive weights based on stack conditions
+    if DIFF > 0:
+        weight_diff = 0.4
+    else:
+        weight_diff = 0.2
+    
+    weight_ri = 0.3
+    weight_emp = 0.15
+    weight_sh = 0.1
+    weight_avg = 0.05
+    
+    # Calculate priority using adaptive weights
+    priority = (DIFF if DIFF > 0 else 1e10 - DIFF) * weight_diff + RI * weight_ri + (1000 - EMP) * weight_emp + SH * weight_sh + (AVG / 1000) * weight_avg
+    return priority
+"
+2026-11-19T00:51:06,eoh-knowledge,qwen3:14b-nothink,0.5,2,500,24106,24477,0.864,562,9008.6,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Exponential factor to penalize stack height
+    height_factor = math.exp(SH / 10)
+    # Future impact based on RI and AVG
+    future_impact = (RI + 1) * AVG
+    # Priority calculation
+    priority = (DIFF if DIFF > 0 else 1e10 - DIFF) * 50 + (height_factor * 10) + (future_impact * 2) - (EMP * 30)
+    return priority
+"
+2026-11-19T01:00:05,eoh-knowledge,qwen3:14b-nothink,0.1,1,500,28601,29060,0.878,560,10607.2,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Modified entropy score: emphasizes uniformity and stack safety
+    if SH == 0:
+        entropy = 0.0
+    else:
+        # Lower deviation between AVG and CUR indicates better uniformity
+        entropy = abs(AVG - CUR) / (1 + SH) * 20
+
+    # Block risk: higher number of smaller IDs below increases risk, but scaled down
+    block_risk = (RI / (1 + SH)) * 0.05
+
+    # Flexibility: weighted by both available space and stack height
+    flexibility = (EMP / (1 + SH)) * 0.05 + (1 / (1 + SH)) * 0.02
+
+    # DIFF factor: stacks with a large DIFF (safe stacks) get a significant benefit
+    if DIFF > 0:
+        diff_factor = (DIFF ** 1.5) * 0.1
+    else:
+        diff_factor = (1e10 - DIFF) ** 1.5 * 0.1
+
+    # Final priority score: lower is better
+    priority = entropy - flexibility + block_risk + diff_factor
+    return priority
+"
+2026-11-19T01:08:05,eoh-knowledge,qwen3:14b-nothink,0.1,2,500,28762,29292,0.884,561,9239.9,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Emphasize stacks with lower height and more empty space, and weigh average ID more heavily
+    priority = (DIFF if DIFF > 0 else 1e10 - DIFF) * 3 + (SH / (EMP + 1)) * 2 + abs(AVG - CUR) * 10
+    return priority
+"
+2026-11-19T01:17:19,eoh-knowledge,qwen3:14b-nothink,0.3,1,500,24611,24995,0.872,561,13032.1,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Normalize stack height and available space into a combined metric with lower weight
+    # Penalize stacks with low available space to prevent future congestion
+    space_metric = (SH / (SH + EMP)) * 0.25
+    # Apply a more aggressive nonlinear transformation to DIFF to prioritize safe stacks
+    if DIFF > 0:
+        diff_transform = DIFF ** 0.8
+    else:
+        diff_transform = (1e10 - DIFF) ** 0.8
+    # Combine metrics, giving more weight to RI and AVG, with a new term for space utilization
+    priority = space_metric * 0.3 + (RI / (AVG + 1)) * 0.4 + diff_transform * 0.3
+    return priority
+"
+2026-11-19T03:43:30,eoh-knowledge,qwen3:14b-nothink,0.3,3,500,24566,24968,0.862,561,9302.1,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Adjust DIFF for negative values to avoid negative influence
+    adjusted_DIFF = DIFF if DIFF > 0 else 1e10 - DIFF
+    # Compute priority with revised emphasis on risk and stack quality
+    priority = (RI / (EMP + 1)) * 0.2 + (adjusted_DIFF / (CUR + 1)) * 0.3 + (SH / (AVG + 1)) * 0.15 + (AVG / (CUR + 1)) * 0.35
+    return priority
+"
+2026-11-19T04:47:19,eoh-knowledge,qwen3:14b-nothink,0.1,3,500,28827,29180,0.946,560,12548.7,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Calculate the alignment of the stack's average ID with the current container
+    alignment = abs(AVG - CUR) * 0.05
+
+    # Calculate the impact of the current container on the stack's retrieval order
+    impact = RI * 0.2
+
+    # Calculate the stack's stability based on the DIFF value
+    if DIFF > 0:
+        stability = DIFF * 0.4
+    else:
+        stability = 1e10
+
+    # Calculate the stack's capacity and height as a factor for future moves
+    capacity_factor = (EMP / 10) * 0.1
+    height_factor = (10 - SH) * 0.05
+
+    # Combine all factors to compute the priority
+    priority = alignment + impact + stability - capacity_factor - height_factor
+
+    return priority
+"
+2026-11-19T05:40:48,eoh-knowledge,qwen3:14b-nothink,0.5,4,500,23931,24254,0.868,562,12855.9,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Logarithmic adjustment for the current container's urgency
+    urgency_factor = 1 / (1 + (1 + CUR) ** 0.5)
+
+    # Weighting factors for different aspects of stack quality
+    weight_ri = 3 * urgency_factor
+    weight_emp = 20 * urgency_factor
+    weight_avg = 2 * urgency_factor
+    weight_sh = 0.5 * urgency_factor
+    weight_diff = 5 * urgency_factor
+
+    # Impact from blocking future containers
+    blockage_impact = RI * weight_ri
+
+    # Penalty for limited free space (inverse proportionality)
+    space_penalty = (1 / (EMP + 1)) * weight_emp if EMP < 10 else 0
+
+    # Penalty for high average ID
+    avg_penalty = (AVG / (CUR + 1)) * weight_avg
+
+    # Penalty for stack height (logarithmic growth)
+    height_penalty = (1 + SH) * weight_sh
+
+    # Bonus for safe stacks (linear with DIFF)
+    if DIFF > 0:
+        safe_bonus = DIFF * weight_diff
+    else:
+        safe_bonus = (1e10 - DIFF) * (weight_diff / 4)
+
+    # Combine all components to calculate the priority score
+    priority = blockage_impact + space_penalty + avg_penalty + height_penalty + safe_bonus
+    return priority
+"
+2026-11-19T06:30:41,eoh-knowledge,qwen3:14b-nothink,0.1,4,500,28791,29228,0.862,562,10018.6,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max: the closest safe stack (DIFF > 0) first, else the stack with the largest DIFF;
+    # ties go to the lowest stack, but prioritize stacks with more free space (EMP) more strongly
+    priority = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100 + AVG * 40 - EMP * 30
+    return priority
+"
+2026-11-19T08:09:47,eoh-knowledge,qwen3:14b-nothink,0.3,5,500,24568,24864,0.868,560,12115.7,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Normalize stack height and utilization
+    normalized_SH = SH / (SH + 1)
+    normalized_EMP = EMP / (SH + 1)
+    
+    # Estimate the impact on future relocations
+    future_impact = (RI / (SH + 1)) * 0.7 + ((AVG - CUR) / (SH + 1)) * 0.3
+    
+    # Use logarithmic scaling to penalize high utilization
+    utilization_penalty = (1 / (1 + normalized_SH)) * 0.15 if normalized_SH > 0.5 else 0.0
+    
+    # Handle DIFF for safe and unsafe stacks
+    diff_score = (DIFF if DIFF > 0 else 1e10 - DIFF) * 0.1
+    
+    # Final priority score
+    priority = future_impact * 0.5 + utilization_penalty + diff_score - normalized_EMP * 0.05
+    return priority
+"
+2026-11-19T08:24:32,eoh-knowledge,qwen3:14b-nothink,0.5,6,500,24107,24423,0.86,560,9799.8,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Increase penalty for stack height, decrease weight on EMP, increase weight on RI
+    priority = (DIFF if DIFF > 0 else 1e10 - DIFF) * 30 + (RI ** 1.5) * 30 - EMP * 10 - (SH ** 2) * 0.2
+    return priority
+"
+2026-11-19T09:06:20,eoh-knowledge,qwen3:14b-nothink,0.3,6,500,24659,24982,0.886,560,9317.7,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Strongly prioritize stacks with more free space, fewer blocked containers, and lower average ID
+    # Strongly penalize stacks with negative DIFF, and slightly penalize higher stack height
+    priority = (1 / (EMP + 1)) * 0.3 + (RI * 0.2) + (AVG * 0.15) + (DIFF if DIFF > 0 else 1e12 - DIFF) * 0.3 + (SH * 0.05)
+    return priority
+"
+2026-11-19T12:24:04,eoh-knowledge,qwen3:14b-nothink,0.3,7,500,24572,24878,0.882,560,11805.4,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Emphasize stacks that are safe (DIFF > 0), provide room (EMP), and reduce blocking potential (RI)
+    if DIFF > 0:
+        # Safe stacks: prioritize stability, EMP, and minimize RI
+        priority = (DIFF * 1.5) + (RI * 0.3) + (1000 - EMP) * 0.1 + (AVG * 0.05) + (SH * 0.02)
+    else:
+        # Unsafe stacks: prioritize EMP heavily, penalize RI, and consider other factors
+        priority = (1e10 - DIFF) * 0.4 + (RI * 1.2) + (1000 - EMP) * 0.3 + (AVG * 0.2) + (SH * 0.03)
+    return priority
+"
+2026-11-19T12:30:55,eoh-knowledge,qwen3:14b-nothink,0.5,7,500,23841,24365,0.884,564,14741.9,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Apply modified Min-Max rule: prioritize safe stacks (DIFF > 0), otherwise prioritize largest DIFF
+    min_max_weight = (DIFF if DIFF > 0 else 1e10 - DIFF) * 20
+    # Use the inverse of the ratio of EMP to SH as primary secondary factor, scaled by RI
+    space_ratio = EMP / (SH + 1e-9)  # Avoid division by zero
+    # Penalize stacks with lower space ratios more heavily, scaled by RI
+    space_penalty = (1 / space_ratio) * (10 + RI * 10)
+    # Combine with AVG and RI as further secondary factors
+    priority = min_max_weight + space_penalty + AVG * 1 + RI * 10
+    return priority
+"
+2026-11-19T13:22:17,eoh-knowledge,qwen3:14b-nothink,0.1,6,500,28618,29053,0.892,560,18717.4,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Future blocking penalty based on RI and EMP (high weight)
+    blocking_penalty = (RI / (EMP + 1)) * 0.45 if EMP > 0 else 0.0
+
+    # Flexibility based on stack quality and emptiness (moderate weight)
+    flexibility = DIFF if DIFF > 0 else 1e10 - DIFF
+    flexibility_weighted = flexibility * 0.30
+
+    # Entropy penalty based on average difference (reduced weight)
+    entropy = abs((AVG - CUR) / (SH + 1)) * 0.10 if SH > 0 else 0.0
+
+    # Stack height and fullness penalty (reduced weight)
+    stack_height_penalty = (SH / (SH + 1)) * 0.05
+
+    # Normalization factor based on average ID
+    normalization = (AVG - CUR) * 0.05 if AVG > CUR else 0.0
+
+    # Calculate final priority
+    priority = blocking_penalty + flexibility_weighted + entropy + stack_height_penalty + normalization
+    return priority
+"
+2026-11-19T14:59:08,eoh-knowledge,qwen3:14b-nothink,0.1,8,500,28749,29228,0.882,561,9252.0,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Modified Min-Max: prioritize safe stacks (DIFF > 0) with a weighted focus on AVG, SH, and EMP
+    base_priority = (DIFF if DIFF > 0 else 1e10 - DIFF)
+    # Introduce scaling factors for stack height and available space
+    priority = base_priority * 25 + (SH * 1.5) - (EMP * 4) + (AVG * 15)
+    return priority
+"
+2026-11-19T15:28:03,eoh-knowledge,qwen3:14b-nothink,0.5,9,500,23879,24317,0.876,561,10608.8,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Weighted contribution from the stack's quality and safety
+    quality_weight = DIFF if DIFF > 0 else 1e10 - DIFF
+    # Penalty based on the number of containers that will be blocked
+    blocking_penalty = RI * (SH + 1)
+    # Preference for stacks with more available space
+    space_preference = EMP / (SH + 1)
+    # Preference for stacks with lower average ID
+    avg_id_preference = (AVG - CUR) / (SH + 1)
+    # Combine factors into a priority score with adjusted weights
+    priority = (quality_weight * 0.3) + (blocking_penalty * 0.2) - (space_preference * 0.15) + (avg_id_preference * 0.35)
+    return priority
+"
+2026-11-19T17:42:19,eoh-knowledge,qwen3:14b-nothink,0.3,9,500,24550,24907,0.844,560,15568.8,"import numpy as np
+
+def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Logarithmic transformation for DIFF
+    if DIFF > 0:
+        scaled_diff = np.log1p(DIFF / 100000)
+        weight_diff = 1 / (1 + np.abs(scaled_diff))
+        weight_ri = 1 / (1 + (RI / 20))
+        priority = (SH * 0.1) + (1 / (EMP + 1)) * 0.35 + (RI * weight_ri) * 0.25 + (DIFF * weight_diff) * 0.3
+    else:
+        scaled_diff = np.log1p((1e10 - DIFF) / 100000)
+        weight_diff = 1 / (1 + np.abs(scaled_diff))
+        weight_ri = 1 / (1 + (RI / 20))
+        priority = (SH * 0.1) + (1 / (EMP + 1)) * 0.35 + (RI * weight_ri) * 0.25 + ((1e10 - DIFF) * weight_diff) * 0.3
+    return priority
+"
+2026-11-19T18:20:24,eoh-knowledge,qwen3:14b-nothink,0.3,10,500,24731,25088,0.898,564,10278.9,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max: the closest safe stack (DIFF > 0) first, else the stack with the largest DIFF
+    min_max = (DIFF if DIFF > 0 else 1e10 - DIFF)
+    
+    # Non-linear transformation of CUR and RI to influence weights
+    cur_factor = CUR / 1000
+    ri_factor = RI / 500
+    
+    # Adjust the influence of EMP and AVG based on cur_factor and ri_factor
+    weight_EMP = 5 + 20 * (cur_factor ** 2)
+    weight_Avg = 20 - 15 * (ri_factor ** 2)
+    
+    # Compute final priority
+    priority = min_max * 40 + (100 - EMP) * weight_EMP + AVG * weight_Avg + SH * (1 + cur_factor)
+    return priority
+"
+2026-11-19T20:59:57,eoh-knowledge,qwen3:14b-nothink,0.1,9,500,28479,28985,0.892,561,21309.2,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Forward-looking similarity metric based on proximity to future container IDs
+    if DIFF > 0:
+        # Safe stack: consider similarity to future IDs and space availability
+        rel_diff = abs(AVG - CUR)
+        future_similarity = 1 / (1 + rel_diff * 0.3)
+        space_availability = (EMP / SH) if SH > 0 else 0
+        priority = future_similarity * 25 + (space_availability * 15) + (DIFF * 40)
+    else:
+        # Unsafe stack: penalize based on potential blockage and space constraints
+        future_blockage_risk = (RI + 1) * 1.2
+        space_availability = (EMP / SH) if SH > 0 else 0
+        priority = future_blockage_risk * 50 + (1 - space_availability) * 20 + (1e10 - DIFF) * 10
+    return priority
+"
+2026-11-19T21:14:03,eoh-knowledge,qwen3:14b-nothink,0.3,2,500,24646,24907,0.896,562,10915.5,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    priority = (SH * RI) * 0.1 + (1 / (EMP + 1)) * 0.3 + (abs(DIFF) if DIFF > 0 else 1e10 - DIFF) * 0.2 + (AVG - CUR) * 0.05
+    return priority
+"
+2026-11-19T21:53:08,eoh-knowledge,qwen3:14b-nothink,0.5,3,500,24121,24381,0.916,562,7928.8,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Normalize EMP and SH for flexibility
+    flex_score = EMP / (SH + 1e-6) if SH != 0 else 1.0
+    # Adjust DIFF for minimax strategy
+    adjusted_diff = (1e10 - DIFF) if DIFF < 0 else DIFF
+    # Combine immediate impact and flexibility with different weights
+    impact = (RI + adjusted_diff) * 0.6
+    flexibility = (1 - flex_score) * 0.2
+    avg_factor = AVG * 0.2
+    priority = impact + flexibility + avg_factor
+    return priority
+"
+2026-11-20T00:01:34,eoh-knowledge,qwen3:14b-nothink,0.3,4,500,24486,24816,0.882,563,15451.4,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Non-linear transformations for enhanced sensitivity
+    transformed_DIFF = DIFF if DIFF > 0 else 1e10 - DIFF
+    transformed_SH = SH ** 1.2  # Emphasize lower stack height more strongly
+    transformed_EMP = EMP ** 0.8  # Emphasize available space more strongly
+    transformed_RI = RI ** 1.5  # Exponentially penalize blocking more containers
+    transformed_AVG = AVG ** 0.9 if AVG > 0 else 0
+
+    # Adaptive weightings based on stack quality and emptiness
+    if DIFF > 1e9:  # Empty stack
+        w_SH = 0.03
+        w_EMP = 0.5
+        w_AVG = 0.05
+        w_RI = 0.2
+        w_DIFF = 0.22
+    elif DIFF > 0:  # Safe stack
+        w_SH = 0.1
+        w_EMP = 0.35
+        w_AVG = 0.12
+        w_RI = 0.2
+        w_DIFF = 0.23
+    else:  # Unsafe stack
+        w_SH = 0.18
+        w_EMP = 0.25
+        w_AVG = 0.08
+        w_RI = 0.3
+        w_DIFF = 0.2
+
+    # Calculate the composite priority
+    priority = (w_SH * transformed_SH) + (w_EMP * transformed_EMP) + (w_AVG * transformed_AVG) + (w_RI * transformed_RI) + (w_DIFF * transformed_DIFF)
+    return priority
+"
+2026-11-20T00:05:06,eoh-knowledge,qwen3:14b-nothink,0.5,8,500,24007,24480,0.902,570,8827.2,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    priority = (1 / (EMP + 1)) * 100 + (DIFF if DIFF > 0 else 1e10 - DIFF) * 5 + (RI * 10)
+    return priority
+"
+2026-11-20T00:32:29,eoh-knowledge,qwen3:14b-nothink,0.1,5,500,28500,29031,0.82,560,11854.9,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Linear penalty for stack height (reduced weight)
+    height_penalty = max(0, SH / 50)
+    # Linear penalty for the ratio of blocked containers to available space
+    space_penalty = (RI / (1 + EMP)) if (1 + EMP) > 0 else 0
+    # Minimize future blocking impact with increased weight and normalization
+    blocking_impact = ((AVG - CUR) / (1 + RI)) * (1 / (1 + SH)) if (1 + RI) > 0 else 0
+    # Modified safety score: prioritize safe stacks (DIFF > 0) and penalize unsafe stacks more
+    safety_score = (DIFF if DIFF > 0 else 1e10 + abs(DIFF)) * 0.5
+    priority = safety_score + height_penalty + space_penalty + 2 * blocking_impact
+    return priority
+"
+2026-11-20T01:31:57,eoh-knowledge,qwen3:14b-nothink,0.3,8,500,24813,25140,0.874,560,11764.7,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Nonlinear transformation of stack height
+    height_transformed = (SH + 1e-6) ** 0.5 / (100 + 1e-6) ** 0.5
+    # Exponential transformation of free space
+    free_space_transformed = -EMP / (10 + 1e-6)
+    free_space_transformed = 1 / (1 + abs(free_space_transformed)) if free_space_transformed < 0 else free_space_transformed
+    # Modified average ID difference
+    avg_diff = AVG - CUR
+    if avg_diff == 0:
+        diff_transformed = 0
+    else:
+        diff_transformed = 1 / (1 + abs(avg_diff) ** 0.75)
+    # Combine the components with appropriate weights
+    priority = (height_transformed * 0.2) + (free_space_transformed * 0.4) + (diff_transformed * 0.3)
+    # Adjust based on DIFF for safety
+    if DIFF > 0:
+        priority += DIFF * 0.05
+    else:
+        priority += (1e10 - DIFF) * 0.05
+    return priority
+"
+2026-11-20T02:30:04,eoh-knowledge,qwen3:14b-nothink,0.5,5,500,23933,24210,0.876,564,19637.3,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Emphasize the average ID to minimize future relocations
+    avg_factor = (AVG - CUR) / (1 + SH)
+    # Use linear scaling for flexibility, penalize low flexibility
+    flexibility = 1 / (1 + EMP)
+    # Use a modified safety factor based on DIFF
+    stack_safety = DIFF if DIFF > 0 else 1e10 - DIFF
+    # Combine factors with new weights
+    priority = (avg_factor * 0.4) + (flexibility * 0.3) + (stack_safety * 0.3)
+    return priority
+"
+2026-11-20T03:23:33,eoh-knowledge,qwen3:14b-nothink,0.1,7,500,28774,29328,0.912,560,20755.4,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # New combination of factors: DIFF, RI, EMP, SH, and AVG with alternative weighting
+    # Prioritize long-term stability (DIFF), then minimize RI, and balance the rest
+    priority = (DIFF if DIFF > 0 else 1e10 - DIFF) * 50 + (RI * 10) + (-EMP * 15) + (SH * 3) + (AVG * 0.5)
+    return priority
+"
+2026-11-20T03:40:37,eoh-knowledge,qwen3:14b-nothink,0.5,10,500,24010,24363,0.878,562,12483.8,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Compute the ratio of RI to EMP, reflecting how likely the current container will block others
+    ri_emp_ratio = RI / (EMP + 1e-6) if EMP > 0 else 1e10
+
+    # Normalize DIFF for use in the formula
+    normalized_DIFF = DIFF if DIFF > 0 else 1e10 - DIFF
+
+    # Compute a linear transformation of AVG relative to CUR
+    avg_factor = (AVG - CUR) if AVG > CUR else 0
+
+    # Calculate final priority using a combination of factors
+    priority = ri_emp_ratio * 0.5 + (ri_emp_ratio * 0.5) + (normalized_DIFF * 0.2) + (avg_factor * 0.1)
+    return priority
+"
+2026-11-20T04:04:40,eoh-knowledge,qwen3:14b-nothink,0.1,10,500,28800,29299,0.938,560,13086.6,"def priority_v2(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Calculate the exponential impact of future blockage
+    future_blockage = (RI + 1) * 0.3 + (DIFF if DIFF > 0 else 1e10 - DIFF) * 0.7
+    
+    # Calculate the stack utilization factor, penalizing very full stacks
+    stack_utilization = (SH / (SH + 1)) ** 2
+    
+    # Calculate alignment with the current container's order
+    order_alignment = abs((AVG - CUR) / (AVG + 1)) if AVG != 0 else 0
+    
+    # Calculate flexibility based on empty space and stack height
+    flexibility = (EMP / (SH + 1)) * 0.5 if SH > 0 else 0.5
+    
+    # Combine all factors with non-linear weighting for decision emphasis
+    priority = (future_blockage * 0.4) + (stack_utilization * 0.1) + (order_alignment * 0.2) - (flexibility * 0.3)
+    return priority
+"
