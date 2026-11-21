@@ -151,6 +151,7 @@ pytest                      # 135 tests, about 2 minutes (the ReEvo/EoH, CALM an
 | Ollama + Qwen3-14B (thinking off) + `.venv` on ALICE, once, on the login node | `CRP_DATA=/your/folder bash frameworks/setup_ollama.sh` | ~30 min (11 GB download) |
 | One run of our framework on ALICE (one A100) | `CRP_DATA=/your/folder sbatch --partition=gpu-short --time=04:00:00 experiments/framework_job.sh 0.5 1` | 4 to 6 h (12 to 14 h with `--off pareto,feedback`; use a partition with a longer limit) |
 | All 140 runs of our framework (main + ablations), at most 6 at a time; done runs are skipped | `CRP_DATA=/your/folder sbatch --array=0-139%6 --partition=gpu-a100-80g,gpu-mig-40g --gres=gpu:1 --time=24:00:00 experiments/framework_job.sh` | days, depends on the queue |
+| The 40 runs of the knowledge-text check (decision 56) | `CRP_DATA=/your/folder sbatch --array=140-179%8 --partition=gpu-a100-80g,gpu-mig-40g --gres=gpu:1 --time=08:00:00 --exclude=node863,node865 experiments/framework_job.sh` | about a day, depends on the queue |
 | The list of those 140 runs, and which are done | `python experiments/run_framework.py plan` | instant |
 | Speed and rule quality with 1, 2, 4, 8 LLM requests at once (ALICE, one GPU) | `CRP_DATA=/your/folder sbatch --partition=gpu-mig-40g --gres=gpu:1 --time=01:00:00 experiments/bench_parallel_job.sh` | ~30 min |
 
@@ -565,6 +566,13 @@ The design and the reason for each part are in `docs/framework_design.md`.
     slower (21 against 11 seconds per call), and similar parents give more repeats (2,310 against
     1,382 LLM calls for the same budget). Pareto selection is therefore a time-saving part of the
     search, not one that improves the result.
+56. Three knowledge texts are compared, so the result does not rest on one hand-written prompt:
+    no text, text A (`KNOWLEDGE_FACTS`: the facts of our text with every piece of advice cut out,
+    nothing new written) and our full text. All three start from Min-Max with the full framework,
+    10 runs per alpha; the best is chosen on training totals and all three are reported on test.
+    "No text" was only run at alpha 0.5 and 0.1, so it gets 10 more runs at 0.3. The new runs are
+    tasks 140 to 179 of `experiments/run_framework.py plan`, after the old ones, so the numbers of
+    the earlier runs stay the same.
 
 ## License
 

@@ -5,7 +5,7 @@ knowledge text is added only with the `knowledge` switch.
 """
 from __future__ import annotations
 
-from crp.framework.knowledge import KNOWLEDGE
+from crp.framework.knowledge import KNOWLEDGE_TEXTS
 from crp.framework.population import Archive, Rule
 from crp.framework.scoring import YardType
 from crp.llm.prompts import FUNCTION_DESCRIPTION, PROBLEM_DESCRIPTION
@@ -20,11 +20,11 @@ ANSWER_FORMAT = (
 )
 
 
-def system_prompt(knowledge: bool) -> str:
+def system_prompt(knowledge: bool, text: str = "full") -> str:
     parts = ["You design priority functions for a container relocation heuristic.",
              PROBLEM_DESCRIPTION, FUNCTION_DESCRIPTION]
     if knowledge:
-        parts.append(KNOWLEDGE)
+        parts.append(KNOWLEDGE_TEXTS[text])
     return "\n\n".join(parts + [ANSWER_FORMAT])
 
 

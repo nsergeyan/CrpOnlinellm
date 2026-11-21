@@ -23,6 +23,21 @@ KNOWLEDGE = """Known facts about the container relocation problem:
   counts as one more than the last known ID. With a small window many stacks have the same DIFF
   and AVG, so the other inputs (SH, EMP, RI) must tell them apart."""
 
+# Text A of the knowledge-text check (README decision 56): the facts of KNOWLEDGE, with every
+# piece of advice cut out (the goal sentence, Min-Max, "most flexible", "SH and EMP matter",
+# "must tell them apart")
+KNOWLEDGE_FACTS = """Known facts about the container relocation problem:
+- A container is badly placed if some container below it in the same stack leaves earlier
+  (has a smaller ID). Every badly placed container has to be relocated at least once more.
+- The smallest ID in a stack is the stack's quality. If DIFF > 0, every container in the stack
+  leaves after CUR, so CUR stays well placed there (a safe stack). If DIFF < 0, CUR blocks the RI
+  containers below it and will have to move again.
+- An empty stack (DIFF about 2.1e9) is always safe.
+- Online setting: only IDs inside the look-ahead window are known, and every unknown container
+  counts as one more than the last known ID. With a small window many stacks have the same DIFF
+  and AVG."""
+KNOWLEDGE_TEXTS = {"full": KNOWLEDGE, "facts": KNOWLEDGE_FACTS}
+
 MINMAX_SEED = '''def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
     """Score one candidate stack for the container being relocated. Lowest score wins."""
     # Min-Max: the closest safe stack (DIFF > 0) first, else the stack with the largest DIFF;

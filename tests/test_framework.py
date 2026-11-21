@@ -4,10 +4,11 @@ import random
 
 import pytest
 
-from crp.framework.knowledge import SEEDS
+from crp.framework.knowledge import KNOWLEDGE_FACTS, SEEDS
 from crp.framework.llm import LLM, read_rule
 from crp.framework.loop import run
 from crp.framework.population import Archive, Rule, plain_code
+from crp.framework.prompts import system_prompt
 from crp.framework.scoring import Scorer
 from crp.framework.settings import Settings
 from fake_llm import fake_llm
@@ -41,6 +42,12 @@ def test_settings_label():
     assert Settings(alpha=0.5, seed_rule="lowest").label() == "ours-lowest"
     assert Settings(alpha=0.5, pareto=False, feedback=False).label() == "ours-no_pareto-no_feedback"
     assert Settings(alpha=0.5, batch_size=1).label() == "ours-batch1"
+    assert Settings(alpha=0.5, knowledge_text="facts").label() == "ours-facts"
+
+
+def test_facts_text_has_the_facts_but_no_advice():
+    prompt = system_prompt(True, "facts")
+    assert KNOWLEDGE_FACTS in prompt and "Min-Max" not in prompt and "prefer" not in prompt
 
 
 def test_read_rule():

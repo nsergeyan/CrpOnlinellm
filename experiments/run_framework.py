@@ -1,6 +1,6 @@
 """Our framework: one run, and merging the runs' results into results/llm_full.csv.
 
-    python experiments/run_framework.py run --alpha 0.5 --seed 1 [--seed-rule lowest] [--off pareto,feedback]
+    python experiments/run_framework.py run --alpha 0.5 --seed 1 [--seed-rule lowest] [--knowledge-text facts] [--off pareto,feedback]
         one run with Ollama at --base-url; writes runs/ours/<name>.jsonl (every proposed rule),
         <name>.summary.json (budget used, LLM calls, outcomes) and <name>.row.json (the CSV row:
         the best fully evaluated rule, scored once on the test set)
@@ -44,6 +44,9 @@ EXPERIMENT = [
     ({"crash_check": False, "dedup": False, "quick_test": False}, (0.5, 0.1)),
     ({"pareto": False, "feedback": False}, (0.5, 0.1)),
     ({"seed_rule": "lowest", "knowledge": False}, (0.5, 0.1)),
+    # the knowledge-text check (README decision 56): text A at every alpha, and "no text" also at 0.3
+    ({"knowledge_text": "facts"}, (0.5, 0.3, 0.1)),
+    ({"knowledge": False}, (0.3,)),
 ]
 RUNS_PER_SETTING = 10
 
@@ -108,6 +111,7 @@ def main() -> None:
     one.add_argument("--alpha", type=float, required=True)
     one.add_argument("--seed", type=int, required=True, help="run number")
     one.add_argument("--seed-rule", choices=["minmax", "lowest"], default="minmax")
+    one.add_argument("--knowledge-text", choices=["full", "facts"], default="full")
     one.add_argument("--off", default="", help=f"components to switch off, comma-separated: {', '.join(SWITCHES)}")
     one.add_argument("--budget", type=int, default=420_000, help="yard simulations")
     one.add_argument("--batch", type=int, default=Settings.batch_size, help="rules the LLM writes at the same time")
@@ -137,7 +141,8 @@ def main() -> None:
         off = [s for s in args.off.split(",") if s]
         if unknown := set(off) - set(SWITCHES):
             parser.error(f"unknown components: {', '.join(sorted(unknown))}")
-        settings = Settings(alpha=args.alpha, run_seed=args.seed, seed_rule=args.seed_rule, budget=args.budget,
+        settings = Settings(alpha=args.alpha, run_seed=args.seed, seed_rule=args.seed_rule,
+                            knowledge_text=args.knowledge_text, budget=args.budget,
                             batch_size=args.batch, **{name: False for name in off})
     row = run_one(settings, args.model, args.base_url)
     print(f"{settings.label()} alpha {settings.alpha} seed {settings.run_seed}: train {row['train_fitness']:,}, "

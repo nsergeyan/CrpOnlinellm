@@ -41,7 +41,7 @@ def run(settings: Settings, llm: LLM, log_path: Path) -> tuple[Rule, dict]:
     rng = random.Random(settings.run_seed)
     scorer = Scorer(settings.alpha, settings.timeout, settings.crash_yards, settings.quick_per_type)
     archive = Archive(settings.population_size, scorer.types)
-    system = prompts.system_prompt(settings.knowledge)
+    system = prompts.system_prompt(settings.knowledge, settings.knowledge_text)
     all_ids = list(range(len(scorer.yards)))
     state = {"used": 0, "seen_code": set(), "seen_quick": set(), "outcomes": {}}
     log_path.parent.mkdir(parents=True, exist_ok=True)

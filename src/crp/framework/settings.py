@@ -18,6 +18,7 @@ class Settings:
     run_seed: int = 1              # run number; also seeds the framework's own random choices
     seed_rule: str = "minmax"      # "minmax" or "lowest" (the start rule of EoH, ReEvo and CALM)
     knowledge: bool = True
+    knowledge_text: str = "full"   # "full" (KNOWLEDGE) or "facts" (the same facts, no advice)
     crash_check: bool = True
     dedup: bool = True
     quick_test: bool = True
@@ -39,6 +40,8 @@ class Settings:
         parts = ["ours"]
         if self.seed_rule != "minmax":
             parts.append(self.seed_rule)
+        if self.knowledge_text != "full":
+            parts.append(self.knowledge_text)
         parts += [f"no_{name}" for name in SWITCHES if not getattr(self, name)]
         if self.batch_size != 8:
             parts.append(f"batch{self.batch_size}")
