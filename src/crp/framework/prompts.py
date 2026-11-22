@@ -6,6 +6,7 @@ knowledge text is added only with the `knowledge` switch.
 from __future__ import annotations
 
 from crp.framework.knowledge import KNOWLEDGE_TEXTS
+from crp.framework.lessons import Lesson
 from crp.framework.population import Archive, Rule
 from crp.framework.scoring import YardType
 from crp.llm.prompts import FUNCTION_DESCRIPTION, PROBLEM_DESCRIPTION
@@ -18,14 +19,19 @@ ANSWER_FORMAT = (
     "take exactly the six inputs SH, EMP, AVG, CUR, RI, DIFF, and return a finite number; math and "
     "np (numpy) are available. Keep it deterministic and fast."
 )
+LESSON_FORMAT = (
+    "A rule only gets the six inputs of one candidate stack; it cannot see the yard's size, the other "
+    "stacks or anything else. This time, do not write a function: answer only with the lessons, one "
+    "per line, each line starting with 'Lesson:' and holding one sentence."
+)
 
 
-def system_prompt(knowledge: bool, text: str = "full") -> str:
+def system_prompt(knowledge: bool, text: str = "full", answer: str = ANSWER_FORMAT) -> str:
     parts = ["You design priority functions for a container relocation heuristic.",
              PROBLEM_DESCRIPTION, FUNCTION_DESCRIPTION]
     if knowledge:
         parts.append(KNOWLEDGE_TEXTS[text])
-    return "\n\n".join(parts + [ANSWER_FORMAT])
+    return "\n\n".join(parts + [answer])
 
 
 def type_name(t: YardType) -> str:
@@ -78,3 +84,43 @@ def explore(archive: Archive) -> str:
 def repair(code: str, error: str) -> str:
     return (f"This rule crashed during scoring:\n```python\n{code.strip()}\n```\nError: {error}\n\n"
             "Fix the error and keep the idea of the rule.")
+
+
+def with_lessons(prompt: str, lessons: list[str]) -> str:
+    if not lessons:
+        return prompt
+    return prompt + "\n\nLessons learned so far in this run:\n" + "\n".join(f"- {text}" for text in lessons)
+
+
+def counts(lesson: Lesson) -> str:
+    return (f"with it {lesson.shown_wins} of {lesson.shown} rules beat their parent, "
+            f"without it {lesson.hidden_wins} of {lesson.hidden}")
+
+
+def example(rule: dict) -> str:
+    if rule["total"] is None:
+        result = "Stopped at the quick test: worse than the 10 best rules on 84 yards."
+    else:
+        result = (f"Total relocations on the 840 training yards: {rule['total']:,}; "
+                  f"its parent: {rule['parent_total']:,}.")
+    return (f"Parent's idea: {rule['parent_idea']}\nIdea: {rule['idea']}\n"
+            f"```python\n{rule['code'].strip()}\n```\n{result}")
+
+
+def update_lessons(kept: list[Lesson], rewrite: list[Lesson], deleted: list[Lesson],
+                   winners: list[dict], losers: list[dict], room: int) -> str:
+    listed = lambda lessons: "\n".join(f"- {lesson.text} ({counts(lesson)})" for lesson in lessons) or "- none"
+    parts = ["Lessons are added at random to the prompts that ask for new rules. A rule wins if it has "
+             "fewer relocations than the rule it was made from (its parent).",
+             f"Current lessons:\n{listed(kept)}"]
+    if rewrite:
+        parts.append(f"Removed now, because rules did no better with them:\n{listed(rewrite)}")
+    if deleted:
+        parts.append("Removed earlier, because rules did clearly worse with them; do not write them "
+                     f"again:\n{listed(deleted)}")
+    parts.append("Recent rules that beat their parent:\n\n" + ("\n\n".join(map(example, winners)) or "none yet"))
+    parts.append("Recent rules that did not:\n\n" + ("\n\n".join(map(example, losers)) or "none yet"))
+    parts.append(f"Write {room} new {'lesson' if room == 1 else 'lessons'} that would help to write rules "
+                 "that beat their parent. Base them on the rules above and do not repeat a current or "
+                 "removed lesson. Each lesson is one sentence on what to change or avoid in a rule.")
+    return "\n\n".join(parts)

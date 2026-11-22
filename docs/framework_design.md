@@ -63,6 +63,23 @@ seed rule  ──►  population (10 rules, each fully evaluated)
 - Operators: refine (improve one rule from its feedback), merge (combine two rules that win
   different yard types), explore (a new idea, using the knowledge text).
 
+## Lessons learned during the run (README decision 57)
+
+Off by default (`lessons_every = 0`); run with F = 4, 16 and 30.
+
+- A notebook of at most 5 one-sentence lessons, empty at the start.
+- Every prompt for a new rule shows each lesson with probability 0.5 (its own random generator).
+- Every rule with a parent counts once for each lesson, as "shown" or "hidden", and as a win if
+  its 840-yard total is lower than its parent's (the better parent for a merge). A rule stopped
+  at a gate is not a win; explore rules have no parent and are not counted.
+- Every F batches each lesson is deleted if rules clearly win less often with it (one-sided
+  two-proportion z-test, p < 0.05, shown at least 40 times), rewritten if it was shown at least
+  120 times and rules won no more often with it, and kept otherwise. One LLM call fills the free
+  places; it sees the lessons with their counts, the deleted lessons, and the 3 latest rules that
+  beat their parent and the 3 latest that did not.
+- Logged: which lessons each rule's prompt showed and hid (in the rule log), and every check
+  with the counts, decisions, prompt and answer (`<run>.lessons.jsonl`).
+
 ## Budget (agreed with Wei)
 
 The same 420,000 yard simulations per run as the baselines (500 evaluations x 840 yards).
@@ -104,7 +121,8 @@ this log.
 | `src/crp/framework/knowledge.py` | the CRP knowledge text and the two seed rules |
 | `src/crp/framework/scoring.py` | crash test, quick test, full evaluation with timeout, yard counting, per-type totals (reuses `crp.llm.evaluate`) |
 | `src/crp/framework/population.py` | population, Pareto selection, duplicate check |
-| `src/crp/framework/prompts.py` | prompt texts for the operators, feedback and repair |
+| `src/crp/framework/prompts.py` | prompt texts for the operators, feedback, repair and the lesson checks |
+| `src/crp/framework/lessons.py` | lessons: the notebook, the coin flips, the counts and the check |
 | `src/crp/framework/llm.py` | small OpenAI-style client for Ollama, code extraction |
 | `src/crp/framework/loop.py` | the main loop |
 | `experiments/run_framework.py` | one run: rule log and result row (`method = ours`, same CSV format) |

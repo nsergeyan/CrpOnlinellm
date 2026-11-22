@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HINT = "Prefer stacks with low RI; never add DIFF."
+LESSONS = "Lesson: Prefer stacks with low RI.\n- Lesson 2: Keep Min-Max as the first term."
 
 
 @contextmanager
@@ -22,7 +23,8 @@ def fake_llm(answers: list[str], prompts: list[str] | None = None):
             with lock:
                 if prompts is not None:
                     prompts.append(prompt)
-                content = HINT if "hints" in prompt else next(replies)  # ReEvo's reflections ask for hints
+                # ReEvo's reflections ask for hints, our framework's lesson checks for new lessons
+                content = HINT if "hints" in prompt else LESSONS if "new lesson" in prompt else next(replies)
             reply = json.dumps({
                 "id": "fake", "object": "chat.completion", "created": 0, "model": body["model"],
                 "choices": [{"index": 0, "finish_reason": "stop",

@@ -5,6 +5,7 @@ import random
 import pytest
 
 from crp.framework.knowledge import KNOWLEDGE_FACTS, SEEDS
+from crp.framework.lessons import Lesson, decide
 from crp.framework.llm import LLM, read_rule
 from crp.framework.loop import run
 from crp.framework.population import Archive, Rule, plain_code
@@ -43,6 +44,7 @@ def test_settings_label():
     assert Settings(alpha=0.5, pareto=False, feedback=False).label() == "ours-no_pareto-no_feedback"
     assert Settings(alpha=0.5, batch_size=1).label() == "ours-batch1"
     assert Settings(alpha=0.5, knowledge_text="facts").label() == "ours-facts"
+    assert Settings(alpha=0.5, lessons_every=4).label() == "ours-lessons4"
 
 
 def test_facts_text_has_the_facts_but_no_advice():
@@ -163,3 +165,38 @@ def test_batched_run_counts_every_yard_simulation_the_same_way(tmp_path):
     proposals = sum(1 + e["repairs"] for e in log[1:] if e["operator"] != "none")
     assert proposals <= llm.calls <= proposals + 7  # at most 7 answers of the last batch unused
     assert best.total == min(e["total"] for e in log if e["status"] == "evaluated")
+
+
+def test_lesson_decisions():
+    def lesson(shown: int, shown_wins: int, hidden: int, hidden_wins: int) -> Lesson:
+        return Lesson(1, "", 0, shown, shown_wins, hidden, hidden_wins)
+    assert decide(lesson(30, 0, 30, 15), 40, 120) == "keep"        # much worse, but shown too few times
+    assert decide(lesson(40, 4, 40, 16), 40, 120) == "delete"      # 10% against 40% wins
+    assert decide(lesson(60, 12, 60, 14), 40, 120) == "keep"       # a little worse: chance
+    assert decide(lesson(120, 24, 120, 25), 40, 120) == "rewrite"  # no better after 120 rules
+    assert decide(lesson(120, 30, 120, 24), 40, 120) == "keep"     # better with it
+
+
+def test_lessons_are_shown_at_random_counted_and_checked(tmp_path):
+    prompts = []
+    with fake_llm(ANSWERS, prompts) as url:
+        llm = LLM("fake", url, temperature=1.0)
+        _, summary = run(Settings(alpha=0.5, budget=8_000, lessons_every=1, lesson_judge_after=8), llm,
+                         tmp_path / "log.jsonl")
+    log = [json.loads(line) for line in (tmp_path / "log.jsonl").read_text().splitlines()]
+    checks = [json.loads(line) for line in (tmp_path / "log.lessons.jsonl").read_text().splitlines()]
+    assert [lesson["text"] for lesson in checks[0]["new"]] == ["Prefer stacks with low RI.",
+                                                               "Keep Min-Max as the first term."]
+    for check in checks:  # each lesson's counts are the rules logged with it shown or hidden
+        counted = [e for e in log if 0 < e["step"] <= check["step"] and "beat_parent" in e]
+        for lesson in check["lessons"]:
+            for side in ("shown", "hidden"):
+                rules = [e for e in counted if lesson["id"] in e["lessons"][side]]
+                assert lesson[side] == len(rules) and lesson[f"{side}_wins"] == sum(e["beat_parent"] for e in rules)
+    assert any(lesson["decision"] == "rewrite" for check in checks for lesson in check["lessons"])
+    rule_prompts = [p for p in prompts if "new lesson" not in p]
+    assert 0 < sum("Lessons learned so far" in p for p in rule_prompts) < len(rule_prompts)
+    asked = sum("prompt" in check for check in checks)
+    assert summary["lesson_checks"] == len(checks)
+    proposals = sum(1 + e["repairs"] for e in log[1:] if e["operator"] != "none")
+    assert proposals + asked <= llm.calls == summary["llm_calls"] <= proposals + asked + 7

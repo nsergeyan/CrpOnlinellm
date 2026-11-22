@@ -151,7 +151,9 @@ pytest                      # 135 tests, about 2 minutes (the ReEvo/EoH, CALM an
 | Ollama + Qwen3-14B (thinking off) + `.venv` on ALICE, once, on the login node | `CRP_DATA=/your/folder bash frameworks/setup_ollama.sh` | ~30 min (11 GB download) |
 | One run of our framework on ALICE (one A100) | `CRP_DATA=/your/folder sbatch --partition=gpu-short --time=04:00:00 experiments/framework_job.sh 0.5 1` | 4 to 6 h (12 to 14 h with `--off pareto,feedback`; use a partition with a longer limit) |
 | All 140 runs of our framework (main + ablations), at most 6 at a time; done runs are skipped | `CRP_DATA=/your/folder sbatch --array=0-139%6 --partition=gpu-a100-80g,gpu-mig-40g --gres=gpu:1 --time=24:00:00 experiments/framework_job.sh` | days, depends on the queue |
-| The 40 runs of the knowledge-text check (decision 56) | `CRP_DATA=/your/folder sbatch --array=140-179%8 --partition=gpu-a100-80g,gpu-mig-40g --gres=gpu:1 --time=08:00:00 --exclude=node863,node865 experiments/framework_job.sh` | about a day, depends on the queue |
+| The 40 runs of the knowledge-text check (decision 56) | `CRP_DATA=/your/folder sbatch --array=140-179%10 --partition=gpu-a100-80g,gpu-mig-40g --gres=gpu:1 --time=08:00:00 --exclude=node863,node865 experiments/framework_job.sh` | about a day, depends on the queue |
+| One short test run with lessons on ALICE (100 evaluations, F = 4; run number 99 is not in the plan, and `collect` skips a run with a smaller budget) | `CRP_DATA=/your/folder sbatch --partition=gpu-short --time=02:00:00 experiments/framework_job.sh 0.5 99 --lessons-every 4 --budget 84000` | not measured yet |
+| The 90 runs with lessons (decision 57), at most 10 at a time | `CRP_DATA=/your/folder sbatch --array=180-269%10 --partition=gpu-a100-80g,gpu-mig-40g --gres=gpu:1 --time=10:00:00 --exclude=node863,node865,node867 experiments/framework_job.sh` | 2 to 3 days, depends on the queue |
 | The list of those 140 runs, and which are done | `python experiments/run_framework.py plan` | instant |
 | Speed and rule quality with 1, 2, 4, 8 LLM requests at once (ALICE, one GPU) | `CRP_DATA=/your/folder sbatch --partition=gpu-mig-40g --gres=gpu:1 --time=01:00:00 experiments/bench_parallel_job.sh` | ~30 min |
 
@@ -573,6 +575,28 @@ The design and the reason for each part are in `docs/framework_design.md`.
     "No text" was only run at alpha 0.5 and 0.1, so it gets 10 more runs at 0.3. The new runs are
     tasks 140 to 179 of `experiments/run_framework.py plan`, after the old ones, so the numbers of
     the earlier runs stay the same.
+57. Lessons learned during the run (`lessons_every` = F, off by default;
+    `src/crp/framework/lessons.py`). Every F batches the LLM writes short lessons (at most 5, one
+    sentence each) from the rules so far, and each lesson is tested before it is trusted. Every
+    prompt shows each lesson with probability 0.5, so rules written with and without it in the
+    same batches can be compared. A rule wins if its 840-yard total is lower than its parent's
+    (the better parent for a merge); a rule stopped at a gate does not win, and explore rules have
+    no parent and are not counted. The 840-yard result is used because the 84-yard and 840-yard
+    verdicts disagree for 38% of the fully tested rules with a parent (1,538 of 4,027 at alpha
+    0.5). At each check a lesson is deleted if rules win clearly less often with it (one-sided
+    two-proportion z-test, p < 0.05, after at least 40 rules with it), rewritten if at least 120
+    rules saw it and they won no more often than without it, and kept otherwise, so its evidence
+    keeps growing; 120 is about where a 10-point higher win rate (20% to 30%) starts to differ
+    from chance. One extra LLM call fills the free places; it sees the lessons with their counts,
+    the deleted ones, and the 3 latest rules that beat their parent and the 3 latest that did not.
+    A dry run of this bookkeeping on the log of run 1 at alpha 0.5, with lessons that were never
+    shown and so could have no effect, gave chance differences of up to 17 points at about 60
+    rules, and rewriting after a single check replaced almost every lesson before it could be
+    judged; hence the two thresholds. The coin flips use their own random generator, so the
+    operator and parent draws do not change. F = 4, 16 and 30 are run (10 runs per alpha each,
+    tasks 180 to 269 of the plan) against the full framework without lessons, and F is chosen on
+    training. Unlike ReEvo's reflections, every lesson is checked against the results of the rules
+    it was shown to.
 
 ## License
 

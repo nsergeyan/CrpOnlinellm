@@ -4,6 +4,7 @@ Every component can be switched off for the ablations (docs/framework_design.md)
 - component 1, CRP knowledge: `knowledge` (text in the prompts) and `seed_rule` (minmax or lowest)
 - component 2, screening and repair: `crash_check` (with repair), `dedup`, `quick_test`
 - component 3: `pareto` (parent selection) and `feedback` (where a rule is strong or weak)
+- lessons learned during the run (README decision 57): `lessons_every`, 0 (off) by default
 """
 from __future__ import annotations
 
@@ -34,6 +35,10 @@ class Settings:
     operator_weights: tuple[float, float, float] = (0.6, 0.3, 0.1)  # refine, merge, explore (pilot: explore never improved)
     max_free_in_a_row: int = 100   # stop if this many proposals in a row cost nothing (only repeats)
     batch_size: int = 8            # rules the LLM writes at the same time (the server answers them together)
+    lessons_every: int = 0         # F: check the lessons every F batches; 0 = no lessons
+    max_lessons: int = 5
+    lesson_delete_after: int = 40  # rules shown a lesson before it can be deleted as harmful
+    lesson_judge_after: int = 120  # rules shown a lesson before it is rewritten if they did no better
 
     def label(self) -> str:
         """Method name in the results: 'ours', plus what differs from the full framework."""
@@ -42,6 +47,8 @@ class Settings:
             parts.append(self.seed_rule)
         if self.knowledge_text != "full":
             parts.append(self.knowledge_text)
+        if self.lessons_every:
+            parts.append(f"lessons{self.lessons_every}")
         parts += [f"no_{name}" for name in SWITCHES if not getattr(self, name)]
         if self.batch_size != 8:
             parts.append(f"batch{self.batch_size}")

@@ -1,17 +1,19 @@
 """Our framework: one run, and merging the runs' results into results/llm_full.csv.
 
-    python experiments/run_framework.py run --alpha 0.5 --seed 1 [--seed-rule lowest] [--knowledge-text facts] [--off pareto,feedback]
+    python experiments/run_framework.py run --alpha 0.5 --seed 1 [--seed-rule lowest] [--knowledge-text facts] [--lessons-every 4] [--off pareto,feedback]
         one run with Ollama at --base-url; writes runs/ours/<name>.jsonl (every proposed rule),
         <name>.summary.json (budget used, LLM calls, outcomes) and <name>.row.json (the CSV row:
-        the best fully evaluated rule, scored once on the test set)
+        the best fully evaluated rule, scored once on the test set); with lessons also
+        <name>.lessons.jsonl (every check of the lessons)
     python experiments/run_framework.py plan
         every run of the experiment agreed with Wei, numbered in submission order, and whether it is
         done (its row file exists)
     python experiments/run_framework.py task 7
         run number 7 of the plan (what a job-array task does); skipped if it is done already
     python experiments/run_framework.py collect
-        appends every new row to results/llm_full.csv and copies the run's log (compressed,
-        .jsonl.gz) and summary to results/llm_runs_full/, next to the EoH, ReEvo and CALM runs
+        appends every new row to results/llm_full.csv and copies the run's log and lessons file
+        (compressed, .jsonl.gz) and summary to results/llm_runs_full/, next to the EoH, ReEvo and
+        CALM runs
 
 <name> is <method>_a<alpha>_s<seed>; method is "ours", plus what differs from the full framework
 (e.g. "ours-lowest", "ours-no_pareto", "ours-batch1"). The evaluations column holds the budget in full
@@ -47,6 +49,10 @@ EXPERIMENT = [
     # the knowledge-text check (README decision 56): text A at every alpha, and "no text" also at 0.3
     ({"knowledge_text": "facts"}, (0.5, 0.3, 0.1)),
     ({"knowledge": False}, (0.3,)),
+    # lessons learned during the run (README decision 57), checked every 4, 16 or 30 batches
+    ({"lessons_every": 4}, (0.5, 0.3, 0.1)),
+    ({"lessons_every": 16}, (0.5, 0.3, 0.1)),
+    ({"lessons_every": 30}, (0.5, 0.3, 0.1)),
 ]
 RUNS_PER_SETTING = 10
 
@@ -97,9 +103,11 @@ def collect(out: Path) -> None:
             continue
         append_row(out, result)
         name = path.name.removesuffix(".row.json")
-        with (RUNS / f"{name}.jsonl").open("rb") as log, \
-                gzip.open(RESULTS / "llm_runs_full" / f"{name}.jsonl.gz", "wb") as packed:
-            shutil.copyfileobj(log, packed)  # compressed: a log has every proposed rule of the run
+        for kind in (".jsonl", ".lessons.jsonl"):  # the lessons file exists only for runs with lessons
+            if (RUNS / f"{name}{kind}").exists():
+                with (RUNS / f"{name}{kind}").open("rb") as log, \
+                        gzip.open(RESULTS / "llm_runs_full" / f"{name}{kind}.gz", "wb") as packed:
+                    shutil.copyfileobj(log, packed)  # compressed: a log has every proposed rule of the run
         shutil.copy(RUNS / f"{name}.summary.json", RESULTS / "llm_runs_full" / f"{name}.summary.json")
         print(f"added {name}: test {result['test_total']}")
 
@@ -112,6 +120,7 @@ def main() -> None:
     one.add_argument("--seed", type=int, required=True, help="run number")
     one.add_argument("--seed-rule", choices=["minmax", "lowest"], default="minmax")
     one.add_argument("--knowledge-text", choices=["full", "facts"], default="full")
+    one.add_argument("--lessons-every", type=int, default=0, help="check the lessons every this many batches; 0 = no lessons")
     one.add_argument("--off", default="", help=f"components to switch off, comma-separated: {', '.join(SWITCHES)}")
     one.add_argument("--budget", type=int, default=420_000, help="yard simulations")
     one.add_argument("--batch", type=int, default=Settings.batch_size, help="rules the LLM writes at the same time")
@@ -142,7 +151,7 @@ def main() -> None:
         if unknown := set(off) - set(SWITCHES):
             parser.error(f"unknown components: {', '.join(sorted(unknown))}")
         settings = Settings(alpha=args.alpha, run_seed=args.seed, seed_rule=args.seed_rule,
-                            knowledge_text=args.knowledge_text, budget=args.budget,
+                            knowledge_text=args.knowledge_text, lessons_every=args.lessons_every, budget=args.budget,
                             batch_size=args.batch, **{name: False for name in off})
     row = run_one(settings, args.model, args.base_url)
     print(f"{settings.label()} alpha {settings.alpha} seed {settings.run_seed}: train {row['train_fitness']:,}, "
