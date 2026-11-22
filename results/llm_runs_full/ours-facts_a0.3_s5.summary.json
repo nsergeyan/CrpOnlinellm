@@ -1,0 +1,40 @@
+{
+ "settings": {
+  "alpha": 0.3,
+  "run_seed": 5,
+  "seed_rule": "minmax",
+  "knowledge": true,
+  "knowledge_text": "facts",
+  "crash_check": true,
+  "dedup": true,
+  "quick_test": true,
+  "pareto": true,
+  "feedback": true,
+  "budget": 420000,
+  "population_size": 10,
+  "crash_yards": 4,
+  "quick_per_type": 4,
+  "max_repairs": 2,
+  "timeout": 60.0,
+  "temperature": 1.0,
+  "operator_weights": [
+   0.6,
+   0.3,
+   0.1
+  ],
+  "max_free_in_a_row": 100,
+  "batch_size": 8
+ },
+ "budget_used": 419588,
+ "llm_calls": 1686,
+ "full_evaluations": 375,
+ "outcomes": {
+  "evaluated": 375,
+  "duplicate_behaviour": 270,
+  "duplicate_code": 32,
+  "screened_out": 973,
+  "no_code": 7,
+  "crash": 2
+ },
+ "seconds": 23054.5
+}

@@ -574,7 +574,14 @@ The design and the reason for each part are in `docs/framework_design.md`.
     10 runs per alpha; the best is chosen on training totals and all three are reported on test.
     "No text" was only run at alpha 0.5 and 0.1, so it gets 10 more runs at 0.3. The new runs are
     tasks 140 to 179 of `experiments/run_framework.py plan`, after the old ones, so the numbers of
-    the earlier runs stay the same.
+    the earlier runs stay the same. Result (`results/framework_comparison.md`, section 4): the
+    full text and text A do not differ on training (median 23,726 / 24,429 / 28,498 against
+    23,686 / 24,393 / 28,518 at alpha 0.5 / 0.3 / 0.1; p = 0.35, 0.64 and 0.99), so the full text
+    stays the main version, and the ablations, the baseline comparisons and the lesson runs
+    (decision 57) keep using it. On training both texts beat no text clearly at alpha 0.3 (by 0.6%
+    and 0.8%, Holm-corrected p 0.002) and less clearly at 0.1 (by 0.4% and 0.3%, p 0.02 and 0.01,
+    0.12 and 0.08 after Holm correction); at 0.5 the difference is not significant (p 0.19 and
+    0.44). The gain comes from the facts about the problem, not from the advice.
 57. Lessons learned during the run (`lessons_every` = F, off by default;
     `src/crp/framework/lessons.py`). Every F batches the LLM writes short lessons (at most 5, one
     sentence each) from the rules so far, and each lesson is tested before it is trusted. Every

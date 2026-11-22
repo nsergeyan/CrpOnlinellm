@@ -13,6 +13,7 @@ for free; GP-800 is the check for that: with 800 evaluations GP simulates about 
 formulas (section 8). Section 5 scores the best rule of every run again,
 yard by yard, and stops if a total differs from the one in the results files. The three check
 runs with one rule at a time ("ours-batch1", README decision 43) are not part of the comparison.
+Text A is our knowledge text with the advice cut out (README decision 56).
 """
 import gzip
 import json
@@ -31,9 +32,11 @@ from crp.yard import Yard
 
 FULL, LOWEST, NO_KNOWLEDGE = "ours", "ours-lowest", "ours-lowest-no_knowledge"
 NO_TEXT, NO_SCREENING, NO_PARETO = "ours-no_knowledge", "ours-no_crash_check-no_dedup-no_quick_test", "ours-no_pareto-no_feedback"
+FACTS = "ours-facts"
 OURS = {FULL: "Ours (Min-Max start)", LOWEST: "Ours (lowest-stack start)", NO_TEXT: "Ours, no knowledge text",
         NO_SCREENING: "Ours, screening and repair off", NO_PARETO: "Ours, Pareto and feedback off",
-        NO_KNOWLEDGE: "Ours, lowest-stack start, no knowledge text"}
+        NO_KNOWLEDGE: "Ours, lowest-stack start, no knowledge text",
+        FACTS: "Ours, knowledge text A (the facts, no advice)"}
 BASELINES = {"gp500": "GP-500 (pop 50)", "gp500_100": "GP-500 (pop 100)", "gp800": "GP-800 (pop 50)",
              "gp500_mm": "GP-500 from Min-Max", "gp800_mm": "GP-800 from Min-Max",
              "gp500_mmt": "GP-500, Min-Max also a terminal", "gp800_mmt": "GP-800, Min-Max also a terminal",
@@ -155,6 +158,13 @@ def main() -> None:
     lines += ["", "**Effect of one source of knowledge** (test totals; Holm-corrected over the rows)"]
     lines += tests([(f"alpha {a}: {OURS[x]} vs {OURS[y]}", test[x, a], test[y, a])
                     for a in ALPHAS for x, y in pairs if (x, a) in runs and (y, a) in runs])
+    texts = [(FULL, FACTS), (FULL, NO_TEXT), (FACTS, NO_TEXT)]
+    lines += ["", "**The three knowledge texts** (Min-Max start; README decision 56: the text is chosen on",
+              "training totals, all three are reported on test; Holm-corrected over the rows of a table)", "",
+              "Training totals"]
+    lines += tests([(f"alpha {a}: {OURS[x]} vs {OURS[y]}", train[x, a], train[y, a]) for a in ALPHAS for x, y in texts])
+    lines += ["", "Test totals"]
+    lines += tests([(f"alpha {a}: {OURS[x]} vs {OURS[y]}", test[x, a], test[y, a]) for a in ALPHAS for x, y in texts])
 
     lines += ["", "## 5. Where the gains are: test totals per yard type", "",
               "Median over the runs of the best rules' totals on one yard type, as the difference from Min-Max",
