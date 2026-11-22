@@ -194,6 +194,7 @@ def test_lessons_are_shown_at_random_counted_and_checked(tmp_path):
                 rules = [e for e in counted if lesson["id"] in e["lessons"][side]]
                 assert lesson[side] == len(rules) and lesson[f"{side}_wins"] == sum(e["beat_parent"] for e in rules)
     assert any(lesson["decision"] == "rewrite" for check in checks for lesson in check["lessons"])
+    assert all("```diff\n" in check["prompt"] for check in checks if "prompt" in check)  # examples as changes
     rule_prompts = [p for p in prompts if "new lesson" not in p]
     assert 0 < sum("Lessons learned so far" in p for p in rule_prompts) < len(rule_prompts)
     asked = sum("prompt" in check for check in checks)

@@ -5,6 +5,8 @@ knowledge text is added only with the `knowledge` switch.
 """
 from __future__ import annotations
 
+import difflib
+
 from crp.framework.knowledge import KNOWLEDGE_TEXTS
 from crp.framework.lessons import Lesson
 from crp.framework.population import Archive, Rule
@@ -103,8 +105,10 @@ def example(rule: dict) -> str:
     else:
         result = (f"Total relocations on the 840 training yards: {rule['total']:,}; "
                   f"its parent: {rule['parent_total']:,}.")
+    changes = "\n".join(list(difflib.unified_diff(rule["parent_code"].strip().splitlines(),
+                                                  rule["code"].strip().splitlines(), lineterm="", n=1))[2:])
     return (f"Parent's idea: {rule['parent_idea']}\nIdea: {rule['idea']}\n"
-            f"```python\n{rule['code'].strip()}\n```\n{result}")
+            f"Changes to the parent's code (+ added, - removed):\n```diff\n{changes}\n```\n{result}")
 
 
 def update_lessons(kept: list[Lesson], rewrite: list[Lesson], deleted: list[Lesson],
@@ -121,6 +125,9 @@ def update_lessons(kept: list[Lesson], rewrite: list[Lesson], deleted: list[Less
     parts.append("Recent rules that beat their parent:\n\n" + ("\n\n".join(map(example, winners)) or "none yet"))
     parts.append("Recent rules that did not:\n\n" + ("\n\n".join(map(example, losers)) or "none yet"))
     parts.append(f"Write {room} new {'lesson' if room == 1 else 'lessons'} that would help to write rules "
-                 "that beat their parent. Base them on the rules above and do not repeat a current or "
-                 "removed lesson. Each lesson is one sentence on what to change or avoid in a rule.")
+                 "that beat their parent. Base them on the changes above that won or lost, and do not "
+                 "repeat a current or removed lesson. Each lesson is one sentence that names the inputs "
+                 "it is about (SH, EMP, AVG, CUR, RI, DIFF), the situation it applies to (for example "
+                 "safe stacks, unsafe stacks, empty stacks or ties) and what to change in the score, in "
+                 "which direction.")
     return "\n\n".join(parts)

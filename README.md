@@ -596,6 +596,9 @@ The design and the reason for each part are in `docs/framework_design.md`.
     keeps growing; 120 is about where a 10-point higher win rate (20% to 30%) starts to differ
     from chance. One extra LLM call fills the free places; it sees the lessons with their counts,
     the deleted ones, and the 3 latest rules that beat their parent and the 3 latest that did not.
+    It shows each of these rules as its changes to the parent's code and asks for lessons that
+    name the inputs, the situation and the direction of the change; in a first test run without
+    this, the LLM wrote vague lessons such as "balance safety with flexibility".
     A dry run of this bookkeeping on the log of run 1 at alpha 0.5, with lessons that were never
     shown and so could have no effect, gave chance differences of up to 17 points at about 60
     rules, and rewriting after a single check replaced almost every lesson before it could be

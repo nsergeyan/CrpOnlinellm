@@ -76,7 +76,8 @@ Off by default (`lessons_every = 0`); run with F = 4, 16 and 30.
   two-proportion z-test, p < 0.05, shown at least 40 times), rewritten if it was shown at least
   120 times and rules won no more often with it, and kept otherwise. One LLM call fills the free
   places; it sees the lessons with their counts, the deleted lessons, and the 3 latest rules that
-  beat their parent and the 3 latest that did not.
+  beat their parent and the 3 latest that did not, each as its changes to the parent's code, and
+  it is asked for lessons that name the inputs, the situation and the direction of the change.
 - Logged: which lessons each rule's prompt showed and hid (in the rule log), and every check
   with the counts, decisions, prompt and answer (`<run>.lessons.jsonl`).
 

@@ -204,8 +204,8 @@ def run(settings: Settings, llm: LLM, log_path: Path) -> tuple[Rule, dict]:
                     entry["beat_parent"] = rule is not None and rule.total < parent.total
                     notebook.record(lessons, entry["beat_parent"], {
                         "won": entry["beat_parent"], "status": entry["status"], "parent_idea": parent.idea,
-                        "idea": entry["idea"], "code": entry["code"], "total": entry.get("total"),
-                        "parent_total": parent.total})
+                        "parent_code": parent.code, "idea": entry["idea"], "code": entry["code"],
+                        "total": entry.get("total"), "parent_total": parent.total})
     except BudgetEnd:
         entry["status"] = entry["status"] or "budget_end"  # None: the budget ended inside a proposal
         log.write(json.dumps({**entry, "used": state["used"], "llm_calls": llm.calls}) + "\n")
