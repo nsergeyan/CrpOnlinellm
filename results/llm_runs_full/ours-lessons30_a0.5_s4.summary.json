@@ -1,0 +1,44 @@
+{
+ "settings": {
+  "alpha": 0.5,
+  "run_seed": 4,
+  "seed_rule": "minmax",
+  "knowledge": true,
+  "knowledge_text": "full",
+  "crash_check": true,
+  "dedup": true,
+  "quick_test": true,
+  "pareto": true,
+  "feedback": true,
+  "budget": 420000,
+  "population_size": 10,
+  "crash_yards": 4,
+  "quick_per_type": 4,
+  "max_repairs": 2,
+  "timeout": 60.0,
+  "temperature": 1.0,
+  "operator_weights": [
+   0.6,
+   0.3,
+   0.1
+  ],
+  "max_free_in_a_row": 100,
+  "batch_size": 8,
+  "lessons_every": 30,
+  "max_lessons": 5,
+  "lesson_delete_after": 40,
+  "lesson_judge_after": 120
+ },
+ "budget_used": 419940,
+ "llm_calls": 1364,
+ "full_evaluations": 413,
+ "outcomes": {
+  "evaluated": 413,
+  "duplicate_behaviour": 210,
+  "duplicate_code": 47,
+  "screened_out": 658,
+  "crash": 2
+ },
+ "seconds": 11732.8,
+ "lesson_checks": 5
+}

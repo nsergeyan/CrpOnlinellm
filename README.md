@@ -153,7 +153,7 @@ pytest                      # 135 tests, about 2 minutes (the ReEvo/EoH, CALM an
 | All 140 runs of our framework (main + ablations), at most 6 at a time; done runs are skipped | `CRP_DATA=/your/folder sbatch --array=0-139%6 --partition=gpu-a100-80g,gpu-mig-40g --gres=gpu:1 --time=24:00:00 experiments/framework_job.sh` | days, depends on the queue |
 | The 40 runs of the knowledge-text check (decision 56) | `CRP_DATA=/your/folder sbatch --array=140-179%10 --partition=gpu-a100-80g,gpu-mig-40g --gres=gpu:1 --time=08:00:00 --exclude=node863,node865 experiments/framework_job.sh` | about a day, depends on the queue |
 | One short test run with lessons on ALICE (100 evaluations, F = 4; run number 99 is not in the plan, and `collect` skips a run with a smaller budget) | `CRP_DATA=/your/folder sbatch --partition=gpu-short --time=02:00:00 experiments/framework_job.sh 0.5 99 --lessons-every 4 --budget 84000` | not measured yet |
-| The 90 runs with lessons (decision 57), at most 10 at a time | `CRP_DATA=/your/folder sbatch --array=180-269%10 --partition=gpu-a100-80g,gpu-mig-40g --gres=gpu:1 --time=10:00:00 --exclude=node863,node865,node867 experiments/framework_job.sh` | 2 to 3 days, depends on the queue |
+| The 90 runs with lessons (decision 57), at most 10 at a time | `CRP_DATA=/your/folder sbatch --array=180-269%10 --partition=gpu-a100-80g,gpu-mig-40g --gres=gpu:1 --time=24:00:00 --exclude=node863,node865,node867 experiments/framework_job.sh` | 2 to 3 days, depends on the queue |
 | The list of those 140 runs, and which are done | `python experiments/run_framework.py plan` | instant |
 | Speed and rule quality with 1, 2, 4, 8 LLM requests at once (ALICE, one GPU) | `CRP_DATA=/your/folder sbatch --partition=gpu-mig-40g --gres=gpu:1 --time=01:00:00 experiments/bench_parallel_job.sh` | ~30 min |
 
@@ -607,6 +607,16 @@ The design and the reason for each part are in `docs/framework_design.md`.
     tasks 180 to 269 of the plan) against the full framework without lessons, and F is chosen on
     training. Unlike ReEvo's reflections, every lesson is checked against the results of the rules
     it was shown to.
+    Result (`results/framework_comparison.md`, section 9): no F differs significantly from the
+    framework without lessons, on training or on test (Holm over the nine settings, every
+    corrected p at least 0.39), nor in the gain after the first quarter of the budget. At alpha 0.3
+    all three F end lower on training (-46 to -94, A12 0.60 to 0.69); at 0.5 and 0.1 the
+    differences go both ways. Rules beat their parent about as often with a lesson shown as with
+    it hidden (at most 0.9 points apart, for example 13.3% and 12.8% at alpha 0.3 with F = 4), so
+    the lessons hardly changed which rules the LLM wrote. F = 30 has the best mean training
+    difference over the alphas (-0.14%; F = 4 -0.11%, F = 16 +0.05%) and is the setting compared
+    with the baselines in section 2. Two runs (tasks 206 and 250) reached the 10-hour limit on MIG
+    nodes and were run again with 24 hours, taking 4.2 and 7.0 hours.
 
 ## License
 

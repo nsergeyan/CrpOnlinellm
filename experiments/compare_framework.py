@@ -13,7 +13,8 @@ for free; GP-800 is the check for that: with 800 evaluations GP simulates about 
 formulas (section 8). Section 5 scores the best rule of every run again,
 yard by yard, and stops if a total differs from the one in the results files. The three check
 runs with one rule at a time ("ours-batch1", README decision 43) are not part of the comparison.
-Text A is our knowledge text with the advice cut out (README decision 56).
+Text A is our knowledge text with the advice cut out (README decision 56). Section 9 compares
+the runs with lessons, checked every F = 4, 16 or 30 batches, with the runs without (decision 57).
 """
 import gzip
 import json
@@ -33,10 +34,13 @@ from crp.yard import Yard
 FULL, LOWEST, NO_KNOWLEDGE = "ours", "ours-lowest", "ours-lowest-no_knowledge"
 NO_TEXT, NO_SCREENING, NO_PARETO = "ours-no_knowledge", "ours-no_crash_check-no_dedup-no_quick_test", "ours-no_pareto-no_feedback"
 FACTS = "ours-facts"
+LESSONS = {f: f"ours-lessons{f}" for f in (4, 16, 30)}
+CHOSEN = LESSONS[30]  # the best mean training difference over the alphas (README decision 57)
 OURS = {FULL: "Ours (Min-Max start)", LOWEST: "Ours (lowest-stack start)", NO_TEXT: "Ours, no knowledge text",
         NO_SCREENING: "Ours, screening and repair off", NO_PARETO: "Ours, Pareto and feedback off",
         NO_KNOWLEDGE: "Ours, lowest-stack start, no knowledge text",
         FACTS: "Ours, knowledge text A (the facts, no advice)"}
+OURS |= {m: f"Ours, lessons checked every {f} batches" for f, m in LESSONS.items()}
 BASELINES = {"gp500": "GP-500 (pop 50)", "gp500_100": "GP-500 (pop 100)", "gp800": "GP-800 (pop 50)",
              "gp500_mm": "GP-500 from Min-Max", "gp800_mm": "GP-800 from Min-Max",
              "gp500_mmt": "GP-500, Min-Max also a terminal", "gp800_mmt": "GP-800, Min-Max also a terminal",
@@ -67,6 +71,11 @@ def tests(pairs: list[tuple[str, list[float], list[float]]]) -> list[str]:
 
 def our_log(method: str, alpha: str, seed: str) -> list[dict]:
     with gzip.open(RESULTS / "llm_runs_full" / f"{method}_a{alpha}_s{seed}.jsonl.gz", "rt") as f:
+        return [json.loads(line) for line in f]
+
+
+def lesson_checks(method: str, alpha: str, seed: str) -> list[dict]:
+    with gzip.open(RESULTS / "llm_runs_full" / f"{method}_a{alpha}_s{seed}.lessons.jsonl.gz", "rt") as f:
         return [json.loads(line) for line in f]
 
 
@@ -136,7 +145,7 @@ def main() -> None:
 
     lines += ["", "## 2. Our framework against each baseline", "",
               "Test totals; Holm-corrected over the thirteen baselines of one table."]
-    for m in (FULL, LOWEST, NO_KNOWLEDGE):
+    for m in (FULL, LOWEST, NO_KNOWLEDGE, CHOSEN):
         for alpha in ALPHAS:
             if (m, alpha) in runs:
                 lines += ["", f"**{OURS[m]}, alpha {alpha}**"] + tests(
@@ -244,6 +253,38 @@ def main() -> None:
                      str(sum(v < minmax_train[a] for v in train[m, a])),
                      str(sum(v < minmax_test[a] for v in test[m, a]))]
                     for m in ("gp500_mm", "gp800_mm", "gp500_mmt", "gp800_mmt") for a in ALPHAS])
+    lines += ["", "## 9. Lessons learned during the run", "",
+              "README decision 57. Each F against the full framework without lessons; F is chosen on the",
+              "training totals. Holm-corrected over the nine rows of a table.", "", "**Training totals**"]
+    pairs = [(f"alpha {a}, F = {f} vs no lessons", m, a) for a in ALPHAS for f, m in LESSONS.items()]
+    lines += tests([(label, train[m, a], train[FULL, a]) for label, m, a in pairs])
+    lines += ["", "Mean training difference from no lessons over the three alphas: " + ", ".join(
+        f"F = {f}: {statistics.mean((median(train[m, a]) - median(train[FULL, a])) / median(train[FULL, a]) for a in ALPHAS):+.2%}"
+        for f, m in LESSONS.items()), "", "**Test totals**"]
+    lines += tests([(label, test[m, a], test[FULL, a]) for label, m, a in pairs])
+    late = {key: [best_after(log, BUDGET // 4) - best_after(log, BUDGET) for log in group] for key, group in logs.items()}
+    lines += ["", "**Gain after the first quarter of the budget** (best training total after a quarter of the",
+              "budget minus the final best; higher = more improvement late in the run)"]
+    lines += tests([(label, late[m, a], late[FULL, a]) for label, m, a in pairs])
+    rows = []
+    for a in ALPHAS:
+        for f, m in LESSONS.items():
+            decisions, written, counts = Counter(), [], Counter()
+            for row in runs[m, a]:
+                checks, last = lesson_checks(m, a, row["seed"]), {}
+                for check in checks:
+                    decisions.update(lesson["decision"] for lesson in check["lessons"])
+                    last.update((lesson["id"], lesson) for lesson in check["lessons"])
+                written.append(sum(len(check.get("new", [])) for check in checks))
+                for lesson in last.values():  # its counts at its last check
+                    counts.update({k: lesson[k] for k in ("shown", "shown_wins", "hidden", "hidden_wins")})
+            rows.append([a, str(f), f"{median(written):g}", fmt(decisions["keep"]), str(decisions["rewrite"]),
+                         str(decisions["delete"]), f"{counts['shown_wins'] / counts['shown']:.1%}",
+                         f"{counts['hidden_wins'] / counts['hidden']:.1%}"])
+    lines += ["", "**The lessons** (the 10 runs of a setting together; a rule counts once for every lesson in the",
+              "notebook when its prompt was made, as shown or hidden; it wins if its total is below its parent's)"]
+    lines += table(["alpha", "F", "lessons written per run, median", "keep decisions", "rewrite decisions", "delete decisions",
+                    "rules that beat their parent, lesson shown", "lesson hidden"], rows)
     lines += ["", "\\* p < 0.05 after Holm correction. IQR = the middle 50% of the runs. A failed run (its best",
               "rule crashed on a test yard) counts as the worst result in the medians and tests."]
     path = RESULTS / "framework_comparison.md"

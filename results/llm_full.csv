@@ -11929,3 +11929,3252 @@ def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: flo
     priority = safety + penalty_avg + penalty_low_emp + penalty_density + penalty_ri + avg_impact + ri_impact + tie_breaker - reward_empty - reward_moderate_height + reward_ri + penalty_sh + reward_emp_sh + penalty_extreme_sh - reward_small_ids + penalty_high_avg_with_space
     return priority
 "
+2026-11-24T07:15:01,ours-lessons16,qwen3:14b-nothink,0.1,1,500,28471,28966,0.999,1662,15025.4,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max Strategy: Prioritize safe stacks (DIFF > 0), penalize unsafe stacks
+    min_max_score = (DIFF if DIFF > 0 else 1e10 - DIFF) * 10
+    # Adaptive penalty for unsafe stacks: exponential growth in penalty with SH, RI, and AVG
+    penalty_unsafe = 0 if DIFF > 0 else (SH * RI * 100 + SH * 20 + RI * 25 + SH * (AVG - CUR) * 0.5)
+    # Reward flexibility based on available space (EMP) and stack height (SH)
+    flexibility_score = (EMP / (SH + 1)) * 20 if SH > 0 else 0
+    emp_sh_ratio = 0 if SH == 0 else (EMP / SH)
+    enhanced_flexibility = (emp_sh_ratio * 10) if DIFF > 0 else 0
+    # Reward stacks with lower average ID to favor early retrieval containers
+    avg_reward = (100 - AVG) * 0.4 if AVG < CUR else 0
+    # Adjust for stack height and blocked containers, with reduced impact for stacks with low AVG
+    height_penalty = SH * 5 * (1.0 if AVG >= CUR else 0.5)
+    blocked_penalty = RI * 3 * (1.0 if AVG >= CUR else 0.5)
+    # Additional penalty based on stack height and blocked containers for unsafe stacks
+    extra_penalty = 0 if DIFF > 0 else (SH * 15 + RI * 10)
+    # Final priority calculation combining all factors
+    priority = min_max_score - flexibility_score + penalty_unsafe - height_penalty + avg_reward + enhanced_flexibility - blocked_penalty + extra_penalty
+    return priority
+"
+2026-11-24T21:39:45,ours-lessons16,qwen3:14b-nothink,0.1,10,500,28573,28929,0.997,1528,14928.5,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max strategy: prioritize safe stacks (DIFF > 0), else stacks with largest DIFF
+    safe_factor = DIFF if DIFF > 0 else 1e10 - DIFF
+
+    # Log-based space factor to handle different yard sizes
+    space_factor = np.log(EMP + 2) if EMP > 0 else 0
+    yard_size_estimate = (SH + EMP + 1) * 5
+    log_space = space_factor / (np.log(yard_size_estimate) + 1e-6)
+
+    # Height-to-space ratio penalty for nearly full stacks, especially unsafe
+    height_ratio = SH / (EMP + 1) if EMP > 0 else 0
+    height_penalty = height_ratio * 20 if DIFF <= 0 else 0
+
+    # Logarithmic penalty for RI and SH/EMP ratio on unsafe stacks
+    ri_penalty = 0
+    if DIFF <= 0:
+        try:
+            # Combine RI with height-to-space ratio and apply aggressive log scaling
+            ri_penalty = 100 * np.log(1 + RI * (SH / (EMP + 1)))
+        except ZeroDivisionError:
+            ri_penalty = float('inf')  # If EMP is 0, avoid division by zero
+
+    # Additional logarithmic penalty for RI on unsafe stacks, emphasizing severity
+    ri_penalty_base = np.log(RI + 1) * (SH / (EMP + 1)) * 20 if DIFF <= 0 else 0
+
+    # Stronger nonlinear penalty for RI and nearly full stacks (similar to Rule A with log scaling)
+    if DIFF <= 0:
+        ri_penalty = ri_penalty + (RI + 1) * (1 + height_ratio * 3) * (1 + np.tanh((RI + 1) / 6)) * 50
+
+    # Quality-aware smoothing for high AVG stacks
+    avg_smooth = 1 / (1 + np.exp(-AVG / 100))
+    quality_factor = AVG * 10 * (1 - avg_smooth)
+
+    # Additional penalty for unsafe stacks based on height-to-space ratio and RI
+    height_ri_penalty = (RI + 1) * height_ratio * (1 + np.log(EMP + 1) / np.log(10 + 1)) * 25 if DIFF <= 0 else 0
+
+    # Refine safe stack penalty using logarithmic adjustment of SH/EMP ratio (from Rule B)
+    if DIFF > 0:
+        safe_space_penalty = np.log((SH / (EMP + 1)) + 1) * 5
+    else:
+        safe_space_penalty = 0
+
+    # Combine all components
+    priority = safe_factor * 100 + ri_penalty + height_penalty + quality_factor + log_space * 50 + height_ri_penalty + safe_space_penalty
+    return priority
+"
+2026-11-24T08:54:08,ours-lessons16,qwen3:14b-nothink,0.1,2,500,28563,29006,0.996,1255,16102.6,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max: prioritize safe stacks (DIFF > 0), then largest DIFF for unsafe stacks
+    min_max = (DIFF if DIFF > 0 else 1e10 - DIFF)
+
+    # Adaptive weights based on safety
+    if DIFF > 0:
+        # Safe stack: encourage flexibility with EMP, penalize higher AVG and SH
+        emp_weight = 1000 / (EMP + 1) if EMP < 10 else 500 / (EMP + 1)
+        avg_weight = AVG * 0.5 * (1 + (1 / (SH + 1)))
+        sh_weight = SH * 0.1 * (1 + (1 / (EMP + 1)))
+        ri_weight = RI * 10
+        emp_bonus = 120 * EMP
+    else:
+        # Unsafe stack: strong penalties based on AVG, RI, and SH
+        emp_weight = 800 / (EMP + 1) if EMP < 10 else 300 / (EMP + 1)
+        avg_weight = AVG * (0.5 + (RI / 10))
+        sh_weight = SH * 0.1 * (1 + (RI / 10))
+        ri_weight = RI * 13
+        emp_bonus = 0
+        # Combined penalty based on AVG and RI in unsafe stacks
+        combined_penalty = (AVG + RI) * 15 * (1 / (EMP + 1))
+        # Stronger penalty based on ratio of RI to SH for unsafe stacks
+        ri_sh_ratio_penalty = (RI / (SH + 1)) * 2000 * (1 + (RI / (SH + 1))) * (1 / (EMP + 1))
+        # New: Increase penalty based on RI / SH for unsafe stacks to reduce long-term congestion
+        ri_sh_ratio_penalty += (RI / (SH + 1)) * 1000 * (1 + (RI / (SH + 1))) * (1 / (EMP + 1))
+
+    # Final priority score
+    priority = min_max * 100 + emp_weight + avg_weight + sh_weight + ri_weight + emp_bonus + (0 if DIFF > 0 else combined_penalty + ri_sh_ratio_penalty)
+    return priority
+"
+2026-11-24T11:31:23,ours-lessons16,qwen3:14b-nothink,0.1,3,500,28482,28995,0.999,1452,15322.4,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Safe stacks get a smaller base value; unsafe stacks get a larger one
+    safe_factor = 0 if DIFF > 0 else 1
+    base_value = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100
+    # Strong penalty for blocked containers (RI), especially for unsafe stacks
+    ri_penalty = RI * 50 * safe_factor
+    # Stronger penalty for stack height (SH) and average ID (AVG), scaled by RI and if stack is unsafe
+    # Amplify penalty for AVG and SH based on how full the stack is (low EMP)
+    emp_factor = max(1, (20 - EMP) / 10)  # increases penalty as stack becomes full
+    # Additional penalty for low AVG (containers on top are retrieved earlier than CUR)
+    avg_penalty = (AVG - CUR) * 10 * (1 + RI / 10) * safe_factor * emp_factor if AVG > CUR else 0
+    # Strong penalty for stack height (SH), especially in unsafe stacks
+    sh_penalty = SH * 15 * (1 + RI / 10) * safe_factor * emp_factor
+    # Additional strong penalty for high SH to discourage overly tall stacks
+    sh_height_penalty = SH * SH * 0.5 * safe_factor
+    # Additional penalty for low AVG to avoid placing CUR above containers to be retrieved earlier
+    avg_low_penalty = max(0, CUR - AVG) * 20 * safe_factor * (1 + RI / 10)
+    # Encourage stacks with more free space (EMP), especially if they are safe
+    emp_bonus = (EMP - 10) * 5 if DIFF > 0 else 0
+    # Combine penalties and bonuses
+    priority = base_value + ri_penalty + avg_penalty + sh_penalty + sh_height_penalty + avg_low_penalty + emp_bonus
+    return priority
+"
+2026-11-24T11:36:57,ours-lessons16,qwen3:14b-nothink,0.1,4,500,28474,28964,0.999,1176,11269.1,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max: prioritize safe stacks (DIFF > 0) or maximize DIFF if not safe
+    min_max_score = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100
+
+    # For safe stacks, emphasize alignment with AVG and reward free space
+    avg_alignment = abs(AVG - CUR) * 10 if DIFF > 0 else 0
+    emp_reward = EMP * 20 if DIFF > 0 else 0
+    avg_bonus = (AVG - CUR) * 5 if DIFF > 0 and AVG > CUR else 0
+
+    # For unsafe stacks, apply penalties for low available space, high stack height, and blocked containers
+    emp_penalty = (100 - EMP) * (5 + (SH / 10) + (RI / 5) + (100 - EMP) * 0.1) if DIFF <= 0 else 0
+    sh_penalty = SH * 20 if DIFF <= 0 else 0
+    ri_penalty = RI * 20 if DIFF <= 0 else 0
+
+    # Additional penalty for nearly full stacks with high height in unsafe stacks
+    if EMP < 2 and SH > 5 and DIFF <= 0:
+        sh_penalty += SH * 10
+
+    # Dynamic penalty for unsafe stacks in large yards based on CUR and stack characteristics
+    if DIFF <= 0:
+        # Heuristic for large yards: if stack height is over 10 and emp < 5, apply penalty
+        if SH > 10 and EMP < 5:
+            sh_penalty += SH * 20
+            # Larger penalty for containers that are retrieved early (smaller CUR)
+            cur_based_penalty = (100 - CUR) * 1.5
+            sh_penalty += cur_based_penalty
+
+    # Tie-breakers: lower stack height, more available space, fewer blocked containers
+    tie_breaker = SH * 5 - EMP * 10 + RI * 5
+
+    # Final priority score
+    priority = min_max_score + avg_alignment + emp_reward + avg_bonus + emp_penalty + sh_penalty + ri_penalty + tie_breaker
+    return priority
+"
+2026-11-24T13:54:55,ours-lessons16,qwen3:14b-nothink,0.1,5,500,28500,28954,0.998,1378,14172.7,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max: prioritize safe stacks (DIFF > 0) with closest DIFF, else largest DIFF
+    min_max_part = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100
+
+    # Yard size approximation (based on average stack height)
+    yard_factor = (SH / 10) ** 0.5
+
+    # Base stack quality: penalize tall stacks, reward empty space and lower average ID
+    stack_quality_part = SH * 10 + (AVG - CUR) * 0.1 - EMP * 10
+
+    # Strong penalty for badly placed containers (RI), especially in large yards
+    stack_quality_part += RI * 50 + RI * (yard_factor * 10)
+
+    # Strongly favor safe stacks (DIFF > 0) with available space (EMP > 0)
+    if DIFF > 0 and EMP > 0:
+        stack_quality_part -= yard_factor * 50
+
+    # Strongly penalize unsafe stacks (DIFF <= 0) with low EMP in large yards
+    if DIFF <= 0 and EMP < 2:
+        stack_quality_part += (100 - EMP * 10) * (1 + yard_factor)
+
+    # Moderate penalty for stacks with moderate height (5 < SH < 15) but some space
+    if 5 < SH < 15 and EMP > 0:
+        stack_quality_part += (SH - 5) * 5
+
+    # Additional penalty for unsafe stacks (DIFF <= 0) based on lack of flexibility
+    unsafe_penalty = 0
+    if DIFF <= 0:
+        unsafe_penalty = (1 - EMP / SH) * 100 if SH > 0 else 0
+    stack_quality_part += unsafe_penalty
+
+    # Stronger penalty on RI for high stacks to prevent badly placed containers
+    ri_penalty = RI * (1 + SH * 0.05)
+    stack_quality_part += ri_penalty
+
+    # Favor stacks with higher EMP and lower AVG when safe
+    if DIFF > 0:
+        stack_quality_part += (EMP * 10 + (CUR - AVG) * 0.05) * 1.5
+
+    # Avoid over-penalizing safe stacks with high SH
+    if SH > 5 and DIFF > 0:
+        stack_quality_part -= (SH / 20) * 50
+
+    # Reward safe stacks with available space and low AVG in large yards
+    if DIFF > 0 and EMP > 0:
+        stack_quality_part -= (AVG - CUR) * 40 * (yard_factor ** 2)
+
+    # Additional strong penalty for RI in large yards (targeting weak yard types)
+    if yard_factor > 0.8 and RI > 0:
+        stack_quality_part += RI * (SH * 0.2 + 50)
+
+    # Focus on reducing badly placed containers: penalize RI based on how many containers are blocked per space
+    if SH > 0:
+        blocking_ratio = RI / SH
+        stack_quality_part += blocking_ratio * SH * 50  # scales with stack size and number of blocked containers
+
+    # NEW: Additional penalty for unsafe stacks with high RI / SH ratio, discouraging placement that blocks many containers
+    if DIFF <= 0 and SH > 0:
+        ri_per_height = RI / SH
+        stack_quality_part += ri_per_height * 200 * (1 + yard_factor)
+
+    priority = min_max_part + stack_quality_part
+    return priority
+"
+2026-11-24T16:39:51,ours-lessons16,qwen3:14b-nothink,0.1,6,500,28595,29109,0.99,1598,19097.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Prioritize safe stacks with a stronger emphasis on DIFF
+    safe_priority = (DIFF if DIFF > 0 else 1e10 - DIFF) * 350  # Increased weight for DIFF
+
+    # Penalize stacks with low empty space (EMP) and high stack height (SH)
+    space_penalty = (1000 / (EMP + 1)) + (SH / 10)
+
+    # Penalize stacks with more blocked containers (RI), scaled by height
+    ri_penalty = (RI / (SH + 1)) * 180
+
+    # Penalize stacks with high average ID (AVG), scaled by height and empty space
+    avg_penalty = AVG * ((SH * EMP) ** 0.5)
+
+    # Penalize stacks with high AVG relative to CUR, especially in nearly full stacks
+    avg_cur_ratio = (AVG - CUR) / (CUR + 1) if CUR > 0 else 0
+    saturation_factor = (1 - EMP / SH) ** 2 if SH > 0 else 0
+    avg_cur_penalty = avg_cur_ratio * saturation_factor * 120  # Slightly reduced for more stability
+
+    # Introduce a logarithmic penalty for the height-to-empty ratio (discouraging overfilling)
+    height_to_empty_ratio = (SH / (EMP + 1)) if EMP > 0 else 1e6
+    overfill_penalty = np.log(height_to_empty_ratio + 1) * 150 if height_to_empty_ratio > 0 else 0  # Slightly increased
+
+    # Additional penalty for unsafe stacks (DIFF ≤ 0) based on congestion
+    unsafe_penalty = 0
+    if DIFF <= 0:
+        unsafe_penalty = (SH / (EMP + 1)) * 50 + (SH ** 0.5) * 30
+
+    # Combine all components to compute the final priority score
+    priority = safe_priority + space_penalty + ri_penalty + avg_penalty + avg_cur_penalty + overfill_penalty + unsafe_penalty
+    return priority
+"
+2026-11-24T14:50:03,ours-lessons16,qwen3:14b-nothink,0.1,7,500,28504,28992,0.999,1579,11564.6,"import math
+
+def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    is_safe = 1 if DIFF > 0 else 0
+    min_max = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100
+
+    # Alignment and blockage risk
+    alignment = abs(AVG - CUR)
+    blockage_risk = RI / (EMP + 1e-6)  # Avoid division by zero
+
+    # Flexibility and space incentives, with increased weight for large stacks
+    emp_weight = 2.0 if SH > 10 else 1.5 if SH > 5 else 1.0
+    avg_weight = 1.2 if SH > 10 else 1.1 if SH > 5 else 1.0
+
+    # Safe stack calculation: prioritize low DIFF, good alignment, and space
+    safe_score = alignment * avg_weight + (100 - SH * 2) + math.log(100 - EMP * emp_weight + 1) * 10 - blockage_risk * 5
+
+    # Unsafe stack calculation: penalize high RI, misalignment, and low flexibility
+    # Use SH-dependent penalties to emphasize flexibility in larger stacks
+    emp_penalty = (100 - EMP * emp_weight) * (100 + SH * 0.5)
+    height_penalty = (SH / 10) * (100 - EMP) * 10
+    unsafe_score = (1e10 - DIFF) * 100 + RI * (1200 + SH * 50) + alignment * 300 + emp_penalty + height_penalty + blockage_risk * 80
+
+    # Final score combining safe and unsafe components
+    priority = (1 - is_safe) * unsafe_score + is_safe * safe_score + min_max
+
+    return priority
+"
+2026-11-24T21:33:37,ours-lessons16,qwen3:14b-nothink,0.1,8,500,28574,29105,0.998,2730,27487.1,"import numpy as np
+
+def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Safe stack preference (Min-Max strategy)
+    safe_factor = DIFF if DIFF > 0 else 1e10 - DIFF
+
+    # Non-linear free space reward for safe stacks
+    emp_reward = np.log(1 + EMP) * 30 if DIFF > 0 else 0
+
+    # Yard-aware adjustment for free space reward
+    yard_size_penalty = 1 + 0.1 * np.log(1 + (10 - (SH + 1)) / 10)  # SH + 1 approximates stack height
+    emp_reward *= (1 / yard_size_penalty)  # Reduce over-rewarding in large yards
+
+    # Dynamic SH penalty based on EMP
+    if EMP < 2:
+        sh_penalty = SH * 1.8  # Soft penalty for nearly full stacks
+    elif 2 <= EMP < 6:
+        sh_penalty = SH * 2.2  # Moderate penalty for balanced stacks
+    else:
+        sh_penalty = SH * 0.7  # Reduced penalty for stacks with lots of space
+        if EMP > 6:
+            sh_penalty += SH * 0.5  # Mild penalty for stacks with many free spaces
+
+    # Stronger penalty for badly placed containers (RI) for unsafe stacks
+    ri_penalty = RI * 12 if DIFF <= 0 else RI * 6
+
+    # Penalize stacks where AVG is significantly lower than CUR (especially for unsafe stacks)
+    avg_deviation = abs(AVG - CUR)
+    avg_penalty = (CUR - AVG) * 7 if AVG < CUR else 0  # Stronger penalty for AVG < CUR
+    avg_bonus = (1 / (1 + avg_deviation)) * 40 if DIFF > 0 else 0  # Stronger bonus for alignment
+
+    # Adaptive SH/EMP ratio penalty based on yard size (large yards penalize more)
+    if EMP > 0:
+        sh_emp_ratio = SH / EMP
+    else:
+        sh_emp_ratio = float('inf')
+    yard_size_estimate = 10 * 100  # Estimate of largest yard size in training data
+    ratio_penalty = sh_emp_ratio * 0.1 * (1 + np.log(1 + yard_size_estimate)) * (1 - np.exp(-EMP / 10))
+
+    # Bonus for safe stacks with high EMP and AVG close to CUR
+    if DIFF > 0 and CUR < 20:
+        height_bonus = (EMP / (SH + 1e-10)) * (1 / (1 + np.exp(5 - AVG)))
+    else:
+        height_bonus = 0
+
+    # Final priority score
+    priority = safe_factor * 85 + sh_penalty + emp_reward + ri_penalty + avg_deviation * 2 + avg_penalty - avg_bonus + height_bonus + ratio_penalty
+    return priority
+"
+2026-11-24T20:59:27,ours-lessons16,qwen3:14b-nothink,0.1,9,500,28576,29069,0.999,1601,15398.8,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Safety is primary: prefer safe stacks (DIFF > 0) with small DIFF, penalize unsafe stacks severely
+    safety_score = (DIFF if DIFF > 0 else 1e10 - DIFF) * 1e6
+    
+    # Penalize stacks with average ID significantly above CUR
+    avg_penalty = max(0, (AVG - CUR)) * (1e3 / (1 + SH)) if DIFF > 0 else max(0, (AVG - CUR)) * 1e4
+    
+    # Penalize stacks with more blocked containers (RI), especially for unsafe stacks
+    ri_penalty = RI * (500 + (1000 if DIFF <= 0 else 0))
+    
+    # Favor stacks with more emptiness (EMP), using non-linear boost and enhanced scaling with SH
+    emp_weight = (1 + (EMP / 10) * (1 / (1 + SH)) * (1 + 1 / (1 + SH))) * (1 + (EMP ** 1.5) / 1000)
+    emp_bonus = -EMP * emp_weight
+    
+    # Penalize stack height (SH) but scale with SH and reduce its impact in large yards
+    sh_penalty = SH * (0.2 if SH < 50 else 0.05)
+    
+    # Additional bonus for empty stacks and penalty for tall stacks
+    emp_and_sh_bonus = emp_bonus + SH * 0.1
+    
+    # Final score combining all components
+    return safety_score + avg_penalty + ri_penalty + sh_penalty + emp_and_sh_bonus
+"
+2026-11-24T06:06:01,ours-lessons16,qwen3:14b-nothink,0.3,1,500,24275,24624,0.997,1613,16230.7,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max: the closest safe stack (DIFF > 0) first, else the stack with the largest DIFF;
+    # penalize stacks with more blocked containers (RI), and balance SH with available space (EMP)
+    safe_factor = DIFF if DIFF > 0 else 1e10 - DIFF
+    # Boost safe stacks with higher available space squared for flexibility
+    safe_emp_boost = (EMP ** 2) * (1 if DIFF > 0 else 0)
+    # Penalize unsafe stacks with high SH and low EMP using SH * (1 / EMP)
+    unsafe_penalty = (SH * (1 / (EMP + 1e-6))) * (1 if DIFF <= 0 else 0)
+    # Balance factor based on the difference between stack height and available space
+    balance_factor = (SH - EMP) ** 2
+    # Penalize stacks with more blocked containers (RI)
+    penalty_factor = RI * 10
+    # Encourage stacks with more available space (EMP) when not safe
+    emp_boost = EMP * (100 if DIFF <= 0 else 1)
+    # Increase weight on stacks with a better balance between AVG and CUR when not safe
+    avg_factor = (AVG - CUR) * (10 if DIFF <= 0 else 1)
+    # Additional adjustment based on the relative distance between AVG and CUR
+    avg_diff_adjustment = (AVG - CUR) ** 2 * (1 if DIFF <= 0 else 0)
+    
+    # Stronger penalty for unsafe stacks with high SH and low EMP to discourage overcrowding
+    overcrowding_penalty = (SH ** 2) * (100 if DIFF <= 0 and SH > 5 and EMP < 2 else 0)
+    
+    priority = safe_factor * 100 + balance_factor + penalty_factor - emp_boost + avg_factor - avg_diff_adjustment + overcrowding_penalty + safe_emp_boost - unsafe_penalty
+    return priority
+"
+2026-11-24T23:03:11,ours-lessons16,qwen3:14b-nothink,0.3,10,500,24388,24778,0.999,1550,20058.4,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Base Min-Max strategy: safe stacks get DIFF, unsafe stacks get a large penalty
+    min_max_score = DIFF * 100 if DIFF > 0 else (1e10 - DIFF) * 100
+
+    if DIFF > 0:
+        # Safe stack handling: favor low relative height, high flexibility (EMP), and low AVG
+        flexibility_bonus = EMP * 20 - SH * 15
+        # Add bonus for stacks with high EMP, scaled by stack size
+        flexibility_bonus += EMP * 0.1 * (SH + EMP)
+        # Penalize tall stacks and encourage stacks with fewer containers
+        congestion_penalty = SH * 5 - EMP * 10
+        # Bias toward stacks with lower average ID to reduce future blocking
+        avg_bias = AVG * 0.1
+        # Encourage stacks with fewer blocked containers (RI)
+        ri_bonus = -RI * 0.5
+        # Relative height bonus: lower relative height means safer future placements
+        relative_height = SH / (SH + EMP)
+        relative_height_bonus = -relative_height * 50
+        # Additional bonus for stacks with more free space
+        free_space_bonus = EMP * 10
+        # Priority for safe stacks
+        priority = (
+            min_max_score
+            + flexibility_bonus
+            + congestion_penalty
+            + avg_bias
+            + ri_bonus
+            + relative_height_bonus
+            + free_space_bonus
+        )
+    else:
+        # Unsafe stack: penalize based on congestion, RI, and stack size
+        congestion_penalty = SH * 15 - EMP * 25
+        # Stronger penalty based on (100 - EMP) * RI for highly congested and blocking stacks
+        if EMP > 0:
+            congestion_ri_penalty = (100 - EMP) * RI * (10 + 0.5 * (SH / (EMP + 1e-6)) ** 3)
+        else:
+            congestion_ri_penalty = float('inf')
+        # Penalize stacks with high SH/low EMP
+        sh_emp_ratio_penalty = (SH / (EMP + 1e-6)) * 20 if EMP > 0 else float('inf')
+        # Penalize stacks with high RI
+        ri_penalty = RI * 7
+        # Additional penalty for nearly full stacks
+        fullness_penalty = (100 - EMP) * 5
+        # Bias toward stacks with lower average ID to reduce future blocking
+        avg_bias = AVG * 0.1
+        # Bonus for nearly empty stacks (especially for unknown containers)
+        if DIFF > 1e9 - 1e4:
+            empty_bonus = (EMP / (SH + 1)) * 100 if SH > 0 else 0
+        else:
+            empty_bonus = 0
+        # Priority for unsafe stacks
+        priority = (
+            min_max_score
+            + congestion_penalty
+            + congestion_ri_penalty
+            + ri_penalty
+            + fullness_penalty
+            + avg_bias
+            - empty_bonus
+        )
+    return priority
+"
+2026-11-24T10:07:16,ours-lessons16,qwen3:14b-nothink,0.3,2,500,24500,24768,0.997,1641,22084.1,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max: prioritize safe stacks, otherwise use the largest DIFF
+    min_max_score = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100
+
+    # Encourage stacks with free space using a non-linear scale (stronger bonus for very empty stacks)
+    space_and_avg = (1000 / (EMP + 1)) + (AVG / 100)
+
+    # Bonus for EMP to favor empty stacks, especially when the stack is safe
+    emp_bonus = EMP * 10 * (1.5 if DIFF > 0 else 1)
+
+    # Extra bonus for very empty stacks (EMP > 5), especially when safe
+    emp_bonus += (EMP - 5) * 100 * (1 if DIFF > 0 else 0)
+
+    # Strong exponential bonus for EMP in safe stacks to strongly favor very empty stacks
+    emp_bonus += (1000 if DIFF > 0 else 0) * (EMP ** 2.5) / 1000
+
+    # Penalize stacks with more badly placed containers (RI)
+    ri_penalty = RI * 60 + RI * RI * 50  # Strong quadratic penalty for RI
+
+    # Increased penalty for stacks with high average ID (AVG), especially if CUR is high
+    avg_penalty = AVG * 20 * (1 + (CUR / 1000))  # stronger penalty for high AVG when CUR is high
+
+    # Additional penalty for stacks where CUR will block many containers
+    ri_block_penalty = RI * 30
+
+    # Additional penalty for stacks where AVG is high and CUR is low (CUR being blocked by many)
+    avg_block_penalty = (AVG - CUR) * 10 if AVG > CUR else 0
+
+    # Stronger quadratic penalty for tall stacks (high SH) when they are not empty
+    tall_stack_penalty = (SH * SH) * 0.1 if EMP < SH else 0
+
+    # Reward stacks that are not only empty but also safe (high DIFF), indicating efficient future use
+    safe_empty_bonus = (DIFF if EMP == SH and DIFF > 0 else 0) * 50
+
+    # Additional penalty for low free space to avoid congestion
+    low_space_penalty = max(0, 10 - EMP) * 20
+
+    # Focused penalty for unsafe stacks with high-CUR containers: penalize when AVG is much larger than CUR
+    focused_penalty = (AVG - CUR) * 20 if DIFF <= 0 else 0
+
+    # Additional penalty for unsafe stacks based on SH and RI to discourage congested stacks
+    unsafe_penalty = (SH * SH + RI * RI) * 0.5 if DIFF <= 0 else 0
+
+    # Stronger penalty for unsafe stacks that are both tall and have many badly placed containers
+    congestion_penalty = (SH * RI) * 5 if DIFF <= 0 else 0
+
+    # Additional penalty for unsafe stacks that are tall and have a high average ID
+    tall_high_avg_penalty = (SH * AVG) * 0.2 if DIFF <= 0 else 0
+
+    # New: Stronger penalty for unsafe stacks with both high SH and high AVG
+    sh_avg_penalty = (SH * AVG) * 1.0 if DIFF <= 0 else 0
+
+    # Combine all components to compute the final priority
+    priority = min_max_score + space_and_avg + emp_bonus + ri_penalty + avg_penalty + ri_block_penalty + avg_block_penalty + tall_stack_penalty - safe_empty_bonus - low_space_penalty + focused_penalty + unsafe_penalty + congestion_penalty + tall_high_avg_penalty + sh_avg_penalty
+    return priority
+"
+2026-11-24T11:33:02,ours-lessons16,qwen3:14b-nothink,0.3,3,500,24405,24809,0.998,1513,19568.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Safe stack (DIFF > 0): prefer small DIFF, more flexibility (EMP), avoid stacking above high AVG
+    if DIFF > 0:
+        avg_penalty = (AVG - CUR) * 1.5 if AVG > CUR else 0
+        emp_bonus = EMP * 0.5
+        congestion_penalty = SH / (SH + 1) * 10
+        space_bonus = EMP * 20 if RI > 0 else 0
+        priority = DIFF * 10 + avg_penalty + congestion_penalty - emp_bonus + space_bonus
+    else:
+        # Unsafe stack (DIFF <= 0): penalize stacks that create badly placed containers (RI > 0 and AVG > CUR)
+        avg_penalty = (AVG - CUR) * 4 if AVG > CUR else 0
+        ri_penalty = RI * 15
+        emp_bonus = EMP * 3 if RI > 0 else EMP * 0.5
+        congestion_penalty = SH / (SH + 1) * 20
+        aligned_bonus = (CUR - AVG) * 2.5 if AVG < CUR else 0
+        near_full_penalty = 100 if EMP < 2 else 0
+        # Special handling for empty stacks (DIFF ~ 2.1e9)
+        if DIFF > 1e9:
+            avg_penalty = 0
+            ri_penalty = 0
+            congestion_penalty = 0
+            near_full_penalty = 0
+            aligned_bonus = 0
+            emp_bonus = EMP * 15
+        priority = (1e10 - DIFF) * 5 + avg_penalty + ri_penalty - emp_bonus + congestion_penalty - aligned_bonus + near_full_penalty
+    return priority
+"
+2026-11-24T10:53:09,ours-lessons16,qwen3:14b-nothink,0.3,4,500,24379,24812,0.998,1008,11707.1,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max: prefer safe stacks (DIFF > 0) with smallest DIFF, or largest DIFF otherwise
+    minmax_score = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100
+
+    # Base congestion penalty
+    congestion_penalty = SH * 10 + (100 - EMP) * 5 + RI * 20 + AVG * 15 + RI ** 1.5 * 10
+
+    # Additional penalties based on safety
+    if DIFF < 0:
+        # Stronger penalties for unsafe stacks, especially in congested and low-EMP stacks
+        congestion_penalty += (100 - EMP) * 20 + AVG * 25 + SH * (100 / (EMP + 1)) * 5 + RI * 40
+        # Add exponential penalty based on SH and inverse EMP
+        congestion_penalty += (SH * (1 / (EMP + 1))) ** 2 * 30
+    elif DIFF > 0:
+        # Stronger nonlinear bonus for safe stacks based on EMP and AVG
+        congestion_penalty += AVG * 10 - (100 - EMP) * 2
+        # Add exponential bonus based on free space with a stronger emphasis
+        congestion_penalty += (EMP ** 2) * 15  # increased exponent and coefficient for EMP
+
+    # Combine minmax and congestion penalties
+    priority = minmax_score + congestion_penalty
+    return priority
+"
+2026-11-24T13:12:24,ours-lessons16,qwen3:14b-nothink,0.3,5,500,24270,24748,0.995,1360,15435.3,"import numpy as np
+
+def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max component: prefer safe stacks (DIFF > 0) with smallest DIFF, otherwise largest DIFF
+    min_max = DIFF * 100 if DIFF > 0 else (1e10 - DIFF) * 100
+
+    # Penalty for stack density (SH / EMP), especially in nearly full stacks
+    density_penalty = 0
+    if SH - EMP > 5:
+        density_penalty = (SH / (EMP + 1e-6)) * 20
+
+    # Additional penalty for nearly full stacks (EMP < 5) to encourage balance
+    if EMP < 5:
+        if DIFF > 0:
+            density_penalty += (SH / (EMP + 1e-6)) * 10
+        else:
+            # Stronger penalty in unsafe stacks with low free space
+            density_penalty += (SH / (EMP + 1e-6)) * 100
+
+    # Penalty for average ID (AVG - CUR), stronger in unsafe stacks
+    avg_penalty = (AVG - CUR) * 10 if DIFF > 0 else (AVG - CUR) * 50
+
+    # Stronger penalty for RI (containers blocked) in unsafe stacks, especially with low EMP
+    if DIFF > 0:
+        ri_penalty = RI * 15
+    else:
+        if EMP < 5:
+            ri_penalty = RI * 300
+        else:
+            ri_penalty = RI * 150
+
+    # Dynamic penalty for RI/EMP ratio in low-space stacks, especially in unsafe stacks
+    dynamic_ri_penalty = (RI / (EMP + 1e-6)) * 10 if EMP < 10 else 0
+
+    # New: Stronger penalty for height-to-free-space ratio in unsafe stacks
+    h2f_ratio = SH / (EMP + 1e-6)
+    h2f_penalty = 0
+    h2f_bonus = 0
+    if DIFF <= 0:
+        if h2f_ratio > 10:
+            h2f_penalty = h2f_ratio * 150
+        elif h2f_ratio > 5:
+            h2f_penalty = h2f_ratio * 50
+    else:
+        if h2f_ratio < 5:
+            h2f_bonus = (1 / (h2f_ratio + 1e-6)) * 30
+
+    # Encourage free space and penalize stack height in safe stacks
+    free_space_bonus = 0
+    height_penalty = 0
+    if DIFF > 0:
+        free_space_bonus = (100 / (SH + 1)) * EMP
+        height_penalty = SH * 3
+    else:
+        height_penalty = SH * 5
+
+    # Add all components to get the final priority score
+    priority = (
+        min_max +
+        density_penalty +
+        avg_penalty +
+        ri_penalty +
+        dynamic_ri_penalty +
+        height_penalty +
+        free_space_bonus +
+        h2f_penalty +
+        h2f_bonus
+    )
+    return priority
+"
+2026-11-24T16:41:54,ours-lessons16,qwen3:14b-nothink,0.3,6,500,24274,24707,1.0,1586,20913.7,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max: prioritize safe stacks (DIFF > 0), else prefer stacks with the largest DIFF
+    min_max_score = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100
+    
+    # Reward free space
+    space_reward = EMP * 500 if EMP < 2 else 0
+    
+    # Bonus for stacks with lower average ID (better alignment with retrieval order)
+    avg_bonus = (CUR - AVG) * 10 if AVG < CUR else 0
+    
+    # Penalize nearly full stacks to avoid blocking future moves
+    fullness_penalty = 0 if EMP >= 2 else (1000 - EMP * 500)
+    
+    # Penalize stacks where CUR will block many containers (RI)
+    block_penalty = RI * 150
+    
+    # Strong penalty for unsafe stacks based on SH * RI
+    unsafe_sh_ri_penalty = 0 if DIFF > 0 else (SH * RI) * 50
+    
+    # Strong penalty for unsafe stacks based on SH alone
+    unsafe_sh_penalty = 0 if DIFF > 0 else SH * 75
+    
+    # Strong nonlinear penalty for unsafe stacks with low EMP and high SH and RI
+    nonlinear_penalty = 0 if DIFF > 0 or EMP >= 2 else (SH * RI) * (1 / (EMP + 1e-6)) ** 2
+    
+    # Strong penalty for unsafe stacks that are both tall and nearly full
+    very_unsafe_exp_penalty = 0 if DIFF > 0 or EMP >= 2 else (2 ** (SH + RI)) * 10
+    
+    # Penalize stacks with high average ID in safe stacks
+    safe_avg_penalty = AVG * 10 if DIFF > 0 else 0
+    
+    # Bonus for stacks with low average ID and high empty space
+    low_avg_high_emp_bonus = (CUR - AVG) * EMP * 10 if AVG < CUR else 0
+    
+    # Final priority score
+    priority = (
+        min_max_score
+        - space_reward
+        - avg_bonus
+        + fullness_penalty
+        + block_penalty
+        + unsafe_sh_ri_penalty
+        + unsafe_sh_penalty
+        + nonlinear_penalty
+        + very_unsafe_exp_penalty
+        + safe_avg_penalty
+        - low_avg_high_emp_bonus
+    )
+    return priority
+"
+2026-11-24T17:27:50,ours-lessons16,qwen3:14b-nothink,0.3,7,500,24475,24675,0.995,1565,21272.1,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max: prioritize safe stacks (DIFF > 0), else choose the stack with the largest DIFF
+    is_safe = 1 if DIFF > 0 else 0
+    # Base priority based on safety and DIFF
+    base_priority = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100
+    # Penalize unsafe stacks based on height, free space, and blocking containers (exponential penalty for RI)
+    penalty = 0 if DIFF > 0 else (SH - 10) * 10 + (10 - EMP) * 15 + (2 ** RI) * 20
+    # Add flexibility bonus for free space and fewer blocking containers (enhanced for large yards)
+    flexibility_bonus = EMP * 20 + (10 - RI) * 25
+    # Strong reward for nearly empty stacks (EMP > 0)
+    empty_stack_bonus = 1000 if EMP > 0 else 0
+    # Dynamic weight adjustment for large stacks (SH + EMP > 10)
+    size_factor = 1.5 if (SH + EMP) > 10 else 1.0
+    # Add a strong exponential penalty for very tall and nearly full stacks
+    rigidity_penalty = (2 ** (SH - 10)) * (2 ** (10 - EMP)) if (SH + EMP) > 10 and DIFF <= 0 else 0
+    # Add a small penalty for stacks whose average ID is close to the current container's ID
+    avg_penalty = abs(AVG - CUR) * 2
+    # Additional penalty for unsafe stacks with low EMP and high RI to improve flexibility in large yards
+    extra_penalty = (10 - EMP) * (2 ** RI) * 5 if DIFF <= 0 else 0
+    # Add a strong bonus for safe stacks with high EMP to encourage flexibility in large yards
+    safe_emp_bonus = (EMP * 50) if DIFF > 0 else 0
+    # Strongly encourage stacks with smaller average ID when the stack is unsafe (DIFF ≤ 0)
+    avg_bonus_for_unsafe = (AVG - CUR) * 10 if DIFF <= 0 else 0
+    # Combine all components
+    priority = base_priority + penalty - flexibility_bonus + empty_stack_bonus - avg_penalty + rigidity_penalty + extra_penalty + safe_emp_bonus + avg_bonus_for_unsafe
+    # Scale based on stack size for large yards
+    priority *= size_factor
+    return priority
+"
+2026-11-24T18:08:01,ours-lessons16,qwen3:14b-nothink,0.3,8,500,24313,24682,0.999,1786,17612.8,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max: prefer safe stacks (DIFF > 0) and among unsafe stacks, prefer those with larger DIFF
+    safe_factor = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100
+
+    # Penalize unsafe stacks more based on RI, SH, and congestion ratio (enhanced)
+    if DIFF <= 0:
+        # Higher penalty for high SH / EMP ratio, especially when EMP is low
+        congestion_ratio = SH / (EMP + 1e-6)
+        congestion_penalty = (SH / (EMP + 1e-6)) ** 3 * 30 if EMP < 2 else (SH / (EMP + 1e-6)) ** 2 * 20
+        # Increase penalty with RI more aggressively
+        unsafe_penalty = (RI * 200) + congestion_penalty + (SH * 75)
+    else:
+        unsafe_penalty = 0
+
+    # Reward safe stacks based on EMP, SH, and AVG alignment with CUR
+    if DIFF > 0:
+        safe_bonus = (EMP * 10) - (SH * 3) - (abs(AVG - CUR) * 0.5)
+    else:
+        safe_bonus = 0
+
+    # Additional penalties based on stack height and free space
+    height_penalty = SH * 5
+    emp_penalty = (1000 / (EMP + 1)) * 0.5 if DIFF <= 0 else (1000 / (EMP + 1)) * 0.25
+
+    # Tie-breaker: more free space (EMP) and fewer blocking containers (RI)
+    tie_breaker = EMP * 2 + RI
+
+    priority = safe_factor + unsafe_penalty + safe_bonus - height_penalty - emp_penalty + tie_breaker
+    return priority
+"
+2026-11-25T00:29:34,ours-lessons16,qwen3:14b-nothink,0.3,9,500,24456,24691,0.999,2477,29207.3,"import math
+import numpy as np
+
+def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max priority: prefer safe stacks (DIFF > 0) with smallest DIFF, then with largest DIFF
+    is_safe = DIFF > 0
+    min_max_val = (DIFF if is_safe else 1e10 - DIFF)
+
+    # Yard scale proxies
+    yard_scale_proxy = SH + EMP
+    scale_factor = 1 + np.log1p(yard_scale_proxy) / 10
+
+    # Estimate the number of stacks based on AVG (or use a proxy if AVG is 0)
+    num_stacks_proxy = 10 if AVG == 0 else AVG
+    num_stacks_factor = 1 + np.log1p(num_stacks_proxy) / 10
+
+    # Priority components
+    min_max_scaled = min_max_val * 100 * scale_factor
+
+    # Reward free space in safe stacks and penalize in unsafe stacks
+    emp_reward = EMP * 50 * scale_factor * num_stacks_factor * (1 - (AVG / (1 + CUR))) if is_safe else 0  # Stronger reward if AVG is low
+    emp_penalty = -(EMP * 10) if not is_safe else 0
+
+    # Penalize stack height in unsafe stacks
+    sh_penalty = SH * 5 * scale_factor if not is_safe else 0
+
+    # Penalize high average IDs more in large yards
+    avg_penalty = AVG * 6 * num_stacks_factor if not is_safe else 0
+
+    # Penalize number of containers with lower IDs being blocked
+    ri_penalty = RI * 5
+
+    # Additional penalty based on RI / SH in unsafe stacks
+    ri_to_sh_penalty = (RI / (1 + SH)) * 75 if not is_safe else 0
+
+    # Penalize tall stacks with little free space in unsafe stacks
+    crowded_penalty = SH * (100 / (1 + EMP)) * scale_factor if not is_safe else 0
+
+    # Yard-type-aware height penalty: stronger penalty for tall stacks in large yards
+    yard_size_multiplier = 1 + (num_stacks_proxy * SH) / 1000  # Larger yard -> more height penalty
+    sh_penalty += SH * 2 * yard_size_multiplier
+
+    # Penalize stacks that are both tall and have limited free space
+    combined_penalty = SH * (100 / (1 + EMP)) * (yard_scale_proxy / 200) if not is_safe else 0
+
+    # Additional penalty for unsafe stacks based on yard size and crowdedness
+    unsafe_penalty = (SH * (1 - EMP / 100)) * (num_stacks_proxy / 50) * 10 if not is_safe else 0
+
+    # Additional: Stronger free space reward in large yards (based on num_stacks_proxy)
+    extra_emp_reward = EMP * 20 * num_stacks_factor if is_safe else 0
+
+    # Additional: Stronger penalty for high average ID (AVG) scaled by yard size
+    additional_avg_penalty = AVG * 3 * yard_scale_proxy / 100 if not is_safe else 0
+
+    # Stronger penalty on unsafe stacks based on RI * SH / (1 + EMP)
+    ri_sh_penalty = (RI * SH) / (1 + EMP) * 50 if not is_safe else 0
+
+    # Stronger penalty on high AVG for large yards
+    large_yard_avg_penalty = AVG * (num_stacks_proxy / 50) * 10 if not is_safe else 0
+
+    # New: Stronger penalty on unsafe stacks based on RI / EMP, especially in large yards
+    ri_emp_ratio_penalty = (RI / (1 + EMP)) * (num_stacks_proxy / 50) * 100 if not is_safe else 0
+
+    # New: Additional penalty for high AVG and low EMP in large yards
+    high_avg_low_emp_penalty = (AVG * (1 - EMP / 100)) * (num_stacks_proxy / 50) * 25 if not is_safe else 0
+
+    # Final priority calculation
+    priority = (
+        min_max_scaled +
+        sh_penalty +
+        ri_penalty +
+        avg_penalty +
+        ri_to_sh_penalty +
+        crowded_penalty +
+        emp_penalty -
+        emp_reward +
+        combined_penalty +
+        unsafe_penalty +
+        extra_emp_reward -
+        additional_avg_penalty +
+        ri_sh_penalty +
+        large_yard_avg_penalty +
+        ri_emp_ratio_penalty +
+        high_avg_low_emp_penalty
+    )
+    return priority
+"
+2026-11-24T04:25:10,ours-lessons16,qwen3:14b-nothink,0.5,1,500,23905,24321,1.0,1566,16428.5,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max: prioritize safe stacks (DIFF > 0), else prioritize stacks with the largest DIFF
+    min_max = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100
+
+    # Strong bonus for empty stacks (DIFF near 2.1e9)
+    if DIFF > 1e9:
+        return min_max - 100000  # Strongly favor empty stacks
+
+    # Penalize unsafe stacks (DIFF <= 0) with AVG-CUR and RI-based penalties
+    if DIFF <= 0:
+        min_max += (AVG - CUR) * 30 + RI * 100 + SH * (100 - EMP) * 0.5 + (RI * (AVG - CUR)) * 2.0
+
+    # Penalize based on stack height and free space, with higher weight for unsafe stacks
+    height_penalty = SH * (100 - EMP) * (0.3 if DIFF > 0 else 1.2)
+
+    # Add a small penalty for higher average ID in safe stacks
+    avg_penalty = AVG * 2
+
+    # Additional penalty for future blockages
+    blockage_penalty = RI * (AVG - CUR) * 0.6
+
+    # Stability penalty for unsafe stacks
+    stability_penalty = RI * (AVG - CUR) * 0.3 if DIFF <= 0 else 0
+
+    # Slight preference for shorter stacks in safe stacks
+    height_preference = SH * 0.4 if DIFF > 0 else SH * 1.2
+
+    # Bonus for stacks with lower RI and AVG
+    stability_bonus = -(RI * 0.5 + AVG * 0.3)
+
+    # Final priority score
+    return min_max + height_penalty + avg_penalty + blockage_penalty + stability_penalty + height_preference + stability_bonus
+"
+2026-11-24T19:58:15,ours-lessons16,qwen3:14b-nothink,0.5,10,500,23729,24074,1.0,1100,8969.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max: prefer safe stacks (DIFF > 0) with smallest DIFF, otherwise largest DIFF
+    min_max_part = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100
+    
+    # Safety penalty for unsafe stacks
+    safety_penalty = 0 if DIFF > 0 else (
+        SH * 30 + RI * 15 + (1000 / (EMP + 1)) + (10000 / (EMP + 1)) if EMP < 2 else SH * 30 + RI * 15 + (1000 / (EMP + 1))
+    )
+    
+    # Bonus for stacks with AVG < CUR (good alignment)
+    avg_bonus = max(0, CUR - AVG) * 5
+    
+    # Height penalty for unsafe stacks
+    sh_penalty = SH * 150 if DIFF <= 0 else 0
+    
+    # Bonus for high empty space in safe stacks
+    emp_bonus = EMP * 20 if DIFF > 0 else 0
+    
+    # Balance between height and empty space
+    balance_part = (SH - EMP) * 7
+    
+    # Final priority calculation
+    priority = min_max_part + safety_penalty - avg_bonus + sh_penalty - balance_part - emp_bonus
+    return priority
+"
+2026-11-24T07:37:46,ours-lessons16,qwen3:14b-nothink,0.5,2,500,23792,24175,0.999,1570,15096.2,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max: prioritize safe stacks (DIFF > 0), penalize unsafe stacks by inverting DIFF
+    safe_factor = DIFF if DIFF > 0 else (1e10 - DIFF)
+    
+    # Penalties for unsafe stacks: based on RI, SH, and low EMP
+    # Use a non-linear penalty for low EMP, and penalize based on RI * SH
+    penalty = 0 if DIFF > 0 else (RI * SH * 5 + (10000 / (EMP + 1)) + AVG * 0.1)
+    
+    # Favor stacks with more free space, lower height, and lower average ID
+    flexibility = EMP * 5 - SH * 0.5 - AVG * 0.1
+    
+    # Final priority: balance safe factor, penalties, and flexibility
+    priority = safe_factor * 100 + penalty - flexibility
+    return priority
+"
+2026-11-24T08:28:16,ours-lessons16,qwen3:14b-nothink,0.5,3,500,23772,24143,0.997,1345,11546.7,"import math
+
+def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Safety: prefer safe stacks (DIFF > 0), heavily penalize unsafe ones
+    safe_factor = DIFF if DIFF > 0 else 1e10 - DIFF
+
+    # Nonlinear penalty for stack height (taller stacks are worse)
+    sh_penalty = SH ** 1.4  # moderate sensitivity to height
+    
+    # Strong non-linear penalty for low free space (encourages use of flexible stacks)
+    emp_penalty = (1 / (EMP + 1)) ** 2 * 600  # stronger as EMP decreases
+
+    # Adjust penalty for stack height based on blocked containers (RI)
+    sh_penalty *= (1 + RI / 10)  # increase height penalty with more blocked containers
+
+    # Amplify penalties if the stack is unsafe (DIFF < 0)
+    if DIFF < 0:
+        # Increase the penalty for blocking containers and reduce the influence of stack height
+        sh_penalty *= (1 + SH / 10)  # increase penalty for taller stacks
+        emp_penalty *= 2 * (1 + RI / 10)  # stronger penalty for low free space
+        ri_penalty = RI ** 1.5 * (1 + (SH * RI) / 100)  # strong penalty based on blockage
+        # Add nonlinear penalty based on ratio of blocked containers to free space
+        if EMP > 0:
+            ri_penalty *= (RI / EMP) ** 1.3
+        else:
+            ri_penalty *= 1e5  # Extremely penalize if blocking in an empty stack
+        # Strongly reward empty stacks and penalize stacks with low free space
+        if EMP == 0:
+            emp_penalty = -1000  # strong reward for empty stacks
+        elif EMP < 2:
+            emp_penalty *= 100  # very strong penalty for nearly full stacks
+        avg_penalty = AVG * (1 + math.log(AVG + 2)) * 4  # penalize poor long-term quality
+    else:
+        ri_penalty = RI ** 1.2 * 12  # moderate penalty for blocked containers in safe stacks
+        avg_penalty = AVG * (1 + math.log(AVG + 2)) * 2  # moderate penalty for poor long-term quality
+
+    # Combine all components with appropriate weights
+    priority = safe_factor * 100 + sh_penalty * 6 + emp_penalty + ri_penalty + avg_penalty
+    return priority
+"
+2026-11-24T11:21:23,ours-lessons16,qwen3:14b-nothink,0.5,4,500,23774,24134,0.997,1426,14121.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max: prioritize safe stacks (DIFF > 0), else prefer stacks with largest DIFF
+    min_max = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100
+
+    # Estimate yard size
+    yard_size = (SH + EMP) * 10
+
+    # Reward flexibility in nearly empty stacks
+    if DIFF > 1e9 - 1e3:  # nearly empty
+        space_reward = EMP * 50 + (100 - SH) * 10
+    else:
+        space_reward = 0
+
+    # Penalize both low and high EMP (favor balanced utilization)
+    emp_factor = (EMP - 5) ** 2 * 0.1
+
+    # Average ID (lower is better), with extra weight in nearly empty stacks
+    avg_contribution = (AVG - CUR) * 20
+    if DIFF > 1e9 - 1e3:
+        avg_contribution += (AVG - CUR) * 10
+
+    # Penalize blocking containers (RI), stronger in large yards and when stack is nearly full
+    ri_penalty = RI * 50
+    if yard_size > 100:
+        ri_penalty += RI * (100 / (EMP + 1e-6)) * (1 + (100 - CUR) / 100)
+    else:
+        ri_penalty += RI * (50 / (EMP + 1e-6))
+    
+    # Apply additional penalty if stack is nearly full
+    if EMP < 2:
+        ri_penalty *= 2.5
+
+    # Height penalty scaled by yard size and SH^1.5 for large yards
+    height_penalty = SH ** 1.5 * 15 * (1 + yard_size / 1000)
+    if yard_size > 100:
+        height_penalty += SH ** 1.5 * 5
+
+    # Additional penalty for stacks with low EMP and high AVG (less favorable for future)
+    if EMP < 5 and AVG > CUR:
+        emp_avg_penalty = (AVG - CUR) * (5 - EMP) * 10
+    else:
+        emp_avg_penalty = 0
+
+    # Combine all components into final priority
+    priority = min_max + avg_contribution + ri_penalty + height_penalty + space_reward - emp_factor - emp_avg_penalty
+    return priority
+"
+2026-11-24T12:24:45,ours-lessons16,qwen3:14b-nothink,0.5,5,500,23807,24333,0.999,1352,13210.6,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max strategy: prioritize safe stacks (DIFF > 0), with high priority for more distant safe stacks
+    min_max = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100
+
+    # Reward stacks with more free space (EMP), especially for safe stacks
+    emp_reward = EMP * 30 if DIFF > 0 else EMP * 5
+
+    # Penalize unsafe stacks (DIFF < 0) based on how many containers they block (RI) and their height (SH)
+    ri_penalty = RI * SH * 10 if DIFF < 0 else 0
+
+    # Penalize unsafe stacks with high average ID (AVG) relative to CUR to avoid future blocking
+    avg_penalty = (AVG - CUR) * 20 if DIFF < 0 else 0
+
+    # Penalize nearly full stacks (low EMP) and taller stacks (high SH) to avoid congestion
+    stack_crowding_penalty = (1000 / (EMP + 1)) + SH * 15 * (1 / (EMP + 1))
+
+    # Strong bonus for empty stacks (DIFF > 0) based on EMP
+    empty_stack_bonus = 0 if DIFF <= 0 else EMP * 200
+
+    # Additional strong penalty for tall stacks in large yards (high SH) to avoid congestion
+    large_yard_penalty = SH * 20 if SH > 10 else 0
+
+    # Aggressive penalty for unsafe stacks based on SH, RI, and EMP to avoid congestion
+    unsafe_penalty = (RI * SH * (100 / (EMP + 1))) if DIFF < 0 else 0
+
+    # Final priority score
+    priority = min_max + emp_reward + ri_penalty + avg_penalty + stack_crowding_penalty + empty_stack_bonus + large_yard_penalty + unsafe_penalty
+    return priority
+"
+2026-11-24T14:29:07,ours-lessons16,qwen3:14b-nothink,0.5,6,500,23631,24034,0.999,1411,15655.3,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Apply Min-Max logic: prefer safe stacks (DIFF > 0) with smallest DIFF, else largest DIFF
+    min_max = (DIFF if DIFF > 0 else 1e10 - DIFF)
+    
+    # Penalize unsafe stacks more based on the number of blocked containers (RI)
+    ri_penalty = RI * (20 if DIFF > 0 else 50)
+    
+    # Penalize stacks with high AVG (container will be blocked by higher IDs)
+    avg_penalty = max(0, AVG - CUR) * 2.5
+    
+    # Penalize tall stacks and stacks with low free space (to avoid overfilling)
+    space_penalty = SH * 0.01 + (100 / (EMP + 1))
+    
+    # Reward stacks with low AVG and high EMP (safe and flexible)
+    flexibility_reward = (CUR - AVG) * 0.5 * (EMP / (SH + 1))
+    
+    # Additional penalty for unsafe stacks based on how full they are (higher when nearly full and stack is tall)
+    safe_SH = max(SH, 1)
+    if DIFF <= 0:
+        emp_weight = (1 - EMP / safe_SH) * 100 * (1 + (SH / 10))  # More penalty when nearly full and stack is tall
+    else:
+        emp_weight = 0
+    
+    # Additional penalty for unsafe stacks with high AVG to discourage placing CUR where it will be blocked
+    if DIFF <= 0:
+        avg_penalty += AVG * 5 * (1 + (1 - EMP / safe_SH))  # Heavier penalty when stack is full and AVG is high
+    
+    # Strong new penalty for unsafe stacks: SH * (1 / (EMP + 1))
+    unsafe_penalty = SH * (1 / (EMP + 1)) if DIFF <= 0 else 0
+    
+    # Emphasize lower RI for unsafe stacks (stronger penalty for higher RI when unsafe)
+    ri_bonus = RI * 0.5 if DIFF > 0 else 0
+    
+    # Additional focus on minimizing blocked containers (RI) regardless of safety
+    ri_focus_penalty = RI * 15  # Increased emphasis on minimizing RI
+    
+    # Stronger penalty for unsafe stacks with high SH and low EMP (targeting overfilling in large yards)
+    overfill_penalty = SH * (100 / (EMP + 1)) if DIFF <= 0 and SH > 5 and EMP < 2 else 0
+    
+    # Encourage stacks with lower AVG for unsafe stacks (to reduce future blockages)
+    if DIFF <= 0:
+        avg_encouragement = (AVG - CUR) * 0.5
+    else:
+        avg_encouragement = 0
+    
+    # Additional strong penalty for unsafe stacks with high stack height and low EMP
+    if DIFF <= 0 and SH > 5 and EMP < 2:
+        overfill_penalty += SH * (1000 / (EMP + 1))  # Extra-large penalty for really bad scenarios
+    
+    # Combine all components
+    priority = min_max * 100 + ri_penalty + ri_focus_penalty + avg_penalty + space_penalty - flexibility_reward + emp_weight + unsafe_penalty + ri_bonus + overfill_penalty + avg_encouragement
+    return priority
+"
+2026-11-24T16:18:29,ours-lessons16,qwen3:14b-nothink,0.5,7,500,23879,24285,0.998,1651,17198.5,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Favor empty stacks first
+    if EMP == 0:
+        return 0
+    # Min-Max: closest safe stack (DIFF > 0) first, else the stack with the largest DIFF
+    safe_factor = (DIFF if DIFF > 0 else 1e10 - DIFF)
+    # Penalize unsafe stacks (DIFF <= 0) more heavily based on low EMP and high RI
+    penalty_for_low_EMP = 1000 / (EMP + 1) if DIFF <= 0 else 100 / (EMP + 1)
+    penalty_for_high_RI = 50 * RI if DIFF <= 0 else 5 * RI
+    # Stronger penalty for high SH (tall stacks) when unsafe
+    penalty_for_high_SH = 50 * SH if DIFF <= 0 else 5 * SH
+    # Dynamic penalty based on SH and RI (especially for unsafe stacks)
+    dynamic_penalty = (SH + RI) * 10 if DIFF <= 0 else (SH + RI) * 1
+    # Stronger penalty for product of SH and RI for unsafe stacks
+    product_penalty = (SH * RI) * 20 if DIFF <= 0 else (SH * RI) * 2
+    # Favor stacks with lower average ID
+    avg_penalty = AVG * 10
+    # Encourage stacks with more free space
+    free_space_bonus = EMP * 0.5
+    # Encourage stacks with fewer containers
+    stack_height_penalty = 100 / (SH + 1)
+    priority = safe_factor * 100 + avg_penalty - free_space_bonus + penalty_for_low_EMP + penalty_for_high_RI + penalty_for_high_SH + dynamic_penalty + product_penalty + stack_height_penalty
+    return priority
+"
+2026-11-24T18:08:05,ours-lessons16,qwen3:14b-nothink,0.5,8,500,23724,24133,0.998,2052,20573.6,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Safety factor: prioritize safe stacks (DIFF > 0); use a large value for unsafe stacks
+    safe_factor = (DIFF if DIFF > 0 else 1e10 - DIFF)
+
+    # Handle empty stacks
+    if SH == 0:
+        space_bonus = 20
+        emp_bonus = 20
+    else:
+        space_bonus = (EMP / SH) * 20
+        emp_bonus = (EMP + 1) * (1 + SH / 10)
+
+    # Linear penalties and bonuses
+    avg_bonus = (AVG / (CUR + 1)) * 10 if CUR > 0 else 0
+    ri_penalty = RI * 2
+    sh_penalty = SH * 0.05
+
+    # Non-linear penalties for unsafe stacks
+    if DIFF <= 0:
+        # Strong quadratic penalty on RI for unsafe stacks
+        ri_penalty += RI ** 2 * 5  # Quadratic instead of cubic for balance
+        # Stronger non-linear penalty on SH for overcrowding
+        sh_penalty += SH ** 3 * 2
+        # Additional penalty for tall stacks with low free space
+        if EMP < 2 and SH > 5:
+            sh_penalty += SH ** 4 * 1.5  # Stronger penalty for tall, nearly full stacks
+        # Adjusted bonuses based on safety
+        emp_bonus = (EMP + 1) * (1 + SH / 10) if EMP > 0 else 0
+        avg_bonus = (AVG / (CUR + 1)) * 15 if CUR > 0 else 0
+        # Bonus for having more space in unsafe stacks
+        space_bonus = (EMP / (SH + 1)) * 20 if SH > 0 else 20
+
+    # Combine the factors
+    priority = safe_factor * 100 + space_bonus + emp_bonus + avg_bonus + ri_penalty + sh_penalty
+    return priority
+"
+2026-11-24T18:51:36,ours-lessons16,qwen3:14b-nothink,0.5,9,500,23786,24159,1.0,1011,9179.2,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    if DIFF > 0:
+        # Prefer safe stacks with the smallest DIFF, and lower stack height
+        priority = DIFF * 100 + SH * 5
+    else:
+        # For unsafe stacks, prioritize stacks with fewer containers, more free space,
+        # and better flexibility (EMP/SH ratio). Also penalize AVG and RI, and the product RI * SH
+        flexibility = (EMP / SH) if SH > 0 else 0
+        # Increase penalty based on the product of RI and SH for future blocking
+        penalty_ri_sh = RI * SH
+        priority = (1e10 - DIFF) * 100 + SH * 10 + (1000 / (EMP + 1)) * 10 - flexibility * 5 + AVG * 2 + penalty_ri_sh * 5
+    return priority
+"
+2026-11-24T22:48:24,ours-lessons30,qwen3:14b-nothink,0.1,1,500,28484,28986,0.999,1647,14194.2,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    if DIFF > 0:
+        # Safe stack: favor stacks with similar AVG, more available space, and lower height
+        # Strong emphasis on AVG coherence to minimize future blockage
+        avg_contribution = abs(AVG - CUR) * 20
+        space_contribution = (100 - SH) * 5 + EMP * 10
+        diff_contribution = DIFF * 100
+        # Give a large bonus for empty stacks
+        if EMP == 0:
+            priority = diff_contribution + avg_contribution + space_contribution - 1000
+        else:
+            priority = diff_contribution + avg_contribution + space_contribution
+    else:
+        # Unsafe stack: penalize high RI (quadratic), low EMP, high SH, and low AVG (to reduce future blockage)
+        # Delay the forced relocation by maximizing DIFF (inverted)
+        avg_contribution = (AVG - CUR) * 50
+        ri_penalty = RI * RI * 200
+        emp_penalty = (1 / (EMP + 1)) * 60 if EMP < 5 else 0
+        sh_penalty = SH * SH * 5
+        diff_contribution = (1e10 - DIFF) * 100
+        priority = diff_contribution + avg_contribution + ri_penalty + emp_penalty + sh_penalty
+    return priority
+"
+2026-11-25T13:35:35,ours-lessons30,qwen3:14b-nothink,0.1,10,500,28532,28986,0.998,1542,11324.5,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Prioritize safe stacks (DIFF > 0) with smallest DIFF; for unsafe stacks, prefer largest DIFF
+    min_max = DIFF if DIFF > 0 else 1e10 - DIFF
+
+    # Safe stack incentives: lower AVG, more EMP, lower SH, better quality (DIFF)
+    if DIFF > 0:
+        avg_bonus = (CUR - AVG) * 1.5 if AVG < CUR else 0
+        emp_bonus = (EMP + 1) * 5
+        sh_penalty = SH * 2
+        density_penalty = (SH / (EMP + 1)) * 10
+        quality_bonus = DIFF * 10
+        priority = min_max * 100 + avg_bonus + emp_bonus - sh_penalty - density_penalty + quality_bonus
+    else:
+        # Unsafe stack penalties: higher AVG, lower EMP, higher SH, more RI
+        avg_penalty = (AVG - CUR) * 10 if AVG > CUR else 0
+        emp_penalty = (10 - EMP) * 5
+        sh_penalty = SH * 10
+        ri_penalty = RI * 5
+        density_penalty = (SH / (EMP + 1)) * 15
+        # Strong penalty for future relocations: product of RI and SH
+        future_penalty = RI * SH * 20
+        # Additional penalty to discourage high average in high SH stacks
+        high_avg_penalty = AVG * (10 - EMP / 10)
+        # Reward lower SH to minimize future blocks
+        sh_reward = -SH * 2
+
+        priority = min_max * 100 + avg_penalty + emp_penalty + sh_penalty + ri_penalty + density_penalty + future_penalty + high_avg_penalty + sh_reward
+
+    return priority
+"
+2026-11-25T03:55:17,ours-lessons30,qwen3:14b-nothink,0.1,2,500,28699,29163,0.999,2168,24907.5,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Handle empty stack (most flexible) with a strong preference
+    if DIFF == 2.1e9:
+        return 0  # priority 0 ensures it's the top choice
+
+    # Min-Max logic: safe stacks have lower priority, with smaller DIFF better
+    # unsafe stacks have higher priority, with larger DIFF better
+    min_max_score = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100
+
+    # Penalize unsafe stacks more by increasing penalties based on SH, EMP, and RI
+    if DIFF <= 0:
+        # Stronger penalty for RI * SH^2 and RI * SH to avoid future blocking
+        ri_sh_squared_penalty = RI * SH * SH * 5
+        ri_sh_penalty = RI * SH * 5
+        # Penalize low free space (EMP) using an inverse relationship
+        emp_penalty = (10 - EMP) * 25
+        # More severe penalties for stacks with high average IDs (not aligned with retrieval order)
+        avg_penalty = abs(AVG - CUR) * 5
+        # Reward stacks with AVG significantly lower than CUR
+        avg_benefit = max(0, (CUR - AVG) * 10) if AVG < CUR else 0
+        # Additional benefit for stacks with high EMP (better future retrieval)
+        emp_benefit = EMP * 10
+    else:
+        # Less severe penalties for safe stacks
+        ri_sh_squared_penalty = 0
+        ri_sh_penalty = 0
+        emp_penalty = (10 - EMP) * 10
+        avg_penalty = abs(AVG - CUR) * 3
+        avg_benefit = max(0, (CUR - AVG) * 5) if AVG < CUR else 0
+        emp_benefit = EMP * 5
+
+    # Combine all components
+    priority = min_max_score + emp_penalty + avg_penalty + ri_sh_squared_penalty + ri_sh_penalty - avg_benefit - emp_benefit
+    return priority
+"
+2026-11-25T04:00:12,ours-lessons30,qwen3:14b-nothink,0.1,3,500,28505,28999,0.997,1478,17812.9,"import numpy as np
+
+def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    # Safety factor: prioritize safe stacks (DIFF > 0), otherwise maximize DIFF
+    safe_score = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100
+
+    # Future blocking: penalize stacks that will block more containers
+    future_block = RI * 10
+
+    # Logarithmic bonus for safe stacks with moderate height and sufficient free space
+    space_bonus = np.log(EMP + 1) if 2 <= SH <= 6 and EMP >= 2 and DIFF > 0 else 0
+
+    # Non-linear penalty for near-full stacks (avoid bottlenecks)
+    # Stronger penalty for tall stacks with low free space (SH > 5, EMP < 2)
+    fullness_penalty = ((SH - EMP) ** 2) * 0.5 if EMP < 2 else 0
+    fullness_penalty = fullness_penalty * 2 if SH > 5 else fullness_penalty
+
+    # Reward free space and stacks with a lower average ID for better future flexibility
+    space_utility = EMP * np.log(AVG - CUR + 1) if AVG > CUR else -EMP * 10
+
+    # Additional penalty for very tall stacks
+    height_penalty = SH * 0.1
+
+    # Enhanced space utility: nonlinearly reward free space based on average ID
+    enhanced_space_utility = EMP * EMP * np.log(AVG - CUR + 1) if AVG > CUR else -EMP * EMP
+
+    # Reward for balanced average ID (not too far from current container's ID) in safe stacks
+    avg_penalty = abs(AVG - CUR) * 0.3 if DIFF > 0 else 0
+
+    # Focus on free space for stacks with high AVG (unknown containers)
+    unknown_avg_bonus = EMP * 1.0 if AVG > 1e5 else 0
+
+    # Combine all components into final priority score
+    priority = safe_score - future_block + space_bonus - fullness_penalty + space_utility - height_penalty + enhanced_space_utility + unknown_avg_bonus - avg_penalty
+    return priority
+"
+2026-11-25T04:44:52,ours-lessons30,qwen3:14b-nothink,0.1,4,500,28594,29073,0.992,1336,15308.7,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    is_safe = DIFF > 0
+    
+    # Base score based on Min-Max strategy
+    base = (DIFF if is_safe else 1e10 - DIFF) * 100
+    
+    # Penalty for unsafe stacks: emphasize high RI with nonlinear scaling (RI²)
+    ri_penalty_factor = 1 + (RI / 10) ** 2
+    penalty_unsafe = (1 - is_safe) * (SH * 10 + (AVG - CUR) * 5 + RI * ri_penalty_factor * 75 + (SH > 8) * 100 + (EMP < 2) * 150)
+    
+    # Encourage moderate emptiness and flexibility
+    flexibility_bonus = (EMP + 1) * 15 + (EMP < 2) * 30 - (EMP > 6) * 30
+    
+    # Encourage moderate stack height: bonus for stacks that are neither too tall nor too short
+    height_bonus = (100 - SH) * 1.2 + (SH < 2) * 15 - (SH > 15) * 25
+    
+    # Favor stacks with average ID close to current container for better alignment
+    alignment_bonus = (1 - abs(AVG - CUR) / (CUR + 1)) * 60 * (1 + (is_safe) * 1.5)
+    
+    # Extra penalty for unsafe stacks with a smaller average ID (more likely to block in future)
+    alignment_penalty = (1 - is_safe) * (AVG < CUR) * (CUR - AVG) * 10
+    
+    # Extra bonus for safe stacks with AVG significantly below CUR to reduce blocking
+    safe_alignment_bonus = is_safe * (CUR - AVG) * 0.2 * (CUR - AVG) / (CUR + 1)
+    
+    # Alignment bonus: stronger when AVG is lower than CUR, especially in safe stacks
+    if is_safe and AVG < CUR:
+        alignment_bonus += (CUR - AVG) ** 1.5 * 30
+    
+    # Moderate height and emptiness bonus for balanced utilization
+    moderate_height_bonus = max(0, (abs(SH - 5) - 2)) * 0.5 if SH > 5 else 0
+    moderate_emptiness_bonus = max(0, (abs(EMP - 5) - 2)) * 0.5 if EMP > 5 else 0
+    
+    # Penalize very low or very high EMP
+    ideal_emp_penalty = (EMP - 5)**2 * 5 if EMP > 8 else 0
+    ideal_emp_penalty += (EMP - 2)**2 * 5 if EMP < 3 else 0
+    
+    # Penalize very large or very small SH
+    ideal_height_penalty = (SH - 5)**2 * 2 if SH > 8 else 0
+    ideal_height_penalty += (SH - 12)**2 * 2 if SH > 10 else 0
+    
+    # Additional penalty for high RI
+    ri_penalty = RI * 30
+    
+    # Extra penalty for high AVG in unsafe stacks
+    avg_penalty_unsafe = (1 - is_safe) * (AVG - CUR) * 10
+    
+    # Bonus for safe stacks with low height and high flexibility
+    safe_bonus = is_safe * ((100 - SH) * 0.8 + (EMP + 1) * 10)
+    
+    # Extra bonus for safe stacks in large yards: promote flexibility and moderate height more
+    large_yard_bonus = is_safe * (EMP + 1) * 20 * (1 + (SH < 15) * 0.5)
+    
+    # Bonus for safe stacks with significantly lower AVG than CUR to improve alignment
+    alignment_safe_bonus = is_safe * max(0, (CUR - AVG) * 5)
+    
+    return base + penalty_unsafe - flexibility_bonus - height_bonus - alignment_bonus + alignment_penalty + safe_alignment_bonus + moderate_height_bonus + moderate_emptiness_bonus - ideal_emp_penalty - ideal_height_penalty - avg_penalty_unsafe - ri_penalty + safe_bonus + large_yard_bonus + alignment_safe_bonus
+"
+2026-11-25T05:29:37,ours-lessons30,qwen3:14b-nothink,0.1,5,500,28473,29099,1.0,1402,10825.9,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max: Prefer safe stacks (DIFF > 0), then stacks with the largest DIFF
+    min_max_score = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100
+
+    # Flexibility and safety adjustments
+    flexibility_score = SH * 10 - EMP * 15  # Favor stacks with more space and fewer containers
+
+    # Penalize unsafe stacks (DIFF <= 0) strongly
+    if DIFF <= 0:
+        # Heavy penalty for number of containers blocked (RI) and stack height (SH)
+        min_max_score += (SH + RI) * 150
+        # Additional penalty for high average ID (AVG)
+        min_max_score += AVG * 10
+        # Stronger penalty for RI (number of blocked containers)
+        flexibility_score += RI * 25
+
+    # Reward nearly empty stacks (especially when EMP > SH * 0.5) with a much stronger incentive
+    if EMP > SH * 0.5:
+        flexibility_score += EMP * 40  # Increased from 20 to 40 to strongly prefer near-empty stacks
+
+    # Penalize high average ID for safe stacks (to avoid future blocking)
+    if DIFF > 0:
+        flexibility_score += (AVG - CUR) * 15
+
+    # Bonus for stacks with high emptiness (EMP) and low average ID (AVG)
+    flexibility_score += EMP * 10 - AVG * 5
+
+    # Additional penalty for nearly full stacks (low EMP)
+    full_penalty = (SH - EMP) * 20 if EMP < SH * 0.2 else 0
+
+    # Final priority score
+    priority = min_max_score + flexibility_score + full_penalty
+    return priority
+"
+2026-11-25T11:05:24,ours-lessons30,qwen3:14b-nothink,0.1,6,500,28682,29217,0.975,1852,25488.6,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    # Safety factor: prioritize safe stacks (DIFF > 0), penalize unsafe stacks (DIFF < 0)
+    safety_factor = DIFF if DIFF > 0 else 1e10 - DIFF
+    # Stronger penalty for unsafe stacks to delay future relocations of CUR
+    unsafe_penalty = max(0, -DIFF) ** 1.6 if DIFF < 0 else 0
+    # Non-linear congestion penalty based on available space
+    emp_penalty = 1 / (EMP + 1) ** 2.5
+    # Penalize stacks with more blocking containers (RI)
+    ri_penalty = RI ** 2.0
+    # Stronger penalty for stacks with AVG significantly higher than CUR
+    avg_penalty = (AVG - CUR) ** 1.7 if AVG > CUR else 0
+    # Slight negative penalty for nearly empty stacks (high EMP)
+    emp_benefit = -0.5 * (EMP / 100) ** 0.5 if EMP > 50 else 0
+    # Additional congestion penalty based on stack height (SH)
+    sh_penalty = (SH / (EMP + 1)) ** 1.3 if EMP > 0 else 1e10
+
+    # Dynamic weight adjustment based on stack height and yard size
+    if SH < 5:
+        emp_weight = 1800 * emp_penalty
+        ri_weight = 100 * ri_penalty
+        avg_weight = 80 * avg_penalty
+        sh_weight = 40 * sh_penalty
+        unsafe_weight = 40 * unsafe_penalty
+    else:
+        emp_weight = 1200 * emp_penalty
+        ri_weight = 60 * ri_penalty
+        avg_weight = 50 * avg_penalty
+        sh_weight = 30 * sh_penalty
+        unsafe_weight = 30 * unsafe_penalty
+
+    # Adjust weights for AVG penalty based on stack height
+    avg_weight_scaled = avg_weight * (1 + (AVG - CUR) / (SH + 1)) if AVG > CUR else avg_weight
+
+    # Additional penalty for nearly full but not completely full stacks
+    near_full_penalty = 0.0
+    if EMP < 5 and SH > 6:
+        near_full_penalty += 100 * (5 - EMP) / 5
+
+    # Additional penalty for stacks that are tall and full
+    tall_full_penalty = 0.0
+    if SH > 8 and EMP < 2:
+        tall_full_penalty += 100
+
+    # Combine all components
+    priority = (safety_factor * 100) + emp_weight + ri_weight + avg_weight_scaled + sh_weight + emp_benefit + unsafe_weight + near_full_penalty + tall_full_penalty + AVG * 0.2 + SH * 0.1
+    return priority
+"
+2026-11-25T10:26:43,ours-lessons30,qwen3:14b-nothink,0.1,7,500,28448,28959,0.999,2337,17790.9,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Bonus for empty stacks (DIFF ~ 2.1e9)
+    empty_bonus = 0 if DIFF > 1e9 else 15000
+
+    # Min-Max: prioritize safe stacks (DIFF > 0), then stacks with smallest DIFF
+    min_max = DIFF if DIFF > 0 else 1e10 - DIFF
+
+    # Yard-type adaptive flexibility boost based on stack height and free space
+    # Use SH and EMP to compute flexibility, with a yard-type adaptive multiplier
+    flexibility_multiplier = 1.0
+    # For large yards, make flexibility more sensitive to EMP and SH
+    if SH > 5 and EMP > 5:
+        flexibility_multiplier = 1.5
+    flexibility_bonus = (EMP * 0.1 - SH * 0.5) * flexibility_multiplier
+
+    # Penalty for unsafe stacks (DIFF <= 0)
+    if DIFF <= 0:
+        # Penalize stacks with low EMP (nearly full) more heavily, especially for low CUR
+        emp_penalty = (1000 - EMP) * 50 * (1 + (100 - CUR) / 100)
+        # Penalize stacks with high RI (many containers below that will be retrieved earlier)
+        ri_penalty = RI * 100
+        # Penalize stacks with low AVG similarity (AVG should be close to CUR)
+        avg_similarity_penalty = abs(AVG - CUR) * 10
+        # Add an adaptive penalty for potential unsafe future in large yards
+        future_unsafe_penalty = 0
+        if SH > 5 and EMP > 5:
+            future_unsafe_penalty = (RI + abs(AVG - CUR)) * 30
+        # Combine penalties
+        unsafe_penalty = emp_penalty + ri_penalty + avg_similarity_penalty + future_unsafe_penalty
+        # Safe bonus is 0 for unsafe stacks
+        safe_bonus = 0
+    else:
+        # Encourage safe stacks: higher EMP, lower SH, better AVG similarity
+        safe_bonus = EMP * 0.1 - SH * 0.5 - abs(AVG - CUR) * 0.1
+        unsafe_penalty = 0
+
+    # Final priority calculation
+    priority = min_max * 180 + unsafe_penalty + safe_bonus + empty_bonus + SH / 100 + AVG / 1000 + flexibility_bonus
+    return priority
+"
+2026-11-25T12:13:57,ours-lessons30,qwen3:14b-nothink,0.1,8,500,28506,29041,0.998,1722,16065.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max: prefer safe stacks (DIFF > 0) with smallest DIFF, else largest DIFF
+    diff_score = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100
+    # Yard complexity estimate
+    yard_complexity = SH * 0.1 + EMP * 0.05
+    # Bonus for empty stacks, scaled by yard complexity
+    empty_bonus = EMP * (25 + yard_complexity) * (1 + SH * 0.1)
+    # Penalty for stacks with AVG significantly larger than CUR
+    avg_penalty = max(0, (AVG - CUR) * 10)
+    # Additional penalty for non-safe stacks based on RI
+    ri_penalty = RI * 200 if DIFF <= 0 else 0
+    # Additional EMP bonus for safe stacks to encourage flexibility
+    emp_bonus = EMP * 5 if DIFF > 0 else 0
+    # Stronger emphasis on EMP for non-safe stacks
+    emp_weight = 30 if DIFF <= 0 else 20
+    # Penalty for non-safe stacks with high SH and low EMP (Rule A + Rule B)
+    sh_emp_penalty = (SH * 10 + (10 - EMP) * 5) if DIFF <= 0 else 0
+    # Additional EMP factor for safe stacks based on yard complexity
+    emp_factor = EMP * (10 + yard_complexity * 0.5) if DIFF > 0 else 0
+    # Additional penalty for nearly full safe stacks (low EMP) to avoid future congestion
+    congestion_penalty = (10 - EMP) * (SH * 0.5 + 5) if DIFF > 0 and EMP < 3 else 0
+    # Stronger penalty for stack height (SH) when stack is nearly full (EMP is low) for non-safe stacks
+    sh_penalty = SH * 10 if DIFF <= 0 and EMP < 2 else 0
+    # Final priority calculation combining all components
+    priority = diff_score + SH * 5 - EMP * emp_weight + RI * 50 + avg_penalty + empty_bonus + ri_penalty + emp_bonus + sh_emp_penalty + emp_factor + congestion_penalty + sh_penalty
+    return priority
+"
+2026-11-25T14:08:32,ours-lessons30,qwen3:14b-nothink,0.1,9,500,28558,28999,0.997,1582,14982.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    safe_factor = 0 if DIFF > 0 else 1
+    
+    # Base score using Min-Max strategy
+    base_score = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100 + RI * 20 + SH * 5 - EMP * 10
+    
+    # Reward stacks with AVG close to CUR to cluster similar containers
+    avg_penalty = abs(AVG - CUR)
+    base_score += avg_penalty * 10
+    
+    # In non-safe stacks, apply strong penalties for RI, SH, and low EMP
+    if DIFF <= 0:
+        base_score += AVG * 25 + SH * 10 + RI * 25  # Enhanced penalty for high AVG
+        # Reward free space in non-safe stacks to improve flexibility
+        base_score -= EMP * 5
+        # Stronger penalty for very low EMP
+        if EMP < 2:
+            base_score -= 100
+    else:
+        # In safe stacks, apply a moderate penalty for high SH
+        base_score += SH * 2
+        # Reward low average ID in safe stacks
+        base_score -= AVG * 5
+    
+    # Estimate yard size indirectly by using SH (stack height) to adjust the penalty for low EMP
+    yard_size_est = SH * 10  # Estimate based on SH, assuming 10 stacks per yard as a baseline
+    # Adjust the penalty for low EMP based on yard size
+    emp_penalty_adjust = (1000 / (EMP + 1)) * safe_factor - (1000 * (1 - safe_factor) / (EMP + 1)) * (1 + SH / 10 + (10 - EMP) * 0.5)
+    base_score += emp_penalty_adjust / (1 + yard_size_est / 100)  # Reduce penalty in larger yards
+
+    return base_score
+"
+2026-11-25T00:04:36,ours-lessons30,qwen3:14b-nothink,0.3,1,500,24399,24729,1.0,1867,21370.5,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max strategy with emphasis on safe stacks and flexibility
+    min_max_score = (DIFF if DIFF > 0 else 1e10 - DIFF) * 150
+
+    # Penalize stacks based on height, free space, blocking containers, and average ID
+    stack_quality_score = SH * 15 + (100 - EMP) * 8 + RI * 20 + AVG * 4
+
+    # Additional penalties for unsafe stacks (DIFF < 0)
+    if DIFF < 0:
+        stack_quality_score += (100 - EMP) * (AVG / 100) * 10
+        stack_quality_score += (100 - EMP) * (RI / 100) * 12
+        stack_quality_score += (AVG - CUR) * 10
+        stack_quality_score += (SH * (100 - EMP)) * 0.5  # penalty for overfilling
+        stack_quality_score += (100 - EMP) * (RI + 1) * 2  # penalty for future blocking
+        stack_quality_score += (CUR - AVG) * 8  # avoid bad placement
+        stack_quality_score += (SH * (100 - EMP)) * 1.2  # stronger penalty for unsafe + full stacks
+        stack_quality_score += (RI + 1) * 35  # further penalty for blocking containers
+        stack_quality_score += (AVG - CUR) * 15  # further penalty for high AVG
+
+        # Stronger focused penalty for unsafe stacks that are tall and nearly full
+        if SH > 10 and EMP < 20:
+            stack_quality_score += (SH * (100 - EMP)) * 5  # stronger penalty for tall and nearly full unsafe stacks
+            stack_quality_score += (RI + 1) * 50  # further penalty for blocks in such stacks
+
+    # Flexibility bonus based on EMP
+    if EMP > 80:
+        flexibility_bonus = (EMP / 100) * 5000
+    else:
+        flexibility_bonus = (EMP / 100) * 2000 - SH * 5
+
+    # Emphasize DIFF for safe stacks to prioritize them strongly
+    if DIFF > 0:
+        min_max_score = DIFF * 200
+
+    # Bonus for stacks with average ID close to the current container's ID
+    avg_similarity_bonus = 100 / (1 + abs(AVG - CUR)) if abs(AVG - CUR) < 1000 else 0.1
+
+    # Additional flexibility bonus for nearly empty stacks (EMP > 80)
+    if EMP > 80:
+        flexibility_bonus += (SH * (EMP / 100)) * 100
+
+    # Combine all components
+    priority = min_max_score + stack_quality_score - flexibility_bonus + avg_similarity_bonus
+    return priority
+"
+2026-11-25T15:11:04,ours-lessons30,qwen3:14b-nothink,0.3,10,500,24522,24855,0.995,1830,18297.8,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Strong bonus for empty stacks
+    if SH == 0:
+        return 1e9 - 15000.0  # Strongest bonus for empty stacks
+
+    # Dynamic emp_factor with penalties for low free space and stack height
+    emp_factor = 0.0
+    if SH > 50:
+        emp_factor = 20 * (1 - EMP / SH) + 6 * (SH / 100) * (1 + 0.5 * (SH / 50))
+        if EMP < 5:
+            emp_factor += 40 * (SH - EMP) * ((SH / 100) + 0.5)  # Strong penalty for low free space
+        if RI > 0:
+            emp_factor += 6 * SH  # Larger stacks with blocking containers are penalized more
+    elif SH > 20:
+        emp_factor = 16 * (1 - EMP / SH) + 5 * (SH / 100) * (1 + 0.5 * (SH / 50))
+        if EMP < 5:
+            emp_factor += 30 * (SH - EMP) * ((SH / 100) + 0.3)
+        if RI > 0:
+            emp_factor += 4 * SH
+    else:
+        emp_factor = 12 * (1 - EMP / SH) + 4 * (SH / 100) * (1 + 0.5 * (SH / 50))
+        if EMP < 5:
+            emp_factor += 20 * (SH - EMP) * ((SH / 100) + 0.1)
+        if RI > 0:
+            emp_factor += SH
+
+    # Min-Max preference: safe stacks (DIFF > 0) get a low score, non-safe stacks get a high score
+    safe_score = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100
+
+    # Strong penalty for blocking containers in non-safe stacks
+    ri_penalty = 100 * RI * (1 + RI * 0.2)
+
+    # Strong penalty for high AVG in non-safe stacks
+    avg_penalty = 0 if DIFF > 0 else (AVG - CUR) * 3.0
+
+    # Bonus for stacks where AVG is close to or below CUR in non-safe stacks
+    avg_bonus = 0 if DIFF > 0 else (CUR - AVG) * 0.8
+
+    # Stronger penalty in non-safe stacks with low free space (EMP < 5)
+    if DIFF <= 0 and EMP < 5:
+        emp_penalty = 150 * (SH / 50) * (SH - EMP) * (SH - EMP)  # Quadratic penalty
+    else:
+        emp_penalty = 0
+
+    # Final priority score
+    priority = safe_score + SH + emp_factor + (AVG - CUR) * 0.1 + ri_penalty + avg_penalty + emp_penalty + avg_bonus
+    return priority
+"
+2026-11-25T01:14:19,ours-lessons30,qwen3:14b-nothink,0.3,2,500,24311,24602,0.996,1494,15549.6,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max: prefer safe stacks (DIFF > 0) with smallest DIFF; unsafe stacks with largest DIFF
+    min_max = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100
+
+    # Encourage safe stacks with lower average ID and more available space
+    avg_factor = AVG * 10
+    emp_factor = EMP * 0.1
+
+    # Stronger penalty for low free space and number of blocked containers, especially in tall stacks
+    sh_factor = SH * 0.01
+    penalty = (1000 / (SH + 1)) * (1 / (EMP + 1)) ** 2 + RI * 100 + SH * (1 / (EMP + 1)) ** 1.5
+
+    # Additional penalty for unsafe stacks with many blocking containers and a high number of containers
+    if DIFF <= 0:
+        # Apply more severe penalty for high RI and low EMP
+        penalty += RI ** 2 * 50 + SH * 10 + (1000 / (EMP + 1)) + SH * 20
+        # Increase penalty even more for unsafe stacks that are very tall and nearly full
+        if SH > 10 and EMP < 3:
+            penalty += SH * 50 + (1000 / (EMP + 1)) * 10
+        # Introduce penalty that scales with inverse square of EMP for very low free space
+        penalty += (1 / (EMP + 1)) ** 2 * 100
+
+    # Dynamic penalty that scales with the yard size (SH * (10 - EMP)) to discourage large, overcrowded stacks in big yards
+    yard_size_penalty = SH * (10 - EMP) * 0.5
+    penalty += yard_size_penalty
+
+    # Reward empty stacks (DIFF ~2.1e9) with a strong boost
+    if DIFF > 1e9:
+        reward = -10000
+    else:
+        # Reward safe stacks with high EMP and low AVG
+        if DIFF > 0:
+            reward = (EMP * 50) - (AVG * 10)
+        else:
+            reward = 0
+
+    # Combine components into final priority
+    priority = min_max + avg_factor + emp_factor + sh_factor + penalty + reward
+    return priority
+"
+2026-11-25T02:20:35,ours-lessons30,qwen3:14b-nothink,0.3,3,500,24508,24887,0.998,1081,12693.9,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max strategy: prefer safe stacks (DIFF > 0) with smallest DIFF, otherwise maximize DIFF
+    min_max_score = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100
+    # Non-linear penalty for nearly full stacks
+    fullness_penalty = 500 * (1 / (EMP + 1)) + 200 * (1 / (EMP + 1)**2)
+    # Reward empty stacks and penalize very tall stacks
+    height_penalty = SH * (1 / (1 + SH)) * 50
+    # Favor stacks with lower average ID
+    avg_reward = -AVG * 1
+    # Penalize stacks where this container will block many others (RI)
+    block_penalty = RI * 40
+    # Additional penalty for stacks with high average ID
+    avg_penalty = AVG * 3
+    # Enhanced penalty for stacks with low average ID and high height (especially in large yards)
+    height_avg_penalty = SH * (SH - 1) * AVG / (1 + SH) * (1 + np.log1p(SH + AVG)) if AVG < CUR else 0
+    # Combine all components to finalize the priority score
+    priority = min_max_score + fullness_penalty + height_penalty + avg_reward + block_penalty + avg_penalty + height_avg_penalty
+    return priority
+"
+2026-11-25T18:20:08,ours-lessons30,qwen3:14b-nothink,0.3,4,500,24290,24621,0.998,1926,25141.4,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max: Favor safe stacks (DIFF > 0) with smallest positive DIFF, else largest negative DIFF
+    safe_factor = 1 if DIFF > 0 else 0
+    weighted_diff = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100
+
+    # Yard-type-aware penalty: Estimate yard type based on stack height and emptiness
+    large_yard_factor = 1.0
+    if EMP < 5:
+        # Estimate yard type with more stacks or tiers
+        if SH > 10 or SH < 2:
+            large_yard_factor = 1.5
+
+    # Penalty for nearly full stacks, blocked containers, and extreme SH in unsafe stacks
+    if large_yard_factor == 1.5 and EMP < 3:
+        if DIFF <= 0 and (SH > 10 or SH < 2):
+            # Stronger penalty for low EMP and low AVG in unsafe stacks with extreme SH
+            penalty = (10000 / (EMP + 1)) + RI * 20 + SH * 5 + AVG * 3 + (AVG * 2 if AVG < CUR else 0)
+        else:
+            # Moderate penalty in unsafe stacks
+            penalty = (5000 / (EMP + 1)) + RI * 20 + SH * 5 + AVG * 3 + (AVG * 1 if AVG < CUR else 0)
+    else:
+        # Standard penalty for unsafe stacks
+        penalty = (500 / (EMP + 1)) + RI * 20 + SH * 5 + AVG * 3 + (AVG * 1 if AVG < CUR else 0)
+
+    # Reward for flexibility: Free space benefits high-priority containers
+    reward = (CUR * EMP) * 0.5
+
+    # Tie-breaker: Penalize taller stacks, more blocked containers, and high AVG in unsafe stacks
+    # For unsafe stacks with extreme SH, emphasize free space (EMP)
+    if DIFF <= 0:
+        if (SH > 10 or SH < 2):
+            # Emphasize free space for safety and flexibility
+            tie_breaker = -EMP * 60 + SH * 3 + RI * 5 + AVG * 1 + (AVG * 1 if AVG < CUR else 0)
+        else:
+            # Increase weight on EMP to avoid congestion; add consistent reward for EMP
+            tie_breaker = -EMP * 30 + SH * 3 + RI * 5 + AVG * 1 + (AVG * 1 if AVG < CUR else 0) + (EMP * 10)
+    else:
+        # For safe stacks, penalize height and low EMP more, but reward lower AVG and free space
+        tie_breaker = SH * 4 + RI * 5 + AVG * 1 + (10 if EMP < 3 else 0) - (EMP * 5)
+
+    # Combine components
+    penalty = (penalty - reward + tie_breaker) * large_yard_factor
+
+    # Final priority
+    priority = weighted_diff + (1 - safe_factor) * penalty
+    return priority
+"
+2026-11-25T05:57:47,ours-lessons30,qwen3:14b-nothink,0.3,5,500,24254,24754,0.998,1041,13019.5,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max: prioritize safe stacks (DIFF > 0), otherwise prioritize stacks with the largest DIFF
+    min_max = (DIFF if DIFF > 0 else 1e10 - DIFF)
+    
+    # Penalize nearly full stacks (small EMP) with a diminishing factor
+    emp_penalty = (1.0 / (EMP + 1.0)) * 150
+    
+    # Reward stacks with lower average ID (more flexibility) to encourage well-placed containers
+    avg_reward = -AVG * 8
+    
+    # Tie-breaker by stack height (favors lower heights slightly)
+    sh_tiebreaker = SH * 0.3
+    
+    # Penalty for stacks with a high number of blocking containers (RI)
+    ri_penalty = RI * 120
+    
+    # Strengthen penalty for stacks with a high average ID (AVG) to discourage bad placements
+    avg_penalty = AVG * 30
+    
+    # Stronger reward for safe stacks with high EMP (more flexibility) and low AVG
+    emp_reward = (EMP * 70 - AVG * 15) if DIFF > 0 else 0
+    
+    # Additional penalty for unsafe stacks with high SH and low EMP (overcrowding)
+    unsafe_penalty = (SH * (1.0 / (EMP + 1.0)) * 120) if DIFF <= 0 else 0
+    
+    # Additional penalty for unsafe stacks with high RI and high AVG (more future relocations)
+    ri_avg_penalty = (RI * AVG * 4) if DIFF <= 0 else 0
+    
+    # Stronger penalty for unsafe stacks with a high RI (more future relocations)
+    ri_safety_penalty = RI * 150 if DIFF <= 0 else 0
+    
+    # Strong penalty for unsafe stacks with very high SH and very low EMP (extreme overcrowding)
+    extreme_overcrowding_penalty = (SH * (1.0 / (EMP + 1.0)) * 300) if (DIFF <= 0 and SH > 5 and EMP < 2) else 0
+
+    # Additional penalty for future blockage (container blocks smaller IDs below it)
+    future_blockage_penalty = (AVG - CUR) * 0.4 if AVG > CUR else 0
+
+    # Increased penalty for unsafe stacks based on SH and EMP, especially in large yards
+    large_yard_penalty = (SH * (1.0 / (EMP + 1.0)) * 200) if (DIFF <= 0 and SH > 7 and EMP < 3) else 0
+
+    # Combine all components
+    priority = min_max * 100 + emp_penalty + avg_reward + sh_tiebreaker + ri_penalty + avg_penalty + emp_reward + unsafe_penalty + ri_avg_penalty + ri_safety_penalty + extreme_overcrowding_penalty + future_blockage_penalty + large_yard_penalty
+    return priority
+"
+2026-11-25T12:38:48,ours-lessons30,qwen3:14b-nothink,0.3,6,500,24321,24725,0.998,2566,31350.7,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max: prioritize safe stacks (DIFF > 0), else stacks with largest DIFF
+    min_max_score = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100
+
+    # Penalty for fullness; stronger for unsafe stacks
+    fullness_penalty = (1000 / (EMP + 1)) * (1.2 if DIFF < 0 else 0.5)
+    # Stronger penalty for nearly full stacks and unsafe stacks
+    near_full_penalty = (500 / (EMP + 1)) * (1 if DIFF < 0 and EMP < 3 else 0)
+
+    # Bonus for better alignment with CUR, stronger for safe stacks
+    avg_bonus = -abs(AVG - CUR) * 10 * (1.5 if DIFF > 0 else 1)
+
+    # Bonus for fewer blocked containers and free space
+    ri_bonus = -RI * 10
+    space_bonus = EMP * 5
+
+    # Additional space bonus for safe stacks
+    space_bonus += (EMP * 10 if DIFF > 0 else 0)
+
+    # Additional penalties for unsafe stacks
+    avg_penalty_if_blocking = (AVG - CUR) * 10 if DIFF < 0 else 0
+    height_penalty = (SH ** 1.2) * (2 if DIFF < 0 else 0.5)
+
+    # Stronger penalty for unsafe stacks based on ratio of RI to EMP
+    ri_to_emp_penalty = (RI / (EMP + 1)) * 250 if DIFF < 0 else 0
+    # Additional penalty based on height-to-free-space ratio for unsafe stacks
+    height_to_space_ratio = (SH / (EMP + 1)) if DIFF < 0 else 0
+    height_space_ratio_penalty = (height_to_space_ratio ** 1.5) * 200 if DIFF < 0 else 0
+
+    # Tie-break: prioritize free space, alignment, and penalize height
+    tie_break = (EMP * 10) + (abs(AVG - CUR) * 2) + (SH * 0.5)
+
+    # Additional strong bonus for safe stacks based on alignment and free space
+    safe_bonus = (EMP * 10 + (200 - abs(AVG - CUR))) * (1 if DIFF > 0 else 0)
+
+    # Encourage placing in stacks with smaller stack height and more free space
+    sh_emp_penalty = SH * 2.5 + (1000 - EMP)
+
+    # Reduce penalty for high AVG in unsafe stacks
+    avg_diff_penalty = max(0, (AVG - CUR) * 1.5) if DIFF < 0 else 0
+
+    # Stronger emphasis on free space and alignment for safe stacks
+    space_alignment_bonus = (EMP * 15 + (200 - abs(AVG - CUR))) * (1 if DIFF > 0 else 0)
+
+    # Additional focus on stack height-to-free-space ratio for unsafe stacks
+    height_to_space_penalty = (SH / (EMP + 1)) ** 1.5 * 150 if DIFF < 0 else 0
+
+    # Combine all components into the final priority
+    priority = (
+        min_max_score
+        + fullness_penalty
+        + near_full_penalty
+        + avg_bonus
+        + ri_bonus
+        + space_bonus
+        + avg_penalty_if_blocking
+        + height_penalty
+        + ri_to_emp_penalty
+        + height_space_ratio_penalty
+        + tie_break
+        + safe_bonus
+        + sh_emp_penalty
+        + avg_diff_penalty
+        + space_alignment_bonus
+        + height_to_space_penalty
+    )
+    return priority
+"
+2026-11-25T09:58:32,ours-lessons30,qwen3:14b-nothink,0.3,7,500,24348,24732,0.998,1313,16553.9,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Base score based on stack safety (DIFF)
+    if DIFF > 0:
+        base = DIFF * 100
+        # Strong preference for empty stacks (EMP > 0)
+        if EMP > 0:
+            base += (EMP ** 2) * 5
+        # Bonus for AVG closer to CUR in safe stacks
+        base += (CUR - AVG) * 10
+    else:
+        base = (1e10 - DIFF) * 100
+    
+    # Penalty for high stack height (SH) when stack is not safe
+    penalty_sh = SH ** 2 * 3 if DIFF <= 0 else SH ** 2 * 2
+    
+    # Penalty for high average ID (AVG) when stack is not safe
+    penalty_avg = max(0, AVG - CUR) * 20 if DIFF <= 0 else 0
+    
+    # Penalty for number of blocked containers (RI) when stack is not safe
+    penalty_ri = RI * 15 if DIFF <= 0 else 0
+    
+    # Reward for free space (EMP) when stack is not safe
+    reward_emp = EMP * 30 if DIFF <= 0 else 0
+    
+    # Reward for lower average ID (AVG) when stack is not safe
+    reward_avg = (CUR - AVG) * 10 if DIFF <= 0 else 0
+    
+    # New penalty: ratio of SH to EMP for unsafe stacks (especially in large yards)
+    if DIFF <= 0 and EMP > 0:
+        penalty_sh_emp_ratio = (SH / EMP) * 25
+    else:
+        penalty_sh_emp_ratio = 0
+    
+    # Stronger penalty for low EMP in unsafe stacks (inverse proportional)
+    if DIFF <= 0 and EMP > 0 and EMP < 2:
+        penalty_low_emp = 2000 / EMP
+    else:
+        penalty_low_emp = 0
+    
+    # Additional multiplicative penalty based on SH/EMP ratio in unsafe stacks
+    if DIFF <= 0 and EMP > 0:
+        penalty_sh_emp_multiplier = (SH / EMP) ** 1.5 * 10
+    else:
+        penalty_sh_emp_multiplier = 0
+    
+    # Final priority calculation
+    priority = base + penalty_sh + penalty_avg + penalty_ri - reward_emp - reward_avg + penalty_sh_emp_ratio + penalty_low_emp + penalty_sh_emp_multiplier
+    return priority
+"
+2026-11-25T11:05:55,ours-lessons30,qwen3:14b-nothink,0.3,8,500,24315,24755,0.996,1413,18480.4,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Safe factor: prioritize safe stacks (DIFF > 0) with large DIFF, penalize unsafe stacks
+    safe_factor = (DIFF if DIFF > 0 else 1e10 - DIFF)
+    # Block penalty: penalize stacks that will cause more blocking (RI > 0)
+    block_penalty = 1000 * (RI + 1) if RI > 0 else 0
+    # Use more free space (EMP) as a strong tie-breaker, especially on unsafe stacks
+    emp_weight = 1000 if DIFF <= 0 else 100
+    # Penalize unsafe stacks with high SH and low EMP
+    sh_penalty = SH * 10 if DIFF <= 0 else SH * 1
+    # Quadratic penalty for dense unsafe stacks (high SH, low EMP): SH^2 * (1/EMP)^2
+    dense_penalty = (SH ** 2) * ((1 / (EMP + 1)) ** 2) * 500 if DIFF <= 0 else 0
+    # Additional penalty for unsafe stacks with high RI (block more containers)
+    ri_penalty = RI * SH * 20 if DIFF <= 0 else 0
+    # Bonus if AVG is significantly higher than CUR on safe stacks
+    avg_bonus = (AVG - CUR) * 0.5 if DIFF > 0 and AVG > CUR else 0
+    # Emp bonus for safe stacks (square of free space encourages more free space)
+    emp_bonus = (EMP + 1) ** 2 * 5 if DIFF > 0 else 0
+    # Small bonus for safe stacks with large DIFF (long-term safety)
+    diff_bonus = 0.1 * DIFF if DIFF > 0 else 0
+    # Small penalty for high stack height on safe stacks (more potential blocking)
+    sh_safe_penalty = SH * 10 if DIFF > 0 else 0
+    # Strong penalty based on inverse of free space for unsafe stacks
+    emp_penalty = (1 / (EMP + 1)) * 500 if DIFF <= 0 else (1 / (EMP + 1)) * 50
+    # Combine all factors into a single priority score
+    priority = safe_factor * 100 + block_penalty + (emp_weight / (EMP + 1)) + sh_penalty + \
+               dense_penalty + ri_penalty + avg_bonus + emp_bonus + diff_bonus + \
+               sh_safe_penalty + emp_penalty
+    return priority
+"
+2026-11-25T12:41:03,ours-lessons30,qwen3:14b-nothink,0.3,9,500,24386,24757,1.0,1351,11211.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    is_safe = 1 if DIFF > 0 else 0
+    safe_bonus = 0 if DIFF > 0 else 1
+
+    # Base score: prioritize safe stacks based on DIFF, then prioritize stacks with largest DIFF in unsafe stacks
+    base_score = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100
+
+    # Penalize stacks with high RI (blocking more containers) and high SH (taller stacks)
+    ri_penalty = RI * (200 + 150 * safe_bonus)  # Stronger penalty in unsafe stacks
+    sh_penalty = SH * 5
+
+    # Penalize low EMP in unsafe stacks (less flexibility for future relocations)
+    emp_penalty = (1000 / (EMP + 1)) * safe_bonus
+
+    # Reward high EMP in safe stacks (more flexibility for future relocations)
+    emp_bonus = EMP * (1 - safe_bonus) * 120
+
+    # Penalize high AVG in unsafe stacks
+    avg_penalty = AVG * 10 * (1 + safe_bonus)
+
+    # Stronger non-linear penalty for low AVG in unsafe stacks, based on RI and SH
+    non_linear_avg_penalty = (1 - (AVG / (CUR + 1))) * (1 + (RI / (SH + 1)) ** 2) * 200 * safe_bonus
+
+    # Additional penalty for high SH and low EMP in unsafe stacks (to avoid congestion)
+    congestion_penalty = (SH ** 2) * (1 / (EMP + 1)) * safe_bonus * 50
+
+    # Combine all components
+    priority = base_score + ri_penalty + sh_penalty + emp_penalty + emp_bonus + avg_penalty + non_linear_avg_penalty + congestion_penalty
+    return priority
+"
+2026-11-24T20:54:33,ours-lessons30,qwen3:14b-nothink,0.5,1,500,23878,24295,0.997,1115,9981.8,"import math
+
+def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max logic
+    safe_factor = (DIFF if DIFF > 0 else 1e10 - DIFF)
+
+    # Penalty for high RI in unsafe stacks
+    ri_penalty = RI * SH * (10 + (100 / (EMP + 1))) if DIFF <= 0 else RI * SH * 5
+
+    # Penalize stacks with high average ID (AVG) if it is much higher than CUR
+    avg_penalty = max(0, AVG - CUR) * (1 + SH / 20)
+
+    # Encourage lower stack height and higher free space
+    height_penalty = SH * math.log(SH + 1)
+    space_reward = EMP * math.log(EMP + 1)
+
+    # Additional penalties for stacks that are nearly full and have high RI when unsafe
+    fullness_penalty = SH * (1 - EMP / (SH + 1e-10)) * 10 if DIFF <= 0 else 0
+
+    # Reward stacks with small SH and high EMP, especially when safe
+    height_space_encouragement = (SH * 0.5 + (100000 - EMP) * 0.1) if DIFF > 0 else 0
+
+    # Flexibility bonus for safe stacks with large SH and high AVG
+    flex_bonus = (max(0, AVG - CUR) * SH) * 0.1 if DIFF > 0 and SH > 10 else 0
+
+    # Final priority calculation
+    priority = safe_factor * 100 + ri_penalty + avg_penalty + height_penalty - space_reward + fullness_penalty - height_space_encouragement - flex_bonus
+    return priority
+"
+2026-11-25T13:27:38,ours-lessons30,qwen3:14b-nothink,0.5,10,500,23798,24170,0.997,1187,12151.6,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max: the closest safe stack (DIFF > 0) first, else the stack with the largest DIFF;
+    # also consider stack height (SH), free space (EMP), blocking containers (RI), and average ID (AVG)
+    min_max = (DIFF if DIFF > 0 else 1e10 - DIFF)
+    
+    # Encourage stacks with AVG < CUR to avoid creating badly placed containers
+    avg_factor = (AVG - CUR) if AVG < CUR else 0
+    
+    # Increase the importance of EMP for large yards, with quadratic term
+    emp_factor = EMP * 20 + (EMP ** 2) * 0.5
+    
+    # Apply a strong penalty for unsafe stacks (DIFF <= 0) depending on inverse EMP, RI, and SH
+    unsafe_penalty = 0
+    if DIFF <= 0:
+        # Use reciprocal of EMP for penalty, but with inverse scaling to favor higher EMP
+        # The higher the EMP, the lower the penalty (i.e., better destination)
+        unsafe_penalty = (1 / (EMP + 1e-6)) * (RI + SH) * 100 - EMP * 20
+    
+    priority = min_max * 100 + SH * 5 + RI * 10 + avg_factor * 5 - emp_factor + unsafe_penalty
+    return priority
+"
+2026-11-25T02:42:24,ours-lessons30,qwen3:14b-nothink,0.5,2,500,23685,24067,0.988,2110,24200.8,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max strategy: prefer safe stacks (DIFF > 0) with smallest DIFF, else largest DIFF
+    min_max_score = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100
+
+    # Flexibility: reward stacks with better free space ratio, especially in safe stacks
+    emp_ratio = EMP / SH if SH > 0 else 0
+    flexibility_reward = (emp_ratio * 25) if DIFF > 0 else 0
+
+    # Penalize fullness with exponential factor in unsafe stacks
+    if DIFF <= 0:
+        # Stronger penalty for fullness in unsafe stacks
+        penalty_fullness = (SH - EMP) * 10 * (1 + (SH / 100) ** 2)
+        # Stronger penalty for low free space ratio in unsafe stacks
+        penalty_low_emp_ratio = (1 - emp_ratio) * 150
+        # Yard-aware exponential penalty on occupancy ratio (SH / EMP)
+        penalty_occupancy = ((SH / EMP) ** 2) * 20 if EMP > 0 else 0
+        # Strong quadratic penalty on number of containers above CUR in unsafe stacks
+        penalty_above_cur = (SH - RI - 1) ** 2 * 5 if SH > 0 else 0
+        # Penalize stacks with IDs larger than CUR (future relocations)
+        avg_greater_than_cur = max(0, AVG - CUR)
+        penalty_higher_ids = avg_greater_than_cur * 20
+    else:
+        # Mild penalty for fullness in safe stacks
+        penalty_fullness = (SH - EMP) * 5 * (1 + (SH / 100))
+        penalty_low_emp_ratio = 0
+        penalty_occupancy = 0
+        penalty_above_cur = 0
+        penalty_higher_ids = 0
+
+    # Reward stacks with more free space relative to height (especially in safe stacks)
+    reward_emp_ratio = (EMP / SH) * 25 if SH > 0 and DIFF > 0 else 0
+
+    # Penalize stacks with lower average ID (worse future compatibility)
+    penalty_avg = AVG * 0.1 * (1 + (SH / 100))
+
+    # Penalize stacks that block more containers below (RI), more heavily in unsafe stacks
+    penalty_ri = RI * 5 * (1 + 10 if DIFF < 0 else 1)
+
+    # Penalize tall and nearly full stacks (especially in unsafe stacks)
+    penalty_tall_full = (SH * (10 - EMP)) * 0.1 * (1 + (SH / 100) ** 2) if DIFF <= 0 else 0
+
+    # Combine all components into the final priority
+    priority = min_max_score + flexibility_reward - reward_emp_ratio + penalty_fullness + penalty_avg + penalty_ri + penalty_tall_full + penalty_higher_ids + penalty_low_emp_ratio + penalty_occupancy + penalty_above_cur
+    return priority
+"
+2026-11-25T05:38:46,ours-lessons30,qwen3:14b-nothink,0.5,3,500,23751,24183,0.999,1773,28714.2,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Safety factor based on DIFF: higher for safe stacks (DIFF > 0), lower for unsafe ones
+    safe_factor = DIFF if DIFF > 0 else 1e10 - DIFF
+    # Yard size approximation based on SH
+    if SH > 5:
+        SH_multiplier, EMP_multiplier, AVG_multiplier = 25, 25, 0.6
+        yard_size_factor = 1.5
+    else:
+        SH_multiplier, EMP_multiplier, AVG_multiplier = 10, 15, 0.3
+        yard_size_factor = 1.0
+    # Adjust multipliers based on RI
+    if RI > 0:
+        SH_multiplier *= (1 + RI * 0.5)
+        EMP_multiplier *= (1 + RI * 0.5)
+        AVG_multiplier *= (1 + RI * 0.5)
+    # Height penalty if stack is unsafe or nearly full
+    height_penalty = SH * SH_multiplier * yard_size_factor if DIFF <= 0 else 0
+    # Additional height penalty if stack is nearly full (EMP < 2)
+    if DIFF <= 0 and EMP < 2:
+        height_penalty *= (1 + (5 - EMP) * 0.5 * yard_size_factor)
+    # Stronger penalty based on SH/EMP ratio for unsafe stacks
+    if DIFF <= 0 and EMP > 0:
+        height_penalty += SH / EMP * 100  # Encourages avoiding nearly full stacks
+    # Free space reward (only for safe stacks or stacks with high EMP)
+    free_space_reward = EMP * EMP_multiplier * yard_size_factor if (DIFF > 0 or EMP > 3) else 0
+    # Free space penalty in unsafe stacks with low EMP
+    free_space_penalty = (10 - EMP) * 5 if DIFF <= 0 and EMP < 3 else 0
+    # RI penalty and AVG penalties for unsafe stacks
+    RI_penalty = RI * 30 if DIFF <= 0 else RI * 15
+    # New enhanced AVG penalty based on difference between AVG and CUR
+    avg_cur_diff_penalty = (AVG - CUR) * 15 * (1 / (1 + EMP * 0.1)) if DIFF <= 0 and AVG > CUR else 0
+    # Bonus for safe stacks where CUR is much smaller than AVG
+    avg_cur_bonus = (AVG - CUR) * 5 if DIFF > 0 and AVG > CUR else 0
+    # Free space bonus for safe stacks
+    free_space_bonus = EMP * 5 if DIFF > 0 else 0
+    # Final priority score
+    priority = safe_factor * 100 + height_penalty + free_space_penalty - free_space_reward + RI_penalty - avg_cur_diff_penalty + avg_cur_bonus + free_space_bonus
+    return priority
+"
+2026-11-25T02:28:29,ours-lessons30,qwen3:14b-nothink,0.5,4,500,23725,24093,0.998,1364,11732.8,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Safety: prefer safe stacks (DIFF > 0) with smallest DIFF, else prefer largest DIFF
+    safety_factor = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100
+    # Nonlinear penalty for low EMP in unsafe stacks (encourages flexibility)
+    emp_penalty_unsafe = (1 / ((EMP + 1) ** 3)) * 1000 if DIFF < 0 else 0
+    # Bonus for high EMP in safe stacks (promotes flexibility)
+    emp_bonus_safe = EMP * 5 if DIFF > 0 else 0
+    # Nonlinear penalty for tall stacks, with stronger punishment in unsafe stacks
+    sh_penalty = (SH ** 2) * 5 if DIFF < 0 else (SH ** 2) * 2
+    # Adaptive penalty for blocking future relocations (RI), stronger for unsafe stacks
+    ri_penalty = RI * (10 + (100 / (EMP + 1))) if DIFF < 0 else RI * 10
+    # Bonus for stacks with lower average ID (fewer future relocations)
+    avg_bonus = (AVG / 100) * -1
+    # Extra penalty if the container will be badly placed (DIFF < 0)
+    bad_placement_penalty = (0 if DIFF > 0 else (1e6 - (-DIFF))) * 10
+    # Bonus for nearly full stacks in safe stacks (promotes flexibility in tight spaces)
+    emp_flexibility_bonus = (EMP / 100) * 200 if DIFF > 0 else 0
+    # Penalty for stacks with a high average ID compared to the current container (more future blocking)
+    avg_diff_penalty = (AVG - CUR) * 10 if DIFF < 0 else 0
+    # Additional penalty for high RI to avoid creating more badly placed containers
+    ri_block_penalty = (RI ** 1.5) * 5 if DIFF < 0 else 0
+    # Strong penalty for tall stacks in unsafe conditions with little space left
+    sh_density_penalty = (SH ** 2) * (100 / (EMP + 1)) if DIFF < 0 and EMP < 2 else 0
+    # New: Penalize the number of future relocations caused by placing the container on the stack
+    future_relocation_penalty = (RI + (SH - EMP)) * 10 if DIFF < 0 else 0
+
+    # Combine components into a final priority score
+    priority = safety_factor + emp_penalty_unsafe + emp_bonus_safe + sh_penalty + ri_penalty + avg_bonus + bad_placement_penalty + emp_flexibility_bonus + avg_diff_penalty + ri_block_penalty + sh_density_penalty + future_relocation_penalty
+    return priority
+"
+2026-11-25T05:22:28,ours-lessons30,qwen3:14b-nothink,0.5,5,500,23639,24229,0.999,1246,14879.9,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max: prioritize safe stacks (DIFF > 0), then stacks with largest DIFF
+    min_max_score = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100
+    # Flexibility: higher EMP is better
+    flexibility_score = EMP * 20
+    # Height penalty: penalize tall stacks
+    height_penalty = SH * 2
+    # Additional penalty for stacks with higher average ID than the current container
+    avg_penalty = max(0, AVG - CUR) * 5
+    # Strong penalty for high RI (many blocked containers)
+    ri_penalty = RI * 15
+    # Extra penalty for unsafe stacks with high RI
+    unsafe_ri_penalty = (RI * 15 if DIFF <= 0 else 0)
+    # Extra penalty for unsafe stacks with high AVG (blocks future relocations)
+    unsafe_avg_penalty = (AVG * 10 if DIFF <= 0 else 0)
+    # Penalize unsafe stacks with high AVG and low EMP (nearly full and bad AVG)
+    unsafe_full_avg_penalty = (AVG * 30 * (1 - EMP / SH) if DIFF <= 0 and SH > 0 else 0)
+    # Add an extra strong penalty for unsafe stacks in weaker yard configurations (low EMP, high AVG)
+    extra_weak_yard_penalty = (AVG * 40 * (1 - EMP / SH) if DIFF <= 0 and EMP < SH * 0.2 and SH > 0 else 0)
+    # Add a bonus for stacks with low AVG and high EMP (good for future relocations)
+    avg_emp_bonus = (1000 - AVG) * EMP * 0.1
+    # Penalize stacks where the container blocks many others
+    ri_block_penalty = RI * 10
+    # Add a yard-aware adjustment for safety and flexibility
+    yard_adjustment = (1 - EMP / SH) * (AVG / 1000) ** 0.5 if SH > 0 else 0
+    
+    # Combine into final priority
+    return min_max_score + height_penalty + ri_penalty + unsafe_ri_penalty + unsafe_avg_penalty + unsafe_full_avg_penalty + extra_weak_yard_penalty + ri_block_penalty - flexibility_score - avg_penalty + avg_emp_bonus - yard_adjustment
+"
+2026-11-25T07:46:00,ours-lessons30,qwen3:14b-nothink,0.5,6,500,23719,24126,0.999,1465,18207.7,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max strategy: prioritize safe stacks (DIFF > 0), then those with largest DIFF
+    min_max = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100
+
+    # Empty stack bonus: huge advantage for empty stacks
+    empty_stack_bonus = 0 if EMP > 0 else 1e6
+
+    # Reward safe stacks with more free space, lower height, and better alignment with CUR
+    emp_bonus = (EMP / (1 + EMP)) * 250 if DIFF > 0 else 0
+    sh_bonus = (1 / (1 + SH)) * 100 if DIFF > 0 else 0
+    avg_bonus = (CUR - AVG) * 15 if DIFF > 0 else 0
+
+    # Yard-aware scaling for safe stacks (enhance free space and reduce height impact in large yards)
+    if DIFF > 0:
+        if SH > 10:
+            emp_bonus *= 1.5
+            sh_bonus *= 0.6
+
+    # Penalize unsafe stacks based on blocked containers (RI), height (SH), and AVG - CUR
+    # Penalties increase with height and number of blocked containers
+    penalty_unsafe = 0
+    if DIFF <= 0:
+        penalty_unsafe = (max(0, -DIFF) * (RI * 20 + SH * 10 + max(0, AVG - CUR) * 10)) * (1 + SH * 0.03)
+        # Additional congestion penalty based on height and free space
+        congestion_penalty = (RI * (1 - EMP / (1 + EMP)) * SH) * 100
+        # Stronger penalty for nearly full stacks
+        emp_penalty = (1 - EMP / (1 + EMP)) * 350
+        # Enhanced penalty proportional to stack height and average ID gap
+        penalty_unsafe2 = (max(0, -DIFF) * (SH / 10 + (AVG - CUR) / (1 + CUR))) * 100 * (1 + SH / 10) * (1 + RI * SH * 0.01)
+    else:
+        congestion_penalty = 0
+        emp_penalty = 0
+        penalty_unsafe2 = 0
+
+    # Tie-breaker: favor stacks with more free space and lower average ID
+    tie_breaker = EMP * 20 + (-AVG) * 5 + SH * 2
+
+    # Bonus for maneuverability in large yards (log(EMP), inverse SH)
+    maneuverability_bonus = np.log(1 + EMP) * 10 - SH * 0.1
+
+    # Final priority score
+    priority = min_max + empty_stack_bonus + emp_bonus + sh_bonus + avg_bonus + penalty_unsafe + congestion_penalty + emp_penalty + penalty_unsafe2 + maneuverability_bonus - tie_breaker
+    return priority
+"
+2026-11-25T09:33:53,ours-lessons30,qwen3:14b-nothink,0.5,7,500,23640,24020,0.999,2012,17322.4,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    if DIFF > 0:
+        # Safe stack: prioritize minimal DIFF, penalize stack height slightly
+        # Add bonus for free space and penalize crowded stacks
+        score = DIFF * 100 + SH * 0.5 + (1000 - EMP) * 0.1
+        score += (EMP * 5)
+    else:
+        # Unsafe stack: penalize based on RI, AVG, and stack height
+        score = (1e10 - DIFF) * 100 + RI * 60 + (AVG - CUR) * 25
+        # Stronger penalty for low free space and high average
+        score += (10000 / (EMP + 1)) * (1 + (SH * 0.05)) if EMP < 2 else 100
+        score += (1000 - EMP) * 80
+        # Additional penalty based on average ID and number of blocking containers
+        score += (AVG / 1000) * 60 + (RI * AVG) * 0.7
+        # Adjust stack height penalty based on free space
+        score += SH * (15 + (100 - EMP) * 0.1)
+    return score
+"
+2026-11-25T08:38:03,ours-lessons30,qwen3:14b-nothink,0.5,8,500,23671,24147,1.0,1361,10730.2,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    if DIFF > 0:
+        # Favor safe stacks with more free space, lower average ID, and moderate height
+        score = DIFF * 100 + (1000 - EMP) * 15 + (AVG - CUR) * 10 + SH * 3 + (SH ** 2) * 0.1 + (EMP ** 2) * 0.2
+    else:
+        # Penalize unsafe stacks with quadratic RI penalty and nonlinear SH/EMP penalty
+        congestion_penalty = (SH / (SH + EMP + 1)) * 150 if (SH + EMP) > 0 else 0
+        free_space_bonus = (EMP / (SH + 1)) * 60 if SH > 0 else 0
+        ri_penalty = RI * RI * 5
+        sh_over_emp = SH / (EMP + 1e-6)  # avoid division by zero
+        sh_over_emp_penalty = (sh_over_emp ** 3) * 10
+        score = (1e10 - DIFF) * 100 + SH * 25 + (1000 - EMP) * 15 + RI * 20 + (AVG - CUR) * 12 + (1000 - SH) * 0.2 + (SH / 100) * (1000 - EMP) + congestion_penalty - free_space_bonus + ri_penalty + sh_over_emp_penalty
+    return score
+"
+2026-11-25T11:51:07,ours-lessons30,qwen3:14b-nothink,0.5,9,500,23628,24026,0.999,1119,11575.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max: prioritize safe stacks (DIFF > 0), else maximize DIFF (penalize unsafe stacks)
+    min_max = (DIFF if DIFF > 0 else 1e10 - DIFF)
+    
+    # Reward free space heavily for safe stacks (nonlinear reward)
+    emp_reward = (EMP + 1) * (EMP + 1) * 5 if DIFF > 0 else 0
+    
+    # Additional penalty for badly placed containers
+    ri_penalty = RI * 25
+    
+    # Penalize unsafe stacks based on height and low free space
+    avg_penalty = (CUR - AVG) * 10 if DIFF < 0 else 0
+    sh_penalty = SH * 20 if DIFF < 0 else 0  # strong penalty for tall unsafe stacks
+    emp_penalty = (1000 / (EMP + 1)) if DIFF < 0 else 0
+    low_emp_penalty = (10000 / (EMP + 1)) if (DIFF < 0 and EMP < 2) else 0
+    
+    # Additional penalty based on average ID and RI
+    avg_ri_penalty = (CUR - AVG) * RI * 5 if DIFF < 0 else 0
+    
+    # Bonus for stacks with higher average ID and more free space (promotes alignment and flexibility)
+    avg_bonus = (AVG - CUR) * 2 * (EMP + 1) if DIFF < 0 else 0
+    
+    # Additional penalty for nearly full stacks with low AVG (encourages better alignment with retrieval)
+    fullness_penalty = (1000 / (EMP + 1)) * max(0, CUR - AVG) if DIFF < 0 and EMP < 5 else 0
+    
+    # Tie-breaker component: prioritize stacks with more free space and lower average ID for flexibility
+    tie_breaker = EMP * 10 + (AVG - CUR) * 0.5
+    
+    # Increased SH penalty and EMP emphasis for unsafe stacks for flexibility and future planning
+    sh_penalty_unsafe = SH * 5 if DIFF < 0 else 0
+    emp_bonus_unsafe = (EMP + 1) * 5 if DIFF < 0 else 0
+
+    priority = (min_max * 100) + emp_reward + ri_penalty + avg_penalty + sh_penalty + emp_penalty + low_emp_penalty + avg_ri_penalty + avg_bonus + fullness_penalty + tie_breaker + sh_penalty_unsafe + emp_bonus_unsafe
+    return priority
+"
+2026-11-23T18:05:19,ours-lessons4,qwen3:14b-nothink,0.1,1,500,28495,29040,0.997,2514,25018.2,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    safe = DIFF > 0
+    base = (DIFF if safe else 1e10 - DIFF) * 100
+
+    # Flexibility penalties: penalize low free space (EMP) and stack height (SH)
+    penalty_EMP = (100 - EMP) * (5 + (100 - EMP) * 0.015) if not safe else (100 - EMP) * 0.5
+    penalty_SH = SH * (10 + SH * 0.1) if not safe else SH * 0.5
+
+    # Future relocations: penalize high RI (containers blocked by this move)
+    penalty_RI = RI * 50 if not safe else RI * 10
+
+    # Long-term safe placement: reward stacks with higher AVG (if safe) or lower AVG (if unsafe)
+    bonus_AVG = max(0, AVG - CUR) * 8 if safe else -max(0, AVG - CUR) * 8
+
+    # Additional penalty for unsafe stacks with high RI and low EMP
+    product_penalty = (RI + 1) * (100 - EMP) * 0.5 if not safe else 0
+
+    # Bonus for high EMP in safe stacks
+    emp_bonus = EMP * 3 if safe else 0
+
+    # Quadratic penalty for low EMP in unsafe stacks
+    emp_penalty_quad = (100 - EMP) ** 2 * 0.1 if not safe else 0
+
+    # Reward safe stacks with higher AVG and penalize tall, nearly full stacks
+    avg_reward = (AVG - CUR) * 10 if safe else 0
+    sh_emp_penalty = (SH * (100 - EMP)) * 0.1 if not safe else 0
+
+    # Enhanced penalty for unsafe stacks: nonlinear scaling based on RI and (100 - EMP)
+    nonlinear_penalty = ((RI + 1) * (100 - EMP)) ** 1.5 * 0.01 if not safe else 0
+
+    # Final priority calculation
+    priority = base + penalty_EMP + penalty_SH + penalty_RI + bonus_AVG + product_penalty + emp_bonus + emp_penalty_quad + avg_reward + sh_emp_penalty + nonlinear_penalty
+    return priority
+"
+2026-11-24T03:58:43,ours-lessons4,qwen3:14b-nothink,0.1,10,500,28633,29158,0.999,1556,16605.1,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max: prioritize safe stacks (DIFF > 0) with smallest DIFF, else stacks with largest DIFF
+    min_max_score = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100
+    # Logarithmic penalty for nearly full stacks
+    emp_penalty = 100 * np.log(1 / (EMP + 1)) if EMP < 2 else 0
+    # Logarithmic penalty for stack height
+    sh_penalty = 50 * np.log(SH + 1)
+    # Nonlinear penalty for stacks with more blocking containers (RI) if not safe
+    ri_penalty = (RI * RI * 50) * (0 if DIFF > 0 else 1)
+    # Stronger penalty for higher average ID, especially in unsafe stacks
+    avg_penalty = (AVG - CUR) * 10 if DIFF > 0 else (AVG - CUR) * 50
+    # Additional nonlinear penalty for future blocking potential on unsafe stacks
+    future_block_penalty = (RI * (RI + 1) / 2) * (0 if DIFF > 0 else 100)
+    # Stronger penalty for tall stacks if the stack is unsafe (DIFF <= 0)
+    unsafe_sh_penalty = 150 * np.log(SH + 1) if DIFF <= 0 else 0
+    # Enhanced penalty for unsafe stacks with high average ID
+    enhanced_avg_penalty = (AVG - CUR) * 50 * (0 if DIFF > 0 else 1)
+    # New: Strong penalty for unsafe stacks with low EMP (nearly full stacks)
+    low_emp_penalty = (1000 * (1 / (EMP + 1))) * (0 if DIFF > 0 else 1)
+    # New: Exponential penalty for RI in unsafe stacks, especially if nearly full
+    exponential_ri_penalty = (np.exp(RI / 2) * 100) * (0 if DIFF > 0 else 1) * (1 if EMP < 2 else 1)
+    # New: Strong nonlinear penalty combining stack height and blocking for unsafe stacks
+    combined_ri_sh_penalty = (RI ** 2) * (np.log(SH + 1)) * (0 if DIFF > 0 else 200)
+    # New: Additional strong penalty for unsafe stacks with high SH and low EMP
+    sh_low_emp_penalty = (np.log(SH + 1) * (1 / (EMP + 1))) * 500 * (0 if DIFF > 0 else 1)
+    # New: Targeted penalty for unsafe stacks with high RI and low EMP in large yards
+    targeted_penalty = (RI ** 2) * (1 / (EMP + 1)) * 500 * (0 if DIFF > 0 else 1)
+    # Tie-breaker: prefer lower stack ID
+    tie_breaker = SH
+    # Total priority score
+    priority = min_max_score + emp_penalty + sh_penalty + ri_penalty + avg_penalty + future_block_penalty + unsafe_sh_penalty + enhanced_avg_penalty + low_emp_penalty + exponential_ri_penalty + combined_ri_sh_penalty + sh_low_emp_penalty + targeted_penalty + tie_breaker
+    return priority
+"
+2026-11-23T13:23:04,ours-lessons4,qwen3:14b-nothink,0.1,2,500,28490,29030,1.0,1343,8083.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Normalize stack height with a maximum for scaling
+    MAX_STACK_HEIGHT = 10
+    height_ratio = SH / (MAX_STACK_HEIGHT - EMP) if (MAX_STACK_HEIGHT - EMP) > 0 else 0
+    
+    if DIFF > 0:
+        # Safe stack: prioritize small DIFF, low RI, low AVG, more EMP, and moderate SH
+        priority = DIFF * 10 - RI * 5 - AVG * 2 + EMP * 3 - SH * 1 - height_ratio * 2
+    else:
+        # Unsafe stack: penalize low EMP, high RI (quadratic penalty), high SH
+        # Emphasize RI to account for blocking potential and enhance flexibility
+        congestion_penalty = (SH + 1) / (EMP + 1) if EMP > 0 else 1000000
+        priority = (1e10 - DIFF) * 10 + RI * 7 - EMP * 4 + AVG * 2 + SH * 2 + height_ratio * 5 + congestion_penalty * 0.5 - (RI * RI * 3)
+    return priority
+"
+2026-11-23T17:20:30,ours-lessons4,qwen3:14b-nothink,0.1,3,500,28636,29074,0.999,1531,14223.1,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max: prioritize safe stacks (DIFF > 0) and use DIFF for ranking
+    min_max_score = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100
+
+    # Logarithmic penalty for low free space (EMP), scaled by safety
+    log_emp_penalty = -np.log(EMP + 1) * 50 * (1 + (1 if DIFF <= 0 else 0))
+
+    # Increased penalty for unsafe stacks based on height-to-free-space ratio
+    height_to_free_penalty = (SH / (EMP + 1)) * 20 if DIFF <= 0 else 0
+
+    # Stronger penalty for unsafe stacks based on number of blocked containers (RI)
+    ri_penalty = RI * 30 if DIFF <= 0 else RI * 10
+
+    # Penalty for lower efficiency (AVG)
+    avg_penalty = AVG * 0.2
+
+    # Additional penalty for unsafe stacks with high SH and low EMP
+    sh_emp_penalty = SH * (1 / (EMP + 1)) * 15 if DIFF <= 0 else 0
+
+    # Stronger penalty based on RI and squared height-to-free-space ratio for unsafe stacks
+    ri_height_penalty = RI * (SH / (EMP + 1)) ** 2 * 10 if DIFF <= 0 else 0
+
+    # Reward for stacks with more free space and lower average ID
+    emp_reward = (EMP + 1) * 10
+    avg_reward = -AVG * 0.1
+
+    # Congestion-based penalty for unsafe stacks
+    congestion_penalty = (SH / (EMP + 1)) * 20 if DIFF <= 0 else 0
+
+    # Final priority score
+    priority = min_max_score + log_emp_penalty + height_to_free_penalty + ri_penalty + avg_penalty + sh_emp_penalty + ri_height_penalty + emp_reward + avg_reward + congestion_penalty
+    return priority
+"
+2026-11-23T17:30:34,ours-lessons4,qwen3:14b-nothink,0.1,4,500,28564,29074,0.999,1357,11165.9,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    if DIFF > 0:
+        # Safe stack: reward flexibility (EMP), alignment (AVG), penalize height (SH)
+        flexibility = 1000 / (EMP + 1)
+        alignment_bonus = max(0, 1 / (1 + abs(AVG - CUR))) * 150
+        height_penalty = SH * 5 + SH * SH * 0.2
+        priority = (DIFF * 100) - flexibility - alignment_bonus + height_penalty
+    else:
+        # Unsafe stack: penalize RI, low EMP, high SH, and low AVG
+        min_max = 1e10 - DIFF
+        penalty_ri = RI * RI * (1000 / (EMP + 1))  # Non-linear penalty with RI^2 and inverse EMP
+        penalty_sh = SH * 6 + SH * SH * 0.2
+        alignment_penalty = max(0, 1 / (1 + abs(AVG - CUR))) * 70
+        priority = min_max * 100 + penalty_ri + penalty_sh + alignment_penalty
+    return priority
+"
+2026-11-23T20:03:30,ours-lessons4,qwen3:14b-nothink,0.1,5,500,28461,29035,0.998,1257,12408.7,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Base priority based on Min-Max strategy: favor safe stacks (DIFF > 0)
+    base_priority = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100
+
+    if DIFF > 0:
+        # Safe stack: prioritize stacks with more space, better alignment, and less height
+        space_bonus = EMP * 10
+        avg_bonus = (AVG - CUR) * 0.1
+        height_penalty = SH * 1.0
+        # Tie-breaker based on RI, SH, and smooth alignment bonus
+        tie_breaker = RI * 0.2 + SH * 0.05 + (CUR - AVG) * 0.01
+        # Congestion penalty based on SH/EMP, and RI / EMP^2 for safety
+        congestion_penalty = (SH / EMP) * 2 if EMP > 0 else 0
+        safety_penalty = (RI / (EMP ** 2)) * 10 if EMP > 0 else 0
+        priority = base_priority + space_bonus + avg_bonus - height_penalty + tie_breaker - congestion_penalty - safety_penalty
+    else:
+        # Unsafe stack: penalize based on RI, fullness, and blockage
+        fullness_penalty = (1 - EMP / SH) * 70
+        blockage_penalty = RI * 30
+        # Stronger penalty if nearly full and has high RI
+        if EMP < 2:
+            fullness_penalty *= 2
+            blockage_penalty *= 2
+        # Stronger penalty for high RI / SH (overcrowded, likely future blockage)
+        ratio_penalty = (RI / SH) * 50 if SH > 0 else 0
+        # Enhance penalty based on the interaction between RI and fullness
+        interaction_penalty = (RI / SH) * 15
+        # Tie-breaker based on RI and SH
+        tie_breaker = RI * 0.1 + SH * 0.05
+        # Height-based penalty for unsafe stacks
+        height_penalty = SH * 2.5
+        # Stronger penalty based on RI / EMP^2 for overcrowded stacks
+        safety_penalty = (RI / (EMP ** 2)) * 20 if EMP > 0 else 0
+        priority = base_priority + fullness_penalty + blockage_penalty + interaction_penalty + tie_breaker + height_penalty + ratio_penalty + safety_penalty
+
+    return priority
+"
+2026-11-23T23:14:30,ours-lessons4,qwen3:14b-nothink,0.1,6,500,28492,29038,1.0,1771,19299.6,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max strategy: prefer safe stacks (DIFF > 0) first; otherwise, prefer largest DIFF
+    min_max_score = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100
+
+    # Reward free space (EMP) for safe stacks
+    space_reward = EMP * 10 if DIFF > 0 else 0
+
+    # Penalize stacks with small negative DIFF (i.e., where CUR blocks others)
+    diff_penalty = (1000.0 / (abs(DIFF) + 1)) if DIFF < 0 else 0
+
+    # Penalize stacks with many containers above the current one (RI)
+    ri_penalty = RI * 10 if DIFF < 0 else 0
+
+    # Reward stacks with lower height (SH) when DIFF is negative
+    sh_reward = -SH / 10 if DIFF < 0 else 0
+
+    # Penalize stacks with lower average ID when DIFF is negative
+    avg_penalty = (AVG * 15) if DIFF < 0 else 0
+
+    # Add penalties for stack height
+    stack_height_penalty = SH * (5 + SH / 10)
+
+    # Strong penalty based on ratio of blocked containers (RI) to free space (EMP + 1)
+    ratio_penalty = (RI / (EMP + 1)) * 200 if DIFF < 0 else 0
+
+    # Stronger penalty based on the square of the ratio for disproportionate blocking
+    squared_ratio_penalty = ((RI / (EMP + 1)) ** 2) * 500 if DIFF < 0 else 0
+
+    # Encourage placing in stacks with higher SH to stabilize and reduce future moves
+    sh_stabilization_bonus = SH * 5 if DIFF < 0 else 0
+
+    # Encourage stacks with more free space (EMP) to avoid future blocking
+    emp_bonus = EMP * 20 if DIFF < 0 else 0
+
+    # Final priority score
+    priority = (
+        min_max_score
+        + space_reward
+        + diff_penalty
+        + ri_penalty
+        + sh_reward
+        + avg_penalty
+        + stack_height_penalty
+        + ratio_penalty
+        + squared_ratio_penalty
+        + sh_stabilization_bonus
+        + emp_bonus
+    )
+    return priority
+"
+2026-11-23T23:21:38,ours-lessons4,qwen3:14b-nothink,0.1,7,500,28538,29022,0.987,1765,16002.1,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max: prioritize safe stacks (DIFF > 0) with smallest DIFF, or least bad (largest DIFF) if unsafe
+    safeness = (DIFF if DIFF > 0 else 1e10 - DIFF)
+    
+    # Stronger penalty for nearly full and tall stacks
+    height_emp_penalty = SH * (10 - EMP) * 0.7
+    
+    # Penalize stacks with higher average ID to avoid badly placed containers
+    avg_penalty = (AVG - CUR) * 12 if AVG > CUR else 0
+    
+    # Penalize stacks where CUR will block other containers
+    blocking_penalty = RI * 300
+    
+    # Additional penalty for stacks that are tall and nearly full
+    height_and_space_penalty = (SH * SH) * (1 / (EMP + 1))
+    
+    # Combine into final priority
+    if DIFF > 0:
+        # Safe stacks: prioritize stacks with small DIFF, low avg, and flexibility (EMP)
+        safeness_bonus = DIFF * 100  # Prefer safe stacks with smaller DIFF
+        avg_bonus = (CUR - AVG) * 10 if AVG < CUR else 0
+        flexibility_bonus = EMP * 10
+        priority = safeness_bonus + avg_bonus + flexibility_bonus - height_emp_penalty - height_and_space_penalty
+    else:
+        # Unsafe stacks: prefer stacks with largest DIFF (less bad), penalize avg and blockage
+        unsafe_penalty = (1e10 - DIFF) * 60  # Softer penalty based on magnitude of DIFF
+        priority = unsafe_penalty + avg_penalty + blocking_penalty + height_emp_penalty + height_and_space_penalty
+    
+    # Tie-breaker: prefer lower-numbered stacks (smaller SH as a proxy)
+    return priority + SH * 0.01
+"
+2026-11-23T23:51:06,ours-lessons4,qwen3:14b-nothink,0.1,8,500,28475,28955,0.998,1132,11759.7,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    if DIFF > 0:
+        # Safe stack: Reward low AVG (closer to retrieval order), high EMP (flexibility), penalize SH slightly
+        avg_reward = (AVG - CUR) * -5  # reward when AVG is close to CUR
+        sh_penalty = SH * SH * 0.5
+        emp_reward = EMP * 10  # reward for flexibility
+        ri_penalty = RI * 5  # penalize blocking more containers
+        min_max = DIFF * 100
+    else:
+        # Unsafe stack: Penalize low EMP, high RI, and high SH
+        avg_penalty = (AVG - CUR) * 1  # penalize when AVG is far from CUR
+        sh_penalty = SH * SH * 2
+        emp_penalty = -EMP * 15  # stronger penalty for low flexibility
+        ri_penalty = RI * 25  # stronger penalty for blocking more containers
+        min_max = (1e10 - DIFF) * 100  # invert DIFF for unsafe stacks
+
+        # Estimate future_blocked: containers above CUR in the stack with ID > CUR
+        future_blocked = max(0, SH - CUR)  # Simplified estimation
+        future_blocked_penalty = future_blocked * 10  # Additional penalty for future blockages
+
+        # Strong penalty based on the ratio of RI to EMP (future relocations per available space)
+        ri_emp_ratio_penalty = (RI / (EMP + 1)) * 50  # Avoid division by zero, high penalty for poor flexibility
+
+        # Add penalties for unsafe stacks
+        min_max += future_blocked_penalty + ri_emp_ratio_penalty
+
+    # Final priority calculation
+    priority = min_max + sh_penalty + (avg_reward if DIFF > 0 else avg_penalty) + (emp_reward if DIFF > 0 else emp_penalty) + ri_penalty
+    return priority
+"
+2026-11-25T15:15:52,ours-lessons4,qwen3:14b-nothink,0.1,9,500,28457,29000,1.0,1438,15017.6,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    safe = DIFF > 0
+    if safe:
+        # Favor safe stacks with lower AVG (alignment), more EMP (flexibility), and fewer SH (less clutter)
+        priority = (DIFF * 100) + (AVG - CUR) * 10 + (EMP * 5) + (SH * 2)
+    else:
+        # For unsafe stacks, prioritize stacks with more EMP, lower SH, and lower AVG (to avoid placing low-CUR above high-ID)
+        emp_contribution = (1 - EMP / (SH + 1e-10)) * 50
+        avg_contribution = max(0, AVG - CUR) * 2
+        sh_contribution = SH * 10
+        # New: penalize based on RI/EMP ratio to discourage stacks with many blockages and little space
+        ri_emp_ratio = RI / (EMP + 1e-10)
+        ri_contribution = ri_emp_ratio * 20
+        priority = (1e10 - DIFF) * 100 + emp_contribution + avg_contribution + sh_contribution + ri_contribution
+    return priority
+"
+2026-11-23T13:25:29,ours-lessons4,qwen3:14b-nothink,0.3,1,500,24474,24837,0.998,862,8231.3,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max: prioritize safe stacks (DIFF > 0), penalize unsafe stacks with a large -DIFF
+    safe_factor = (DIFF if DIFF > 0 else 1e10 - DIFF)
+    
+    # Reward free space in safe stacks, penalize in unsafe stacks
+    flexibility = (EMP * 15 if DIFF > 0 else EMP * 5)
+    
+    # Penalize height in unsafe stacks
+    height_penalty = (SH * 20 if DIFF <= 0 else SH * 6)
+    
+    # Stronger penalty for high average ID in unsafe stacks
+    avg_penalty = (AVG * 20 if DIFF <= 0 else AVG * 5)
+    
+    # Penalize number of containers blocked (RI)
+    ri_penalty = (RI * 80 if DIFF <= 0 else RI * 25)
+    
+    # Additional penalty for nearly full stacks in unsafe conditions
+    nearly_full_penalty = (1000 / (EMP + 1) if DIFF <= 0 else 0)
+    
+    # General penalty for stack height (moderate)
+    general_height_penalty = SH * 10
+    
+    # General reward for lower average ID (encourages placing earlier containers)
+    avg_reward = -AVG * 0.5
+    
+    # General reward for free space (flexibility)
+    general_flexibility_reward = EMP * 12
+    
+    # Extra penalty for unsafe stacks based on height and inverse of free space
+    unsafe_penalty = (SH * (100 - EMP) * 0.3 if DIFF <= 0 else 0)
+    
+    # Additional penalty for high average ID overall
+    high_avg_penalty = AVG * 7
+    
+    # Additional penalty for low free space (EMP) when stack is unsafe
+    low_emp_penalty = (100 - EMP) * 15 if DIFF <= 0 else 0
+    
+    # New: Strong reward for safe stacks based on free space * inverse height
+    safe_bonus = (EMP * (1 / (SH + 1e-6)) * 50 if DIFF > 0 else 0)
+    
+    # Final priority calculation combining all components
+    priority = safe_factor * 100 + flexibility + height_penalty + avg_penalty + ri_penalty + nearly_full_penalty + general_height_penalty + avg_reward + general_flexibility_reward + unsafe_penalty + high_avg_penalty + low_emp_penalty + safe_bonus
+    return priority
+"
+2026-11-24T07:25:13,ours-lessons4,qwen3:14b-nothink,0.3,10,500,24272,24650,0.998,2062,29402.5,"import math
+
+def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    priority = 0.0
+
+    if DIFF > 0:
+        # Safe stack: prefer smallest DIFF, low AVG, and high EMP
+        min_max = DIFF * 100 * (1 + (1 / (1 + DIFF / 1000)))
+        avg_bonus = (1 - AVG / (CUR + 1)) * 100 if AVG < CUR else 0
+        emp_bonus = EMP * 5 * math.log1p(EMP)
+        height_bonus = (10 - SH) * (EMP / SH) * 20 if SH < 8 and SH > 0 else 0
+        sh_penalty = SH * 10 * (1 + math.log1p(SH)) * (1 + (SH - EMP) / 20)
+        flex_bonus = EMP * 10 * (1 + math.log1p(EMP)) * (1 - AVG / (CUR + 1)) if AVG < CUR else 0
+        priority = min_max + avg_bonus + emp_bonus + height_bonus - sh_penalty + flex_bonus
+        if DIFF < 100:
+            priority -= (1e6 - DIFF) * 0.5
+    else:
+        # Unsafe stack: penalize based on RI, AVG, SH, and EMP
+        min_max = (1e10 - DIFF) * 50
+        ri_penalty = RI * 150
+        avg_emp_penalty = (AVG - CUR) * (1 - EMP / SH) * 2 if AVG > CUR else 0
+        sh_penalty = SH * 15 * (1 + math.log1p(SH))
+        size_penalty = SH * (1 - EMP / SH) * 20 if SH > 5 else 0
+        ri_penalty_add = RI * 2
+        emp_sh_penalty = (100 - EMP) * 2 * (1 + math.log1p(SH)) / 10
+        avg_ri_penalty = (AVG - CUR) * RI * 5  # Stronger penalty for high AVG and high RI
+        sh_ri_penalty = SH * RI * 10 * (1 + math.log1p(SH)) / 10  # Stronger penalty for tall stacks and high RI
+        priority = min_max + ri_penalty + avg_emp_penalty + sh_penalty + size_penalty + ri_penalty_add + emp_sh_penalty + avg_ri_penalty + sh_ri_penalty
+
+    # Additional penalties and bonuses for all stacks
+    fullness_penalty = (SH - EMP) * (SH - EMP) * 0.1 * math.log(1 + SH)
+    avg_penalty = (AVG - CUR) * 2 * (1 / (1 + EMP / 10)) if AVG > CUR else 0
+    if DIFF <= 0:
+        avg_penalty *= 1.5
+    priority += fullness_penalty + avg_penalty
+
+    if DIFF > 0 and DIFF < 100:
+        priority -= (1e6 - DIFF) * 0.5
+    if DIFF <= 0 and SH > 10 and EMP < 2:
+        enhanced_penalty = SH * 50 * (1 + math.log1p(SH)) * (1 - EMP / SH)
+        priority += enhanced_penalty
+
+    return priority
+"
+2026-11-23T15:30:28,ours-lessons4,qwen3:14b-nothink,0.3,2,500,24309,24710,0.993,1689,15727.0,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Safe stacks: small DIFF, high EMP/SH ratio, low RI, moderate SH
+    if DIFF > 0:
+        emp_ratio_weight = 10 * (1 + (EMP / SH)) if SH > 0 else 0
+        priority = (DIFF * 150) + (EMP * 20) + (RI * 10) + (SH - 5) * 10 + (1 / (1 + abs(AVG - CUR) / 10)) * 50
+    else:
+        # Unsafe stacks: penalize large DIFF, AVG > CUR, high RI, high SH, low EMP
+        penalty_diff = (1e10 - DIFF) * 150
+        penalty_avg = (AVG - CUR) * 100 if AVG > CUR else 0
+        penalty_nonlinear_avg = (AVG - CUR) ** 2 * 5 if AVG > CUR else 0
+        penalty_ri = RI * 50
+        penalty_height = (SH - 5) * 10
+        penalty_low_emp = 1000 if EMP < 2 else 0
+        penalty_emp_ratio = (1 - EMP / SH) * 200 if SH > 0 else 0
+        # Additional penalty for very low EMP and large SH
+        penalty_overcrowd = (SH * (1 if EMP < 2 else 0)) * 100
+        # New strong non-linear interaction penalty for low EMP
+        penalty_interaction = (SH * RI) ** 3 * 10 if EMP < 2 else 0  # Cube instead of square
+        priority = penalty_diff + penalty_avg + penalty_nonlinear_avg + penalty_ri + penalty_height + penalty_low_emp + penalty_emp_ratio + penalty_overcrowd + penalty_interaction
+    return priority
+"
+2026-11-23T14:23:28,ours-lessons4,qwen3:14b-nothink,0.3,3,500,24391,24855,0.986,1188,11710.6,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Strong bonus for empty stacks (most flexible)
+    empty_bonus = -1000 if SH == 0 else 0
+
+    # Min-Max logic: prefer safe stacks (DIFF > 0) with smallest DIFF; if not safe, largest DIFF
+    safe_factor = 1 if DIFF > 0 else -1
+    min_max_score = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100
+
+    # Non-linear penalty for stacks with high average ID (AVG)
+    avg_penalty = (AVG - CUR) ** 2 if DIFF > 0 else 0
+
+    # Penalize stacks with more blocked containers (RI) based on safety
+    if DIFF > 0:
+        block_penalty = (RI ** 2) * 5
+    else:
+        block_penalty = (RI ** 2) * 30
+
+    # Penalize tall stacks (higher SH) and stacks with little free space (lower EMP)
+    height_penalty = SH * 10
+    emp_penalty = (10 - EMP) * 5
+
+    # Encourage space efficiency (lower SH/EMP ratio) based on safety
+    if DIFF > 0:
+        space_efficiency = (EMP / (SH + 1e-6)) * 100
+    else:
+        space_efficiency = (SH / (EMP + 1e-6)) * 50
+
+    # Strong nonlinear penalty for unsafe stacks with high SH/EMP ratio
+    nonlinear_space_penalty = 0 if DIFF > 0 else (SH / (EMP + 1e-6)) ** 2 * 200
+
+    # Combine all components
+    priority = (min_max_score) + avg_penalty + block_penalty + height_penalty + emp_penalty + empty_bonus + space_efficiency + nonlinear_space_penalty
+    return priority
+"
+2026-11-23T16:36:31,ours-lessons4,qwen3:14b-nothink,0.3,4,500,24442,24807,0.999,1346,10148.1,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    if DIFF > 0:
+        # Safe stack: prioritize small DIFF, more empty space, and lower SH
+        priority = (DIFF * 100) + (100 - EMP) * 10 + SH * 5 + (1000 / (SH + 1))
+    else:
+        # Unsafe stack: penalize high AVG, high SH, low EMP (strongly, quadratically), high RI
+        # Apply a stronger proportional penalty based on RI / (EMP + 1) and RI / (SH + 1)
+        penalty_ri_emp = (RI / (EMP + 1)) * 200  # stronger penalty for blocking in nearly full stacks
+        penalty_ri_sh = (RI / (SH + 1)) * 150  # stronger penalty for blocking in tall stacks
+        penalty_low_emp = (100 - EMP) ** 2 * 0.5  # quadratic penalty for low EMP
+        penalty_ri_total = (RI / (SH + EMP + 1)) * 300  # penalty based on total available space
+        priority = (1e10 - DIFF) * 100 + AVG * 20 + SH * 10 + (100 - EMP) * 30 + RI * 15 + penalty_ri_emp + penalty_ri_sh + penalty_low_emp + penalty_ri_total
+    return priority
+"
+2026-11-23T20:34:50,ours-lessons4,qwen3:14b-nothink,0.3,5,500,24359,24798,0.997,1748,18218.9,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Check if the stack is empty (DIFF ≈ 2.1e9)
+    is_empty = 1 if abs(DIFF - 2.1e9) < 1e5 else 0
+    # Min-Max safety: prioritize safe stacks (DIFF > 0), else largest DIFF
+    safe_factor = DIFF if DIFF > 0 else 1e10 - DIFF
+    # Favor stacks where AVG is close to CUR (well-ordered)
+    avg_factor = abs(AVG - CUR) if AVG != 0 else 1000
+    # Adjust avg_factor for stacks with low AVG (more likely to block in the future)
+    avg_factor += max(0, (CUR - AVG) * 20) if AVG < CUR else 0
+    # Penalize stacks with high RI (blocking containers) in a nonlinear fashion
+    ri_penalty = (RI * RI * 10) + (RI * (90 if AVG < CUR else 10))
+    # Increase penalty for safe stacks
+    ri_penalty *= (1 + 0.5 * (1 if DIFF > 0 else 0))
+    # Additional penalty if safe stack has large DIFF and high RI
+    ri_penalty += (RI * 5 * (DIFF / 1e5)) if DIFF > 0 else 0
+    # Introduce a strong penalty for non-safe stacks with high RI and low AVG
+    ri_penalty += (RI * 100 * (CUR - AVG) * 0.1) if DIFF <= 0 and AVG < CUR else 0
+    # Additional penalty for non-safe stacks with high RI, low AVG, and high SH/EMP (dense)
+    ri_penalty += (RI * 50 * (SH / (EMP + 1))) if DIFF <= 0 and AVG < CUR else 0
+    # Introduce a sharp exponential penalty on dense, non-safe stacks with high RI and low AVG
+    ri_penalty += (RI * 200 * (1 + 10 ** (SH / (EMP + 1) - 2))) if DIFF <= 0 and AVG < CUR else 0
+    # Penalize high stack height (SH) and low empty slots (EMP)
+    sh_penalty = SH * 5
+    emp_penalty = 1000 / (EMP + 1)
+    # Incentive for safe stacks with high EMP (encourages flexibility)
+    emp_bonus = (EMP * 80) if DIFF > 0 else 0
+    # Reward stacks where AVG is close to CUR to promote well-ordering
+    avg_bonus = -abs(AVG - CUR) if AVG != 0 else 0
+    # Bonus for stacks with low SH and high EMP to encourage efficient stacking
+    stack_bonus = (100 / (SH + 1)) * (EMP / 10)
+    # Introduce a focused bonus for safe stacks that are both flexible (high EMP) and non-blocking (low RI)
+    safe_flexibility_bonus = (EMP * 50 * (1 / (1 + RI))) if DIFF > 0 else 0
+    # Combine all factors into final priority score
+    priority = (1e6 * is_empty) + (safe_factor * 130) + sh_penalty + ri_penalty + emp_penalty + avg_factor + emp_bonus + avg_bonus + stack_bonus + safe_flexibility_bonus
+    return priority
+"
+2026-11-23T20:39:24,ours-lessons4,qwen3:14b-nothink,0.3,6,500,24450,24804,0.999,1346,11316.9,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max: prioritize safe stacks (DIFF > 0) first, else prefer stacks with the largest DIFF
+    min_max_score = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100
+
+    # Tie-breaker: prefer more free space (EMP), fewer RI, lower AVG
+    tie_breaker = -EMP * 20 - RI * 10 + (EMP ** 2) * 0.1 - AVG * 2
+
+    # Penalty for unsafe stacks based on SH and RI with exponential scaling
+    unsafe_penalty = (150 if DIFF <= 0 else 0) * (SH + RI) * (1 + 0.1 * (SH + RI))
+
+    # Additional penalty for unsafe stacks based on AVG to avoid badly placed containers
+    avg_penalty = (100 if DIFF <= 0 else 0) * max(0, AVG - CUR) / 50
+
+    # Congestion penalty based on RI and stack height
+    congestion_penalty = (100 if DIFF <= 0 else 0) * (RI * 1.5 + SH * 0.5)
+
+    # Quadratic penalty based on the product of RI and SH for unsafe stacks
+    quadratic_penalty = (200 if DIFF <= 0 else 0) * (RI * SH) ** 2 * 0.001
+
+    # Reward free space more in safe stacks
+    free_space_reward = (10 if DIFF > 0 else 0) * EMP * 2
+
+    # Small penalty for stack height to reduce blocking, more impactful in safe stacks
+    height_penalty = (5 if DIFF > 0 else 0) * SH / 10
+
+    # Combine all components to form the final priority score
+    priority = min_max_score + tie_breaker + unsafe_penalty + avg_penalty + congestion_penalty + quadratic_penalty + free_space_reward - height_penalty
+    return priority
+"
+2026-11-23T22:43:55,ours-lessons4,qwen3:14b-nothink,0.3,7,500,24355,24747,0.999,1518,14564.3,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max: prioritize safe stacks first, else prioritize stacks with the largest DIFF
+    min_max = (DIFF if DIFF > 0 else 1e10 - DIFF)
+    
+    # Diminishing return on EMP using square root and aggressive exponent
+    emp_contribution = (1000 / (EMP + 1)) * (EMP ** 0.5) if EMP < 10 else 200
+    
+    # Stronger non-linear penalties for unsafe stacks (DIFF <= 0) with high RI and low EMP
+    if DIFF <= 0:
+        # Use square of RI for stronger amplification of blocked containers
+        ri_penalty = (RI ** 2) * 40
+        
+        # Strong penalty for stacks that are both tall and nearly full
+        if SH > 8 and EMP < 2:
+            sh_emp_penalty = (SH ** 2) * (10 - EMP) * 1000
+        else:
+            sh_emp_penalty = (SH * (10 - EMP)) * 10 * (1 + (SH / 10) * (10 - EMP) / 10)
+        
+        # Additional penalty for low EMP and high RI
+        emp_ri_penalty = (10 - EMP) * RI * 20
+        
+        # Penalty for AVG not matching CUR (especially in unsafe stacks)
+        avg_cur_penalty = abs(AVG - CUR) * 0.2
+    else:
+        # For safe stacks: lighter penalties and smaller EMP/SH emphasis
+        ri_penalty = RI * 10 if RI > 5 else RI * 5
+        sh_emp_penalty = 0
+        emp_ri_penalty = 0
+        avg_cur_penalty = 0
+    
+    # Small penalty for lower AVG and taller stacks
+    avg_penalty = (AVG - 100) * 0.1  # Prefer stacks with higher AVG (safe for future containers)
+    sh_penalty = SH * 0.1  # Prefer shorter stacks
+    
+    # Emphasize EMP when it's low, using diminishing return
+    emp_weight = 50 if EMP < 3 else 20 if EMP < 5 else 5
+    emp_impact = (emp_weight * EMP) if EMP < 5 else (emp_weight * EMP * 0.5)
+    
+    # Bonus for AVG close to CUR (future compatibility)
+    avg_cur_bonus = abs(AVG - CUR) * 0.1
+    
+    # Combine all factors
+    priority = min_max * 100 + sh_emp_penalty + ri_penalty + emp_ri_penalty + avg_cur_penalty + avg_penalty + sh_penalty + emp_impact + avg_cur_bonus
+    return priority
+"
+2026-11-24T03:25:35,ours-lessons4,qwen3:14b-nothink,0.3,8,500,24288,24717,0.999,2157,26491.3,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max: prefer safe stacks (DIFF > 0), then stacks with largest DIFF
+    # Enhanced with EMP for safe stacks to prioritize flexibility
+    min_max_score = (DIFF + EMP * 0.5 if DIFF > 0 else 1e10 - DIFF) * 100
+    
+    # Penalize low free space (EMP) when the container is badly placed (DIFF < 0)
+    emp_penalty = (10000 / (EMP + 1)) if DIFF < 0 else 0
+    
+    # Penalize stacks with high average ID (AVG) when DIFF < 0
+    avg_penalty = AVG * 20 if DIFF < 0 else 0
+    
+    # Penalize stacks that will block many containers (RI) with exponential scaling
+    ri_penalty = RI * 15 if DIFF < 0 else RI * 5
+    
+    # Penalize overly full stacks (SH) more when DIFF < 0
+    sh_penalty = SH * 20 if DIFF < 0 else SH * 10
+    
+    # Additional penalty for stacks with low EMP and high SH when DIFF < 0
+    full_and_low_emp_penalty = (SH * 50 + (10000 / (EMP + 1))) if DIFF < 0 and EMP < 5 and SH > 10 else 0
+    
+    # Stronger penalty based on SH/EMP ratio for unsafe stacks (DIFF < 0) to avoid limited flexibility
+    sh_over_emp_penalty = (SH / (EMP + 1)) * 100 if DIFF < 0 else 0
+    
+    # Safe stacks: encourage flexibility (EMP), penalize height-to-emp ratio
+    safe_bonus = (EMP * 10) if DIFF > 0 else 0
+    safe_penalty = (SH / (EMP + 1)) * 5 if DIFF > 0 else 0
+    
+    # Strongly reward stacks with higher EMP in all cases, especially when DIFF is close to zero
+    emp_bonus = EMP ** 1.5  # Non-linear bonus for flexibility
+
+    # New: stronger penalty on unsafe stacks based on a combined RI * AVG factor
+    combined_ri_avg_penalty = (RI * AVG) * 5 if DIFF < 0 else 0
+
+    # Combine all components
+    priority = min_max_score + emp_penalty + avg_penalty + ri_penalty + sh_penalty + full_and_low_emp_penalty + sh_over_emp_penalty + safe_bonus - safe_penalty + emp_bonus + combined_ri_avg_penalty
+    return priority
+"
+2026-11-24T05:15:33,ours-lessons4,qwen3:14b-nothink,0.3,9,500,24274,24645,0.999,2389,28042.4,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    # Base priority: prefer safe stacks (DIFF > 0), then largest DIFF otherwise
+    base_priority = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100
+
+    # AVG alignment bonus: better when AVG < CUR
+    avg_alignment = (AVG - CUR) * (15 if AVG < CUR else 5)
+
+    # Stronger penalty for high RI (badly placed containers)
+    ri_penalty = RI * 40 if DIFF <= 0 else RI * 25
+
+    # Penalize nearly full unsafe stacks
+    full_stack_penalty = (100 - EMP) * 25 if DIFF <= 0 and EMP < 20 and SH > 10 else 0
+
+    # Additional penalty for high SH and low EMP on unsafe stacks
+    overcrowded_penalty = (SH - 5) * (50 - EMP) * 0.5 if DIFF <= 0 and SH > 10 and EMP < 30 else 0
+
+    # Yard size multiplier: assume (100 - EMP) correlates with yard size
+    yard_size_multiplier = (100 - EMP) / 100
+
+    # Amplified penalty for unsafe stacks based on SH and (100 - EMP)
+    unsafe_penalty = SH * (100 - EMP) * 1.2 * yard_size_multiplier + RI * (100 - EMP) * 0.5 * yard_size_multiplier if DIFF <= 0 else 0
+
+    # Dynamic EMP weight based on safe stack status and yard size
+    if DIFF > 0:
+        emp_weight = (100 - EMP) * 0.1 * (SH / 10)
+    else:
+        emp_weight = (100 - EMP) * 0.05 * (SH / 10)
+    dynamic_emp_weight = emp_weight
+
+    # Bonus for safe stacks with good AVG alignment
+    safe_avg_bonus = (AVG - CUR) * 10 if DIFF > 0 and AVG < CUR else 0
+
+    # Additional EMP boost for safe stacks to enhance future flexibility
+    safe_emp_boost = (100 - EMP) * 5 if DIFF > 0 else 0
+
+    # Strong bonus for empty stacks when safe (DIFF > 0)
+    emp_empty_bonus = (100 - EMP) * 10 if DIFF > 0 else 0
+
+    # Combine all components into final priority
+    priority = base_priority + avg_alignment + ri_penalty + full_stack_penalty + overcrowded_penalty + dynamic_emp_weight + safe_avg_bonus + safe_emp_boost + unsafe_penalty - emp_empty_bonus
+    return priority
+"
+2026-11-23T14:05:53,ours-lessons4,qwen3:14b-nothink,0.5,1,500,23763,24154,1.0,1145,10655.7,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max: prioritize safe stacks (DIFF > 0), else use largest DIFF as a proxy
+    base = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100
+    # For safe stacks, penalize based on AVG, stack height, and flexibility (EMP)
+    if DIFF > 0:
+        penalty = (AVG - CUR) * 2 + (SH * 0.5) + (1000 / (EMP + 1)) + (RI * 10)
+        # Favor stacks with lower height and more flexibility
+        flex_bonus = (1000 / (EMP + 1)) * 1.5
+        sh_bonus = SH * 0.3
+    # For unsafe stacks, penalize based on stack height, flexibility, and AVG
+    else:
+        penalty = (SH * 5) + (1000 / (EMP + 1)) + (AVG - CUR) * 2 + (RI * 10)
+        # Stronger emphasis on low AVG to avoid badly placed containers
+        penalty += (AVG - CUR) * 10
+        # Stronger penalty on RI to minimize future blocking
+        penalty += RI * 30
+        # Stronger emphasis on stack height to reduce future relocations
+        penalty += SH * 1.0
+        # Additional penalty for low EMP (less flexibility)
+        penalty += (1000 / (EMP + 1)) * 5
+
+    # Adjust penalty based on the average ID relative to CUR, favoring lower AVG
+    avg_penalty = (AVG - CUR) * 1 if DIFF > 0 else (AVG - CUR) * 2
+    # For safe stacks, significantly emphasize free space to prioritize flexibility
+    flex_bonus = (1000 / (EMP + 1)) * 1.5 if DIFF > 0 else 0
+    # Favor stacks with lower SH for safe stacks to reduce future relocations
+    sh_bonus = SH * 0.3 if DIFF > 0 else 0
+
+    # Additional penalty for unsafe stacks based on number of containers in stack
+    if DIFF <= 0:
+        penalty += SH * 2  # discourage placing in stacks with higher SH
+
+    priority = base + penalty + avg_penalty - flex_bonus - sh_bonus
+    return priority
+"
+2026-11-24T03:04:21,ours-lessons4,qwen3:14b-nothink,0.5,10,500,23721,24054,0.998,1048,14223.6,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Base score based on safety (DIFF)
+    base = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100
+
+    # For safe stacks: prioritize stacks with more free space (EMP), lower average ID (AVG), and smaller height (SH)
+    if DIFF > 0:
+        space_bonus = (EMP / (SH + 1)) * 10
+        avg_bonus = (AVG / (SH + 1)) * 5
+        penalty = SH * 2 + (100 - EMP) * 3 + RI * 10
+        priority = base + space_bonus + avg_bonus - penalty
+    # For unsafe stacks: penalize for height, low free space, and blocking containers
+    else:
+        # Penalty for low free space (especially near full and for low EMP)
+        space_penalty = (1000.0 / (EMP + 1)) if EMP > 0 else 1e6
+        height_penalty = SH * 20 + (SH ** 2) * 0.1  # Quadratic penalty for height
+        avg_penalty = (AVG / (SH + 1)) * 2
+        blocking_penalty = RI * 15 + (RI ** 2) * 0.5  # Quadratic penalty for RI
+        # Additional penalty for stacks with low EMP, especially near full
+        low_space_penalty = (100 - EMP) * 10 if EMP < 10 else 0
+        # New: Add quadratic penalty for the ratio of SH / EMP in unsafe stacks
+        congestion_penalty = (SH / EMP) ** 2 * 20 if EMP > 0 else 1e6
+        # Incorporate average ID and height as tie-breakers
+        tie_breaker = (AVG / (SH + 1)) * 5 + SH * 0.5
+        priority = base + space_penalty + height_penalty + avg_penalty + blocking_penalty + low_space_penalty + congestion_penalty + tie_breaker
+
+    # Extra penalty for completely full stacks (EMP = 0)
+    if EMP == 0:
+        priority += SH * 50
+
+    return priority
+"
+2026-11-23T17:52:09,ours-lessons4,qwen3:14b-nothink,0.5,2,500,23669,23997,0.998,1653,24228.3,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    safe = DIFF > 0
+    min_max = (DIFF if safe else 1e10 - DIFF) * 100
+
+    # Yard size inference
+    yard_size_factor = 1.0 + 0.005 * AVG
+
+    # Base penalty and reward components
+    penalty = SH * 20 + RI * 5
+
+    # Free space reward, scaled by yard size and stack conditions
+    emp_reward = EMP * (10 + 5 * (SH / (SH + 10)) + 2 * RI)
+    if not safe:
+        emp_reward += EMP * 3
+    penalty -= emp_reward
+
+    # Alignment and safety adjustments
+    if safe:
+        # Reward stacks with average ID close to current container
+        avg_reward = 10 / (1 + abs(AVG - CUR)) if AVG != 0 else 0
+        penalty -= avg_reward
+        # Reduce SH penalty if CUR is below AVG (later retrievals)
+        if AVG > CUR:
+            penalty -= SH * 10 * (AVG - CUR) / (1e6 + AVG)
+    else:
+        # For unsafe stacks, penalize misalignment and emphasize free space
+        alignment_factor = 2 + (yard_size_factor - 1) * 0.5  # Increase penalty in larger yards
+        alignment_penalty = abs(AVG - CUR) * alignment_factor * (1 + RI / 100)
+        penalty += alignment_penalty
+
+        # Additional penalties for stack height and blocked containers
+        penalty += SH * (25 if yard_size_factor > 1.5 else 30) * (1 - RI / 100)
+        penalty += RI * (10 if yard_size_factor > 1.5 else 12)
+
+        # Stronger penalty based on RI and AVG - CUR for larger yards
+        penalty += (abs(AVG - CUR) * RI) * (1.5 + 0.5 * (yard_size_factor - 1))
+
+        # Extra penalty for full stacks (low EMP) and unsafe stacks in large yards
+        penalty += (1 - EMP / SH) * 100 * (1 + 0.5 * (yard_size_factor - 1))
+
+    # Apply stronger penalty for unsafe and full stacks
+    if not safe and EMP < SH * 0.2:
+        penalty += (SH + RI) * (100 if yard_size_factor > 1.5 else 80) * (1 + (SH / 100) * (RI / 100))
+
+    # Scale all components by yard size factor for consistency
+    priority = min_max + penalty * yard_size_factor
+    return priority
+"
+2026-11-23T15:06:32,ours-lessons4,qwen3:14b-nothink,0.5,3,500,23834,24269,0.999,1483,14294.9,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    if DIFF > 0:
+        # Safe stack: prioritize smallest DIFF, lower AVG, and more available space
+        space_bonus = (EMP / 10) * 5
+        avg_bonus = -AVG * 0.5
+        priority = DIFF * 10 + RI * 5 + SH / 10 + space_bonus + avg_bonus
+    else:
+        # Unsafe stack: prioritize largest DIFF, more space, and lower AVG
+        # Penalize low EMP, high AVG, and high SH
+        space_penalty = (1 / (1 + EMP)) * 200 if EMP < 5 else 0  # Heavier penalty for low EMP
+        avg_penalty = (AVG - CUR) * 0.3 if AVG > CUR else 0  # Penalize high AVG (worse quality)
+        ri_penalty = RI * 10  # Stronger penalty for blocking more containers
+        sh_penalty = SH * 1.5  # Penalize high stack height
+        space_bonus = (EMP / 10) * 5
+        avg_bonus = -AVG * 0.5
+        # Strong non-linear penalty on SH * RI to strongly discourage poor placements
+        nonlinear_penalty = (SH * RI) ** 1.5 * 0.1 * (1 + 0.2 * (SH / (1 + SH)))  # increased penalty for larger stacks
+        # Additional penalty for larger stacks (simulating increased impact in large yards)
+        size_penalty = SH * 0.1
+        # Additional stronger non-linear penalty to target weak yard types with more stacks and higher tiers
+        nonlinear_penalty_2 = (SH * RI) ** 3 * 0.0001 if (SH > 5 and RI > 2) else 0  # stronger penalty for larger SH and RI in unsafe stacks
+        # Avoid overly penalizing low AVG in unsafe stacks, but focus on space and blocking
+        priority = (1e10 - DIFF) * 10 + space_penalty + avg_penalty + ri_penalty + sh_penalty + space_bonus + avg_bonus + RI * 5 + SH / 10 + nonlinear_penalty + size_penalty + nonlinear_penalty_2
+    return priority
+"
+2026-11-23T18:40:55,ours-lessons4,qwen3:14b-nothink,0.5,4,500,23678,24195,0.997,1895,18910.6,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    # Min-Max: Prioritize safe stacks (DIFF > 0), else prefer the one with the largest DIFF
+    min_max_score = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100
+
+    # Alignment: Stronger bonus for stacks with AVG < CUR, penalty otherwise
+    alignment_score = -(AVG - CUR) ** 2 * 2 if AVG < CUR else (AVG - CUR) ** 2 * 0.5
+
+    # Space bonus: Nonlinear function to favor stacks with more free space
+    space_score = EMP ** 2 * 0.75
+
+    # Height penalty: Quadratic for safe stacks, cubic with density factor for unsafe stacks
+    height_score = SH ** 2 if DIFF > 0 else SH ** 3 * (1.2 + SH / (EMP + 1))
+
+    # RI penalty: Significant penalty for unsafe stacks (discourage blocking)
+    ri_penalty = RI * 15 * (1 if DIFF <= 0 else 0.5)
+
+    # Strong penalty for unsafe stacks based on SH * RI (discourage both height and blocking)
+    sh_ri_product_penalty = SH * RI * 20 if DIFF <= 0 else 0
+
+    # Additional penalty for unsafe stacks based on SH + RI
+    sh_ri_combo_penalty = (SH + RI) * 12 if DIFF <= 0 else 0
+
+    # Flexibility bonus: Higher for safe stacks with more free space
+    flex_bonus = (EMP / (SH + 1)) * 50 if DIFF > 0 else 0
+
+    # Additional penalty for unsafe stacks based on SH/RI ratio
+    sh_ri_ratio_penalty = (SH / (1 + RI)) ** 2 * 3 if DIFF <= 0 else 0
+
+    # New: Stack density penalty for unsafe stacks
+    density_penalty = (SH / (EMP + 1)) ** 2 * 10 if DIFF <= 0 else 0
+
+    # Combine all components
+    priority = min_max_score + alignment_score + space_score + height_score + ri_penalty + sh_ri_product_penalty + sh_ri_combo_penalty + flex_bonus + sh_ri_ratio_penalty + density_penalty
+    return priority
+"
+2026-11-23T18:54:10,ours-lessons4,qwen3:14b-nothink,0.5,5,500,23639,24093,0.999,2121,13599.6,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    if DIFF > 0:
+        # Safe stack: prioritize smallest DIFF, then lower AVG, and penalize high SH more strongly
+        safe_score = (DIFF * 100) + (AVG * 0.1) + (SH ** 2) * 0.5
+    else:
+        # Unsafe stack: prioritize largest DIFF (least negative), then more EMP, fewer RI, lower AVG
+        # Emphasize flexibility (EMP) even more strongly via a stronger exponential weighting
+        safe_score = (1e10 - DIFF) * 50 + (1000 / (EMP + 1)) * 5 + (RI * 10) + (AVG * 3.0)
+    # Add strong penalty for overly tall stacks and bonus for flexibility, with stronger emphasis on EMP in unsafe stacks
+    stack_preference = (SH ** 1.8) - (EMP ** 1.8) + (max(0, -DIFF) * (2500 / (EMP + 1))) + (max(0, -DIFF) * (EMP ** 2) * 0.1)
+    # Further enhance the penalty for low EMP in unsafe stacks with an exponential term
+    stack_preference += (max(0, -DIFF) * 2000 * (1 / (EMP + 1e-6)) ** 2)
+    priority = safe_score + stack_preference
+    return priority
+"
+2026-11-23T19:59:33,ours-lessons4,qwen3:14b-nothink,0.5,6,500,23778,24150,0.999,1213,9527.2,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Normalize SH and EMP based on the total yard capacity (assumed as 500 for generality)
+    yard_capacity = 500
+    norm_SH = SH / yard_capacity
+    norm_EMP = EMP / yard_capacity
+
+    # Min-Max factor: prefer safe stacks (DIFF > 0) with smallest DIFF, else prefer largest DIFF
+    min_max = (DIFF if DIFF > 0 else 1e10 - DIFF)
+
+    # Base score: favor free space and penalize stack height
+    space_factor = (norm_EMP * 100) - (norm_SH * 50)
+
+    # Additional penalties based on stack safety and blocking containers
+    if DIFF > 0:
+        # Safe stack: penalize high average ID and reward free space
+        penalty = (AVG * 1) - (norm_EMP * 20)
+    else:
+        # Unsafe stack: heavy penalty for blocking containers (RI), low EMP
+        # Introduce dynamic penalty based on the ratio of RI to EMP (more blocking, less space = worse)
+        ri_emp_ratio = RI / (EMP + 1e-6)  # avoid division by zero
+        emp_penalty = 1000 / (EMP + 1)
+        ri_penalty = (RI * 100) + (emp_penalty * ri_emp_ratio)
+        avg_penalty = (AVG * 20)
+        penalty = ri_penalty + emp_penalty + avg_penalty
+
+    # Final combined priority
+    priority = (min_max * 100) + space_factor + penalty
+    return priority
+"
+2026-11-23T21:27:20,ours-lessons4,qwen3:14b-nothink,0.5,7,500,23687,24188,0.998,1171,12089.3,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    # Min-Max strategy: prefer safe stacks with small DIFF, penalize unsafe stacks heavily
+    min_max_score = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100
+
+    tie_breaker = 0
+
+    if DIFF > 0:
+        # Safe stack: reward free space, penalize high SH, and penalize high average ID
+        tie_breaker += (EMP ** 1.5) * 50  # Reward stacks with more free space
+        tie_breaker += (AVG * 10)        # Penalize stacks with high average ID
+        tie_breaker += (SH ** 1.2) * 5   # Penalize overly filled stacks
+    else:
+        # Unsafe stack: penalize based on RI, SH, EMP, and AVG
+        emp_penalty = (1 / (1 + np.exp(EMP - 5))) * 1000  # Smooth penalty for low EMP
+        sh_penalty = (SH ** 1.2) * (5 + RI * 0.5) if SH > 10 else 0  # Penalize high SH
+        ri_penalty = RI * 50  # Penalize high RI
+        ri_sh_penalty = (RI * SH ** 1.2) * 50 if SH > 10 else 0  # Strong penalty on SH * RI
+        ri_emp_ratio_penalty = ((RI / (EMP + 1)) ** 3) * 150 if EMP > 0 else 1e6  # Strong exponential penalty for RI / (EMP + 1)
+        avg_penalty = (AVG - CUR) * 10 if AVG > CUR else 0  # Penalize if AVG is higher than CUR
+        avg_future_penalty = (AVG * 50) if AVG < CUR else 0  # Penalize if AVG is much lower than CUR
+        tie_breaker += emp_penalty + sh_penalty + ri_penalty + ri_sh_penalty + ri_emp_ratio_penalty + avg_penalty + avg_future_penalty
+
+    # Additional penalty for unsafe stacks with high average and small CUR
+    if DIFF <= 0 and CUR < AVG:
+        tie_breaker += (AVG - CUR) * 20
+
+    priority = min_max_score + tie_breaker
+    return priority
+"
+2026-11-23T23:06:29,ours-lessons4,qwen3:14b-nothink,0.5,8,500,23724,24176,0.999,1342,11185.6,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Safe stack: prioritize small DIFF, low AVG, high EMP
+    if DIFF > 0:
+        priority = DIFF * 10 + (AVG / 100) + (EMP / 1000)
+    else:
+        # Unsafe stack: prioritize larger DIFF, and strongly favor stacks with more EMP
+        # Also penalize very tall stacks and high RI to avoid overcrowding and blocking
+        # Use RI * SH^2 to discourage stacks with high relocation pressure
+        # Use 1/(EMP + 1) to penalize low EMP even more in unsafe stacks
+        # Add an additional EMP-based penalty to discourage stacks with low free space in constrained yard types
+        # Increase penalty for high RI even further
+        # Additional penalty for nearly full stacks when RI is high to prevent overcrowding
+        penalty = (RI * (SH ** 2)) * 0.1
+        penalty += (1 / (EMP + 1)) * 500  # Heavy penalty for low EMP in unsafe stacks
+        penalty += (1 / (EMP + 1)) * (SH / 100) * 200  # Additional penalty in constrained layouts
+        penalty += (RI ** 2) * 0.5  # Stronger penalty for high RI in unsafe stacks
+        # Additional heavy penalty for high RI and nearly full stacks (sh > 10, emp < 2)
+        if SH > 10 and EMP < 2:
+            penalty += (RI * 10000)  # Very strong penalty for overcrowded stacks with high RI
+        priority = (1e10 - DIFF) * 10 + (AVG / 100) + (EMP / 1000) + penalty
+    return priority + (SH / 1000) + (EMP * 0.1)
+"
+2026-11-24T01:34:46,ours-lessons4,qwen3:14b-nothink,0.5,9,500,23731,24182,0.999,1821,17679.2,"def priority(SH: float, EMP: float, AVG: float, CUR: float, RI: float, DIFF: float) -> float:
+    """"""Score one candidate stack for the container being relocated. Lowest score wins.""""""
+    # Min-Max: prefer safe stacks (DIFF > 0) with smallest DIFF, else largest DIFF
+    min_max_term = (DIFF if DIFF > 0 else 1e10 - DIFF) * 100
+
+    # Penalize stacks with many badly placed containers (RI) and nearly full stacks
+    ri_penalty = RI * 25  # Increased penalty for RI for safer future
+
+    # Reward stacks with more empty space and flexibility
+    emp_reward = EMP * 5
+    if EMP < 3:
+        emp_reward += (10 - EMP) * 20
+
+    # Penalize fullness (inversely proportional to emptiness) but reduce it for nearly full stacks
+    fullness_penalty = 1000 / (EMP + 1)
+    if EMP < 3:
+        fullness_penalty *= 0.5  # Reduce penalty for nearly full stacks
+
+    # Encourage alignment with AVG, especially when AVG is close to or higher than CUR
+    avg_alignment_reward = -abs(AVG - CUR) * 2
+
+    # Encourage stacks with lower AVG (containers leave later)
+    avg_low_reward = -AVG * 0.1
+
+    # Stronger penalty for unsafe stacks based on the number of blocked containers (RI), fullness, and stack height (SH)
+    unsafe_penalty = abs(DIFF) * (RI + (10 - EMP) + SH) * 20 if DIFF <= 0 else 0
+
+    # Estimate yard size based on total containers (10 stacks x 10 tiers as max assumed)
+    yard_size_estimate = (SH + EMP) * 100
+
+    # Stronger reward for EMP in safe stacks, especially for large yards
+    if DIFF > 0:
+        emp_reward_safe = EMP * (yard_size_estimate / 1000) * 10
+    else:
+        emp_reward_safe = 0
+
+    # Encourage placing CUR on stacks with AVG closer to or higher than CUR
+    avg_placement_reward = -abs(AVG - CUR) * (AVG - CUR) * 0.05 if AVG >= CUR else 0
+
+    # Increase penalty for unsafe stacks based on stack height (SH) in larger yards
+    if DIFF <= 0:
+        # New: Use a nonlinear function to amplify the impact of RI and SH
+        # The penalty grows faster with increasing RI and SH, especially in larger yards
+        unsafe_penalty += SH * (RI / (EMP + 1)) * (yard_size_estimate / 1000) * 50 * (1 + math.log1p(RI + SH))  # Stronger penalty in larger yards
+
+    priority = min_max_term + ri_penalty + fullness_penalty - emp_reward + avg_alignment_reward + avg_low_reward + unsafe_penalty + emp_reward_safe + avg_placement_reward
+    return priority
+"
